@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>플래너</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+/* ── Apple Design Tokens (DESIGN-apple.md) ─────────────────── */
+:root {
+  /* Colors */
+  --blue:        #0066cc;
+  --blue-focus:  #0071e3;
+  --ink:         #1d1d1f;
+  --white:       #ffffff;
+  --parchment:   #f5f5f7;
+  --tile-dark:   #272729;
+  --muted-48:    rgba(0,0,0,0.48);
+  --border:      rgba(0,0,0,0.08);
+
+  /* Fonts — SF Pro on Apple, Noto Sans KR on Windows */
+  --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
+                  "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  --font-text:    "SF Pro Text",    system-ui, -apple-system, BlinkMacSystemFont,
+                  "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Base — DO: 17px body, -0.374px tracking, 1.47 line-height */
+body {
+  font-family: var(--font-text);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  color: var(--ink);
+  background: var(--parchment);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, textarea, select { font-family: inherit; }
+textarea { resize: none; }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.18);
+  border-radius: 3px;
+}
+
+/* ── Global Nav — Pure Black, 44px ────────────────────────── */
+.ap-global-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 44px;
+  padding: 0 22px;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ap-global-nav__logo {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.374px;
+}
+
+.ap-global-nav__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Sub-Nav — Parchment frosted glass, 52px ──────────────── */
+.ap-sub-nav {
+  height: 52px;
+  padding: 0 22px;
+  background: rgba(245,245,247,0.88);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid rgba(60,60,67,0.14);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 99;
+}
+
+/* ── Tab pills — 980px radius (DO: primary CTA grammar) ───── */
+.ap-tab {
+  padding: 5px 14px;
+  border-radius: 980px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.224px;
+  cursor: pointer;
+  transition: background .18s, color .18s, transform .1s;
+  white-space: nowrap;
+  position: relative;
+}
+.ap-tab:active { transform: scale(0.95); }   /* DO: scale(0.95) active */
+.ap-tab.active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ── Date chip ─────────────────────────────────────────────── */
+.ap-date-chip {
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+.ap-date-chip__day {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.224px;
+}
+.ap-date-chip__dow {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted-48);
+  letter-spacing: -0.12px;
+}
+
+/* ── Theme dot buttons ─────────────────────────────────────── */
+.ap-theme-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .15s;
+}
+.ap-theme-dot:active { transform: scale(0.95); }
+
+/* ── Badge ─────────────────────────────────────────────────── */
+.ap-badge {
+  position: absolute;
+  top: 0; right: 0;
+  background: #ff3b30;
+  color: #fff;
+  border-radius: 50%;
+  width: 14px; height: 14px;
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transform: translate(4px, -4px);
+}
+
+/* ── Layout root ────────────────────────────────────────────── */
+#root { display: flex; flex-direction: column; }
+.ap-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.ap-pane { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.ap-pane.active { display: flex; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="store.jsx"></script>
+<script type="text/babel" src="yearView.jsx"></script>
+<script type="text/babel" src="otherViews.jsx"></script>
+
+<script type="text/babel">
+/* ── Tab definitions ─────────────────────────────────────── */
+const TABS = [
+  { id: 'year',      label: '연력'       },
+  { id: 'month',     label: '달력'       },
+  { id: 'day',       label: '일력'       },
+  { id: 'tenmin',    label: '10분'       },
+  { id: 'mandala',   label: '만다라트'   },
+  { id: 'checklist', label: '체크리스트' },
+];
+
+/* ── App ─────────────────────────────────────────────────── */
+function App() {
+  const data  = useStore();
+  const theme = THEMES[data.theme] || THEMES.blue;
+  const [tab, setTab] = React.useState('year');
+
+  React.useEffect(() => {
+    window.__switchTab = (t) => setTab(t);
+    return () => { delete window.__switchTab; };
+  }, []);
+
+  const todayBadge = (data.todos[todayStr()] || []).filter(t => !t.done).length;
+  const now = new Date();
+
+  /* Active tab pill style — DO: Action Blue fill, white text */
+  const activeTabStyle = {
+    background: theme.primary,
+    color: '#ffffff',
+    fontWeight: 600,
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+
+      {/* ─── Global Nav ────────────────────────────────────── */}
+      <header className="ap-global-nav">
+        <span className="ap-global-nav__logo">플래너</span>
+
+        <div className="ap-global-nav__actions">
+          {/* DO: single accent color per surface.
+              Theme dots live in nav (utility area) — compact 14px circles */}
+          {Object.entries(THEMES).map(([key, t]) => (
+            <button
+              key={key}
+              className="ap-theme-dot"
+              title={t.name}
+              onClick={() => store.setTheme(key)}
+              style={{
+                background: t.primary,
+                boxShadow: data.theme === key
+                  ? `0 0 0 2px rgba(255,255,255,0.9), 0 0 0 3.5px ${t.primary}`
+                  : '0 1px 2px rgba(0,0,0,0.4)',
+                transform: data.theme === key ? 'scale(1.2)' : 'scale(1)',
+              }}
+            />
+          ))}
+        </div>
+      </header>
+
+      {/* ─── Sub-Nav ────────────────────────────────────────── */}
+      <nav className="ap-sub-nav">
+        {TABS.map(t => {
+          const active = tab === t.id;
+          const badge  = t.id === 'checklist' && todayBadge > 0 ? todayBadge : null;
+          return (
+            <button
+              key={t.id}
+              className={'ap-tab' + (active ? ' active' : '')}
+              onClick={() => setTab(t.id)}
+              style={active ? activeTabStyle : {}}
+            >
+              {t.label}
+              {badge && <span className="ap-badge">{badge}</span>}
+            </button>
+          );
+        })}
+
+        {/* Date chip — right-aligned, utility info */}
+        <div className="ap-date-chip">
+          <div className="ap-date-chip__day">
+            {now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+          </div>
+          <div className="ap-date-chip__dow">
+            {['일','월','화','수','목','금','토'][now.getDay()]}요일
+          </div>
+        </div>
+      </nav>
+
+      {/* ─── Content panes ─────────────────────────────────── */}
+      <main className="ap-main">
+        <div className={'ap-pane' + (tab === 'year'      ? ' active' : '')}><YearView /></div>
+        <div className={'ap-pane' + (tab === 'month'     ? ' active' : '')}><MonthView /></div>
+        <div className={'ap-pane' + (tab === 'day'       ? ' active' : '')}><DayView /></div>
+        <div className={'ap-pane' + (tab === 'tenmin'    ? ' active' : '')}><TenMinutePlanner /></div>
+        <div className={'ap-pane' + (tab === 'mandala'   ? ' active' : '')}><MandalaView /></div>
+        <div className={'ap-pane' + (tab === 'checklist' ? ' active' : '')}><ChecklistView /></div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
