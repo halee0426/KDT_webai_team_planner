@@ -55,6 +55,24 @@ function MonthView() {
   const prev   = () => setYm(p => p.m === 0 ? { y:p.y-1, m:11 } : { y:p.y, m:p.m-1 });
   const next   = () => setYm(p => p.m === 11 ? { y:p.y+1, m:0 } : { y:p.y, m:p.m+1 });
 
+  // 형광펜 고정 레인 배정 (연력과 동일한 greedy 알고리즘)
+  const hlLanes = React.useMemo(() => {
+    const lanes = {};
+    (data.highlights || []).forEach((h, i) => {
+      const used = new Set(
+        (data.highlights || []).slice(0, i)
+          .filter(o => h.startDate <= o.endDate && h.endDate >= o.startDate)
+          .map(o => lanes[o.id])
+      );
+      let lane = 0;
+      while (used.has(lane)) lane++;
+      lanes[h.id] = lane;
+    });
+    return lanes;
+  }, [data.highlights]);
+  const numHlLanes = (data.highlights || []).length === 0
+    ? 0 : Math.max(0, ...Object.values(hlLanes)) + 1;
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#F2F2F7' }}>
       {/* Header */}
@@ -76,21 +94,23 @@ function MonthView() {
             fontSize:13, fontWeight:500, color:'#3C3C43', fontFamily:'inherit' }}>오늘</button>
       </div>
 
-      <div style={{ flex:1, padding:'16px 24px', overflow:'auto' }}>
+      <div style={{ flex:1, padding:'12px 16px', overflow:'hidden', display:'flex', flexDirection:'column' }}>
         {/* DOW headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4, flexShrink:0 }}>
           {['일','월','화','수','목','금','토'].map((d,i) => (
             <div key={d} style={{ textAlign:'center', fontSize:12, fontWeight:600, padding:'5px 0',
               color: i===0?'#FF3B30':i===6?'#007AFF':'#8E8E93' }}>{d}</div>
           ))}
         </div>
 
+        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
         {Array.from({ length: cells.length/7 }, (_,wi) => (
-          <div key={wi} style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4 }}>
+          <div key={wi} style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, flex:1 }}>
             {cells.slice(wi*7, wi*7+7).map((d, di) => {
               if (!d) return <div key={`empty-${wi}-${di}`} />;
               const key  = getKey(d);
               const evts = data.events.filter(e => e.date === key);
+              const hls  = data.highlights.filter(h => key >= h.startDate && key <= h.endDate);
               const isT  = key === today;
               const dow  = (firstDow + d - 1) % 7;
               return (
@@ -100,12 +120,16 @@ function MonthView() {
                     window.__switchTab && window.__switchTab('day');
                   }}
                   style={{
-                    minHeight:88, background:'#fff', borderRadius:14,
+                    background:'#fff', borderRadius:14,
                     border: isT ? `2px solid ${theme.primary}` : '0.5px solid rgba(60,60,67,0.1)',
-                    padding:'9px 9px 6px', cursor:'pointer', transition:'box-shadow .15s',
+                    padding:'9px 9px 4px', cursor:'pointer', transition:'box-shadow .15s',
+                    overflow:'hidden',
+                    display:'flex', flexDirection:'column',
                   }}
                   onMouseEnter={e => e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,0.1)'}
                   onMouseLeave={e => e.currentTarget.style.boxShadow='none'}>
+
+                  {/* 날짜 숫자 */}
                   <div style={{ fontWeight:isT?700:500, fontSize:14, marginBottom:4,
                     color: isT?theme.primary: dow===0?'#FF3B30':dow===6?'#007AFF':'#1C1C1E' }}>
                     {isT
@@ -114,6 +138,8 @@ function MonthView() {
                           justifyContent:'center', fontSize:12, fontWeight:700 }}>{d}</span>
                       : d}
                   </div>
+
+                  {/* 이벤트 */}
                   {evts.slice(0,3).map(ev => (
                     <div key={ev.id} style={{ background:ev.color||theme.primary, color:'#fff',
                       borderRadius:5, padding:'2px 6px', fontSize:11, marginBottom:2,
@@ -121,13 +147,37 @@ function MonthView() {
                       fontWeight:500 }}>{ev.title}</div>
                   ))}
                   {evts.length>3 && <div style={{ fontSize:10, color:'#8E8E93', marginTop:1 }}>+{evts.length-3}개 더</div>}
+
+                  {/* 스페이서 — 형광펜을 하단으로 밀어냄 */}
+                  {numHlLanes > 0 && <div style={{ flex:1 }}/>}
+
+                  {/* 형광펜 구간 — 하단 고정, 레인 일관성 유지 */}
+                  {Array.from({ length: numHlLanes }, (_, lane) => {
+                    const h = hls.find(hl => hlLanes[hl.id] === lane);
+                    if (!h) return <div key={lane} style={{ height:14, marginTop:1 }} />;
+                    const monthFirst = `${ym.y}-${String(ym.m+1).padStart(2,'0')}-01`;
+                    const showLabel  = h.startDate === key || (h.startDate < monthFirst && key === monthFirst);
+                    const label      = h.label || `${h.startDate.slice(5).replace('-','/')}~${h.endDate.slice(5).replace('-','/')}`;
+                    return (
+                      <div key={h.id} style={{
+                        height:14, lineHeight:'14px',
+                        background: h.color, borderRadius:3, marginTop:1,
+                        marginLeft:-9, marginRight:-9,
+                        padding: showLabel ? '0 6px' : 0,
+                        fontSize:10, fontWeight:600, color:'rgba(0,0,0,0.62)',
+                        whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                      }}>
+                        {showLabel ? label : ''}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
         ))}
+        </div>
       </div>
-
     </div>
   );
 }
@@ -174,6 +224,7 @@ function DayView() {
   const eventsToday = data.events.filter(e => e.date === dateStr);
   const allDayEvts  = eventsToday.filter(e => !e.startTime && !e.time);
   const timedEvts   = eventsToday.filter(e =>  e.startTime ||  e.time);
+  const hlsToday    = (data.highlights || []).filter(h => dateStr >= h.startDate && dateStr <= h.endDate);
   const todosToday  = data.todos[dateStr] || [];
 
   const timeOptions = [];
@@ -339,16 +390,28 @@ function DayView() {
         {/* ── 타임 그리드 ── */}
         <div style={{ flex:1, overflow:'auto', background:'#fff' }}>
 
-          {/* 종일 행 */}
-          {allDayEvts.length > 0 && (
+          {/* 종일 행 — 형광펜 구간 + 종일 이벤트 */}
+          {(hlsToday.length > 0 || allDayEvts.length > 0) && (
             <div style={{
-              display:'flex', alignItems:'center', gap:4,
+              display:'flex', alignItems:'flex-start', gap:4,
               padding:'6px 4px 6px 0',
               borderBottom:'0.5px solid rgba(60,60,67,0.1)',
               background:'rgba(242,242,247,0.5)',
             }}>
-              <div style={{ width:TIME_W, flexShrink:0, fontSize:10, color:'#8E8E93', textAlign:'right', paddingRight:8 }}>종일</div>
+              <div style={{ width:TIME_W, flexShrink:0, fontSize:10, color:'#8E8E93', textAlign:'right', paddingRight:8, paddingTop:4 }}>종일</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:4, flex:1 }}>
+                {/* 연력 형광펜 구간 */}
+                {hlsToday.map(h => (
+                  <div key={h.id} style={{
+                    background: h.color, borderRadius:6,
+                    padding:'3px 10px', fontSize:12, fontWeight:600,
+                    color:'rgba(0,0,0,0.7)',
+                    display:'flex', alignItems:'center', gap:5,
+                  }}>
+                    {h.label || `${h.startDate.slice(5).replace('-','/')} ~ ${h.endDate.slice(5).replace('-','/')}`}
+                  </div>
+                ))}
+                {/* 종일 이벤트 */}
                 {allDayEvts.map(ev => (
                   <div key={ev.id} onClick={() => startEdit(ev)} style={{
                     background:(ev.color||theme.primary)+'CC', borderRadius:6,
@@ -695,16 +758,18 @@ function MandalaView() {
                 const s   = getCellStyle(row,col);
                 return (
                   <div key={col} style={{
-                    width:72,height:72,background:s.bg,
+                    width:72, height:72, background:s.bg,
                     borderRight: col%3===2&&col<8 ? '1.5px solid rgba(60,60,67,0.2)' : '0.5px solid rgba(60,60,67,0.08)',
                     borderBottom: row%3===2&&row<8 ? '1.5px solid rgba(60,60,67,0.2)' : '0.5px solid rgba(60,60,67,0.08)',
+                    display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
                   }}>
                     <textarea value={cells[idx]} onChange={e=>update(idx,e.target.value)}
+                      rows={2}
                       placeholder={idx===40?'핵심 목표':''}
-                      style={{ width:'100%',height:'100%',border:'none',background:'transparent',
-                        resize:'none',outline:'none',fontSize:s.fs,fontWeight:s.fw,
-                        color:s.color,textAlign:'center',fontFamily:'inherit',
-                        padding:4,lineHeight:1.35,cursor:'text' }}/>
+                      style={{ width:'calc(100% - 4px)', border:'none', background:'transparent',
+                        resize:'none', outline:'none', fontSize:s.fs, fontWeight:s.fw,
+                        color:s.color, textAlign:'center', fontFamily:'inherit',
+                        padding:'1px 2px', lineHeight:1.4, cursor:'text', overflow:'hidden' }}/>
                   </div>
                 );
               })}

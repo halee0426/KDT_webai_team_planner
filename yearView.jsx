@@ -2,16 +2,36 @@
 // ─── YearView ─────────────────────────────────────────────────
 // Layout constants — compact, no unnecessary whitespace
 const COL_LABEL_W = 48;   // sticky month label width
-const CELL_W      = 32;   // each day cell width
 const DATE_H      = 16;   // height of date-number area
 const BAR_H       = 12;   // highlight bar height
 const BAR_GAP     = 1;    // gap between stacked bars
-const CELL_H      = 34;   // total row height
-
+const EVT_H       = 11;   // height per event text line
+const EVT_GAP     = 1;    // gap between event lines
+const MAX_EVTS    = 3;    // max visible events per cell
 function YearView() {
   const data = useStore();
   const theme = THEMES[data.theme];
   const { year, highlights, events } = data;
+
+  // 하이라이트마다 고정 레인 번호 배정 (greedy interval scheduling)
+  // — 같은 레인에 겹치는 구간이 없도록 보장
+  const hlLanes = React.useMemo(() => {
+    const lanes = {};
+    highlights.forEach((h, i) => {
+      const used = new Set(
+        highlights.slice(0, i)
+          .filter(o => h.startDate <= o.endDate && h.endDate >= o.startDate)
+          .map(o => lanes[o.id])
+      );
+      let lane = 0;
+      while (used.has(lane)) lane++;
+      lanes[h.id] = lane;
+    });
+    return lanes;
+  }, [highlights]);
+
+  const numLanes = highlights.length === 0 ? 0 : Math.max(0, ...Object.values(hlLanes)) + 1;
+  const cellH    = DATE_H + numLanes * (BAR_H + BAR_GAP) + MAX_EVTS * (EVT_H + EVT_GAP) + 4;
 
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart]   = React.useState(null);
@@ -109,15 +129,15 @@ function YearView() {
       const midDay      = Math.round((visStartDay + visEndDay) / 2);
       const midKey      = `${year}-${monthStr}-${String(midDay).padStart(2, '0')}`;
 
-      const slot = highlights.slice(0, hIdx).filter(other =>
-        midKey >= other.startDate && midKey <= other.endDate
-      ).length;
+      const slot = hlLanes[h.id] || 0;
 
+      // CSS calc: cx = label_col_width + fraction × (100% - label_col_width)
+      const frac = (visStartDay - 1 + (visEndDay - visStartDay + 1) / 2) / numDays;
+      const cx   = `calc(${(COL_LABEL_W * (1 - frac)).toFixed(2)}px + ${(frac * 100).toFixed(4)}%)`;
       return {
         id:    h.id,
         label: h.label,
-        // center X of the visible segment — translateX(-50%) will true-center the label
-        cx:    COL_LABEL_W + (visStartDay - 1) * CELL_W + (visEndDay - visStartDay + 1) * CELL_W / 2,
+        cx,
         top:   DATE_H + slot * (BAR_H + BAR_GAP),
       };
     }).filter(Boolean);
@@ -140,7 +160,7 @@ function YearView() {
           onMouseEnter={() => onDayEnter(dateStr)}
           onMouseUp={onDayUp}
           style={{
-            flexShrink: 0, width: CELL_W, height: CELL_H,
+            flex: 1, minWidth: 0, height: cellH,
             borderRight: '1px solid rgba(0,0,0,0.05)',
             background: inDrag
               ? `${theme.primary}26`
@@ -168,9 +188,11 @@ function YearView() {
             }
           </div>
 
-          {/* Highlight bars (label rendered separately as overlay) */}
+          {/* Highlight bars — 레인 고정으로 겹치는 구간도 직선 유지 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: BAR_GAP }}>
-            {dayHls.map((h) => {
+            {Array.from({ length: numLanes }, (_, lane) => {
+              const h = dayHls.find(hl => hlLanes[hl.id] === lane);
+              if (!h) return <div key={lane} style={{ height: BAR_H }} />;
               const isStart        = h.startDate === dateStr;
               const isEnd          = h.endDate   === dateStr;
               const isLastInMonth  = d === numDays;
@@ -231,15 +253,30 @@ function YearView() {
             </div>
           )}
 
-          {/* Point event dots */}
+          {/* Event text lines — up to 3 */}
           {dayEvts.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 2, paddingTop: 1 }}>
-              {dayEvts.slice(0, 3).map(ev => (
+            <div style={{
+              position: 'absolute', left: 1, right: 1, bottom: 2,
+              display: 'flex', flexDirection: 'column', gap: EVT_GAP,
+            }}>
+              {dayEvts.slice(0, MAX_EVTS).map(ev => (
                 <div key={ev.id} style={{
-                  width: 3, height: 3, borderRadius: '50%',
-                  background: ev.color || theme.primary,
-                }} />
+                  height: EVT_H, lineHeight: `${EVT_H}px`,
+                  background: (ev.color || theme.primary) + '28',
+                  borderLeft: `2px solid ${ev.color || theme.primary}`,
+                  borderRadius: '0 3px 3px 0',
+                  padding: '0 3px',
+                  fontSize: 8, fontWeight: 500, color: '#1d1d1f',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {ev.title}
+                </div>
               ))}
+              {dayEvts.length > MAX_EVTS && (
+                <div style={{ fontSize: 7, color: '#86868b', textAlign: 'center', lineHeight: 1 }}>
+                  +{dayEvts.length - MAX_EVTS}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -260,7 +297,7 @@ function YearView() {
           onMouseEnter={e => e.currentTarget.style.background='rgba(0,102,204,0.08)'}
           onMouseLeave={e => e.currentTarget.style.background='rgba(245,245,247,0.95)'}
           style={{
-            flexShrink: 0, width: COL_LABEL_W, height: CELL_H,
+            flexShrink: 0, width: COL_LABEL_W, height: cellH,
             position: 'sticky', left: 0, zIndex: 10,
             background: 'rgba(245,245,247,0.95)',
             backdropFilter: 'blur(10px)',
@@ -331,7 +368,7 @@ function YearView() {
 
       {/* Year grid */}
       <div style={{ flex: 1, overflow: 'auto', background: '#f5f5f7' }}>
-        <div style={{ background: '#fff', minWidth: 'max-content' }}>
+        <div style={{ background: '#fff', width: '100%' }}>
           {Array.from({ length: 12 }, (_, mi) => renderMonthRow(mi))}
         </div>
       </div>
