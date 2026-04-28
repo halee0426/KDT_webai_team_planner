@@ -824,7 +824,7 @@ const TASK_COLORS = ['#007AFF','#FF3B30','#34C759','#FF9500','#AF52DE','#FF2D55'
 function loadTmpData(ds) {
   try { const r = localStorage.getItem(TMP_KEY+'_'+ds); if (r) return JSON.parse(r); } catch(e){}
   return {
-    todo:'', comment:'', totalTime:'', memo:'',
+    memo:'',
     tasks: Array.from({length:18},(_,i)=>({ id:i, text:'', done:false, color:TASK_COLORS[i%TASK_COLORS.length] })),
     grid: {},
   };
@@ -907,21 +907,6 @@ function TenMinutePlanner() {
           <button onClick={()=>setDateStr(todayStr())} style={{ padding:'6px 13px',
             border:'0.5px solid rgba(60,60,67,0.18)',borderRadius:10,
             background:'rgba(0,0,0,0.04)',cursor:'pointer',fontSize:12,fontWeight:500,color:'#3C3C43',fontFamily:'inherit' }}>오늘</button>
-          <div style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:8 }}>
-            <input value={pData.todo} onChange={e=>update({todo:e.target.value})}
-              placeholder="오늘의 핵심 목표..."
-              style={{ width:240,border:'none',borderBottom:'0.5px solid rgba(60,60,67,0.25)',
-                padding:'3px 4px',fontSize:13,outline:'none',fontFamily:'inherit',background:'transparent',color:'#1C1C1E' }}/>
-          </div>
-        </div>
-        <div style={{ display:'flex',gap:20,alignItems:'center' }}>
-          {[['COMMENT','comment',320],['TOTAL TIME','totalTime',120]].map(([lbl,k,w])=>(
-            <div key={k} style={{ display:'flex',alignItems:'center',gap:7 }}>
-              <input value={pData[k]} onChange={e=>update({[k]:e.target.value})}
-                style={{ width:w,border:'none',borderBottom:'0.5px solid rgba(60,60,67,0.2)',
-                  padding:'2px 4px',fontSize:13,outline:'none',fontFamily:'inherit',background:'transparent',color:'#1C1C1E' }}/>
-            </div>
-          ))}
           <div style={{ marginLeft:'auto',display:'flex',gap:6 }}>
             <button onClick={()=>setErasing(false)} style={{
               padding:'5px 12px',borderRadius:8,border:'none',fontSize:12,cursor:'pointer',fontFamily:'inherit',
