@@ -204,9 +204,20 @@ function DayView() {
   const [dragTop, setDragTop]     = React.useState(0);
   const [sidebarW, setSidebarW]   = React.useState(272);
 
+  const [selStart,     setSelStart]     = React.useState(null);
+  const [selEnd,       setSelEnd]       = React.useState(null);
+  const [selModal,     setSelModal]     = React.useState(false);
+  const [selTitle,     setSelTitle]     = React.useState('');
+  const [selColor,     setSelColor]     = React.useState(null);
+  const [selTimeStart, setSelTimeStart] = React.useState('09:00');
+  const [selTimeEnd,   setSelTimeEnd]   = React.useState('10:00');
+
   const dragRef    = React.useRef({ active:false, id:null, mouseY:0, origSlot:0, dur:0 });
   const movedRef   = React.useRef(false);
   const resizeRef  = React.useRef({ active:false, startX:0, startW:0 });
+  const selRef     = React.useRef({ active:false, startSlot:0 });
+  const selEndRef  = React.useRef(0);
+  const scrollRef  = React.useRef(null);
 
   const goDay = delta => {
     const d = parseDate(dateStr); d.setDate(d.getDate() + delta);
@@ -271,25 +282,52 @@ function DayView() {
 
   // 드래그-이동
   React.useEffect(() => {
+    const getSlot = e => {
+      if (!scrollRef.current) return 0;
+      const rect = scrollRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top + scrollRef.current.scrollTop;
+      return Math.max(0, Math.min(47, Math.floor(y / SLOT_H)));
+    };
     const onMove = e => {
-      if (!dragRef.current.active) return;
-      const dy = e.clientY - dragRef.current.mouseY;
-      if (Math.abs(dy) > 4) movedRef.current = true;
-      const slotD = Math.round(dy / SLOT_H);
-      const newSlot = Math.max(0, Math.min(47 - dragRef.current.dur + 1, dragRef.current.origSlot + slotD));
-      setDragTop(newSlot * SLOT_H);
+      if (dragRef.current.active) {
+        const dy = e.clientY - dragRef.current.mouseY;
+        if (Math.abs(dy) > 4) movedRef.current = true;
+        const slotD = Math.round(dy / SLOT_H);
+        const newSlot = Math.max(0, Math.min(47 - dragRef.current.dur + 1, dragRef.current.origSlot + slotD));
+        setDragTop(newSlot * SLOT_H);
+      }
+      if (selRef.current.active) {
+        const slot = getSlot(e);
+        selEndRef.current = slot;
+        setSelEnd(slot);
+      }
     };
     const onUp = e => {
-      if (!dragRef.current.active) return;
-      const dy = e.clientY - dragRef.current.mouseY;
-      const slotD = Math.round(dy / SLOT_H);
-      const { origSlot, dur, id } = dragRef.current;
-      const newSlot = Math.max(0, Math.min(47 - dur + 1, origSlot + slotD));
-      if (movedRef.current) {
-        store.updateEvent(id, { startTime:slotToTime(newSlot), endTime:slotToTime(newSlot+dur), time:undefined });
+      if (dragRef.current.active) {
+        const dy = e.clientY - dragRef.current.mouseY;
+        const slotD = Math.round(dy / SLOT_H);
+        const { origSlot, dur, id } = dragRef.current;
+        const newSlot = Math.max(0, Math.min(47 - dur + 1, origSlot + slotD));
+        if (movedRef.current) {
+          store.updateEvent(id, { startTime:slotToTime(newSlot), endTime:slotToTime(newSlot+dur), time:undefined });
+        }
+        dragRef.current.active = false;
+        setDraggingId(null);
       }
-      dragRef.current.active = false;
-      setDraggingId(null);
+      if (selRef.current.active) {
+        selRef.current.active = false;
+        const s  = selRef.current.startSlot;
+        const en = selEndRef.current;
+        const ss = Math.min(s, en);
+        const se = Math.max(s, en);
+        setSelStart(ss);
+        setSelEnd(se);
+        setSelTimeStart(slotToTime(ss));
+        setSelTimeEnd(slotToTime(se + 1));
+        setSelTitle('');
+        setSelColor(null);
+        setSelModal(true);
+      }
     };
     const onResizeMove = e => {
       if (!resizeRef.current.active) return;
@@ -310,8 +348,19 @@ function DayView() {
     };
   }, []);
 
+  const createFromSel = () => {
+    if (!selTitle.trim()) return;
+    const s  = timeToSlot(selTimeStart);
+    const en = timeToSlot(selTimeEnd);
+    const et = en > s ? selTimeEnd : slotToTime(s + 2);
+    store.addEvent({ date:dateStr, title:selTitle.trim(),
+      color:selColor||theme.primary, startTime:selTimeStart, endTime:et });
+    setSelModal(false); setSelStart(null); setSelEnd(null); setSelTitle(''); setSelColor(null);
+  };
+
   const startDrag = (e, ev) => {
     e.preventDefault();
+    e.stopPropagation();
     movedRef.current = false;
     const sSlot = timeToSlot(ev.startTime || ev.time || '00:00');
     const eSlot = timeToSlot(ev.endTime   || slotToTime(sSlot + 2));
@@ -404,7 +453,7 @@ function DayView() {
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
         {/* ── 타임 그리드 ── */}
-        <div style={{ flex:1, overflow:'auto', background:'#fff' }}>
+        <div ref={scrollRef} style={{ flex:1, overflow:'auto', background:'#fff' }}>
 
           {/* 종일 행 — 형광펜 구간 + 종일 이벤트 */}
           {(hlsToday.length > 0 || allDayEvts.length > 0) && (
@@ -444,7 +493,22 @@ function DayView() {
           )}
 
           {/* 시간 그리드 */}
-          <div style={{ position:'relative', height:gridH, userSelect:'none' }}>
+          <div style={{ position:'relative', height:gridH, userSelect:'none', cursor:'crosshair' }}
+            onMouseDown={e => {
+              if (e.button !== 0) return;
+              if (!scrollRef.current) return;
+              const rect = scrollRef.current.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              if (x < TIME_W) return;
+              const y = e.clientY - rect.top + scrollRef.current.scrollTop;
+              const slot = Math.max(0, Math.min(47, Math.floor(y / SLOT_H)));
+              selRef.current = { active:true, startSlot:slot };
+              selEndRef.current = slot;
+              setSelStart(slot);
+              setSelEnd(slot);
+              setSelModal(false);
+            }}
+          >
 
             {/* 시간선 + 레이블 */}
             {Array.from({length:25},(_,h) => (
@@ -515,6 +579,18 @@ function DayView() {
               );
             })}
 
+            {/* 드래그 선택 고스트 블록 */}
+            {selStart !== null && selEnd !== null && !selModal && (
+              <div style={{
+                position:'absolute', left:TIME_W+4, right:8,
+                top: selStart * SLOT_H,
+                height: (selEnd - selStart + 1) * SLOT_H,
+                background: (selColor||theme.primary)+'28',
+                border: `1.5px solid ${selColor||theme.primary}60`,
+                borderRadius:7, pointerEvents:'none', zIndex:1,
+              }}/>
+            )}
+
             {/* 현재 시간 표시선 */}
             {dateStr===today&&(()=>{
               const now = new Date();
@@ -554,6 +630,62 @@ function DayView() {
           <ChecklistPanel date={dateStr} todos={todosToday} theme={theme} />
         </div>
       </div>
+
+      {/* ── 드래그 일정 등록 모달 ── */}
+      {selModal && selStart !== null && (
+        <div onClick={() => { setSelModal(false); setSelStart(null); setSelEnd(null); }} style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.28)',
+          backdropFilter:'blur(4px)', display:'flex',
+          alignItems:'center', justifyContent:'center', zIndex:200,
+        }}>
+          <div onClick={e=>e.stopPropagation()} style={{
+            background:'#fff', borderRadius:20, padding:'24px',
+            width:340, maxWidth:'calc(100vw - 32px)',
+            boxShadow:'0 20px 60px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ fontWeight:700, fontSize:17, marginBottom:12, color:'#1C1C1E' }}>새 일정</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}>
+              {[['시작', selTimeStart, setSelTimeStart], ['종료', selTimeEnd, setSelTimeEnd]].map(([lbl, val, setter]) => (
+                <React.Fragment key={lbl}>
+                  <span style={{ fontSize:12, color:'#8E8E93', flexShrink:0 }}>{lbl}</span>
+                  <select value={val} onChange={e => setter(e.target.value)} style={{
+                    flex:1, height:36, border:'0.5px solid rgba(60,60,67,0.18)',
+                    borderRadius:10, padding:'0 8px', fontSize:13, outline:'none',
+                    fontFamily:'inherit', background:'rgba(0,0,0,0.03)', color:'#1C1C1E', cursor:'pointer',
+                  }}>
+                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </React.Fragment>
+              ))}
+            </div>
+            <input autoFocus value={selTitle}
+              onChange={e => setSelTitle(e.target.value)}
+              onKeyDown={e => e.key==='Enter' && createFromSel()}
+              placeholder="제목 입력..."
+              style={{ display:'block', width:'100%', marginBottom:16, ...AP.input, fontSize:15 }}
+            />
+            <div style={{ display:'flex', gap:7, marginBottom:20 }}>
+              {palette.map(c => (
+                <button key={c} onClick={() => setSelColor(c)} style={{
+                  flex:1, height:28, borderRadius:8, border:'none', cursor:'pointer', background:c,
+                  boxShadow:(selColor||theme.primary)===c ? `0 0 0 2.5px #fff, 0 0 0 4px ${c}` : 'none',
+                  transition:'box-shadow .1s',
+                }}/>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => { setSelModal(false); setSelStart(null); setSelEnd(null); }} style={{
+                flex:1, background:'rgba(0,0,0,0.06)', color:'#1C1C1E', border:'none',
+                borderRadius:980, padding:'12px 0', cursor:'pointer', fontSize:15, fontFamily:'inherit',
+              }}>취소</button>
+              <button onClick={createFromSel} style={{
+                flex:1, background:theme.primary, color:'#fff', border:'none',
+                borderRadius:980, padding:'12px 0', cursor:'pointer', fontSize:15, fontFamily:'inherit', fontWeight:600,
+              }}>추가</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 편집 모달 ── */}
       {editId && (
@@ -818,8 +950,8 @@ function MandalaView() {
 }
 
 // ─── TenMinutePlanner ─────────────────────────────────────────
-const TMP_KEY = 'ten_min_planner_v3';
-const TASK_COLORS = ['#007AFF','#FF3B30','#34C759','#FF9500','#AF52DE','#FF2D55','#5AC8FA','#FFCC00','#30B0C7','#32ADE6'];
+const TMP_KEY = 'ten_min_planner_v4';
+const TASK_COLORS = ['#FFB3AE','#FFD4A0','#FFF0A0','#B3ECC2','#ADC8FF','#E0BAF5','#FFB3D9','#B0F0E8','#FFD4B8','#C8E0FF'];
 
 function loadTmpData(ds) {
   try { const r = localStorage.getItem(TMP_KEY+'_'+ds); if (r) return JSON.parse(r); } catch(e){}
@@ -1051,7 +1183,7 @@ function TenMinutePlanner() {
                       }}>
                         <span style={{
                           fontSize:13,fontWeight:600,
-                          color:'rgba(255,255,255,0.92)',
+                          color:'rgba(0,0,0,0.62)',
                           whiteSpace:'nowrap',overflow:'hidden',maxWidth:'95%',
                           letterSpacing:-0.2,
                         }}>{rowTask.text}</span>
@@ -1293,12 +1425,41 @@ function WeekView() {
 }
 
 // ─── DiaryView ─────────────────────────────────────────────────
+const DIARY_PAPERS = {
+  blank: {
+    label: '무지',
+    bgColor: '#ffffff',
+    bgImage: 'none',
+    bgSize: 'auto',
+    lineH: 32,
+  },
+  lined: {
+    label: '줄공책',
+    bgColor: '#ffffff',
+    bgImage: 'repeating-linear-gradient(transparent, transparent 31px, rgba(150,190,220,0.65) 31px, rgba(150,190,220,0.65) 32px)',
+    bgSize: '100% 32px',
+    lineH: 32,
+  },
+  grid: {
+    label: '모눈종이',
+    bgColor: '#ffffff',
+    bgImage: [
+      'linear-gradient(rgba(160,200,230,0.55) 1px, transparent 1px)',
+      'linear-gradient(90deg, rgba(160,200,230,0.55) 1px, transparent 1px)',
+    ].join(','),
+    bgSize: '24px 24px',
+    lineH: 24,
+  },
+};
+
 function DiaryView() {
   const data  = useStore();
   const theme = THEMES[data.theme] || THEMES.blue;
   const [dateStr, setDateStr] = React.useState(todayStr());
+  const [paper,   setPaper]   = React.useState('blank');
   const today = todayStr();
   const date  = parseDate(dateStr);
+  const p     = DIARY_PAPERS[paper];
 
   const text = (data.diaries || {})[dateStr] || '';
 
@@ -1319,29 +1480,34 @@ function DiaryView() {
 
       {/* ── Header ── */}
       <div style={{
-        display:'flex', alignItems:'center', justifyContent:'center', gap:12, padding:'14px 24px',
+        position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+        padding:'14px 24px',
         background:'rgba(255,255,255,0.72)',
         backdropFilter:'saturate(180%) blur(20px)',
         WebkitBackdropFilter:'saturate(180%) blur(20px)',
         borderBottom:'0.5px solid rgba(60,60,67,0.12)', flexShrink:0,
       }}>
-        <button onClick={() => goDay(-1)} style={apNavBtn}>‹</button>
-        <div style={{ minWidth:220, textAlign:'center' }}>
-          <div style={{ fontWeight:700, fontSize:19, letterSpacing:-0.3,
-            color: dateStr===today ? theme.primary : '#1C1C1E' }}>
-            {date.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })}
+        {/* 중앙: 날짜 네비게이션 */}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <button onClick={() => goDay(-1)} style={apNavBtn}>‹</button>
+          <div style={{ minWidth:220, textAlign:'center' }}>
+            <div style={{ fontWeight:700, fontSize:19, letterSpacing:-0.3,
+              color: dateStr===today ? theme.primary : '#1C1C1E' }}>
+              {date.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })}
+            </div>
+            <div style={{ fontSize:12, color:'#8E8E93' }}>
+              {['일','월','화','수','목','금','토'][date.getDay()]}요일
+            </div>
           </div>
-          <div style={{ fontSize:12, color:'#8E8E93' }}>
-            {['일','월','화','수','목','금','토'][date.getDay()]}요일
-          </div>
+          <button onClick={() => goDay(1)} style={apNavBtn}>›</button>
+          <button onClick={() => setDateStr(today)} style={{
+            padding:'6px 14px',
+            border:'0.5px solid rgba(60,60,67,0.18)', borderRadius:10,
+            background:'rgba(0,0,0,0.04)', cursor:'pointer',
+            fontSize:13, fontWeight:500, color:'#3C3C43', fontFamily:'inherit',
+          }}>오늘</button>
         </div>
-        <button onClick={() => goDay(1)} style={apNavBtn}>›</button>
-        <button onClick={() => setDateStr(today)} style={{
-          marginLeft:6, padding:'6px 14px',
-          border:'0.5px solid rgba(60,60,67,0.18)', borderRadius:10,
-          background:'rgba(0,0,0,0.04)', cursor:'pointer',
-          fontSize:13, fontWeight:500, color:'#3C3C43', fontFamily:'inherit',
-        }}>오늘</button>
+
       </div>
 
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
@@ -1384,8 +1550,14 @@ function DiaryView() {
         </div>
 
         {/* ── 본문 작성 영역 ── */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden',
-          padding:'32px 48px 20px' }}>
+        <div style={{
+          flex:1, display:'flex', flexDirection:'column', overflow:'hidden',
+          backgroundColor: p.bgColor,
+          backgroundImage: p.bgImage,
+          backgroundSize: p.bgSize,
+          backgroundRepeat: 'repeat',
+          backgroundPositionY: paper === 'lined' ? '20px' : '0px',
+        }}>
           <textarea
             value={text}
             onChange={e => store.setDiary(dateStr, e.target.value)}
@@ -1393,12 +1565,19 @@ function DiaryView() {
             style={{
               flex:1, width:'100%', border:'none', outline:'none',
               background:'transparent', resize:'none',
-              fontFamily:'inherit', fontSize:16, lineHeight:1.9,
+              fontFamily:'inherit', fontSize:16,
+              lineHeight: `${p.lineH}px`,
               color:'#1C1C1E', letterSpacing:-0.2,
+              padding: `20px 64px 20px`,
+              caretColor: theme.primary,
             }}
           />
-          <div style={{ textAlign:'right', fontSize:11, color:'#C7C7CC',
-            paddingTop:10, flexShrink:0, borderTop:'0.5px solid rgba(60,60,67,0.08)' }}>
+          <div style={{
+            textAlign:'right', fontSize:11, color:'#8E8E93',
+            padding:'8px 24px', flexShrink:0,
+            background:'rgba(255,255,255,0.7)',
+            borderTop:'0.5px solid rgba(60,60,67,0.08)',
+          }}>
             {text.length}자 · {wordCount}단어
           </div>
         </div>

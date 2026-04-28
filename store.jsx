@@ -120,6 +120,10 @@ class PlannerStore {
     this.data.highlights = this.data.highlights.map(h => h.id === id ? {...h, label} : h);
     this._save();
   }
+  updateHighlight(id, updates) {
+    this.data.highlights = this.data.highlights.map(h => h.id === id ? {...h, ...updates} : h);
+    this._save();
+  }
 
   // 미완료 할일을 다음날로 자동 이전
   rolloverTodos(fromDate, toDate) {

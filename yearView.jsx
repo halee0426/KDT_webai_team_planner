@@ -40,7 +40,12 @@ function YearView() {
   const [showPicker, setShowPicker] = React.useState(false);
   const [hlColor, setHlColor]       = React.useState(HIGHLIGHT_COLORS[0].value);
   const [hlLabel, setHlLabel]       = React.useState('');
-  const [editHlId, setEditHlId]     = React.useState(null);
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [editingHl, setEditingHl]         = React.useState(null);
+  const [editStart, setEditStart]         = React.useState('');
+  const [editEnd, setEditEnd]             = React.useState('');
+  const [editColor, setEditColor]         = React.useState('');
+  const [editLabel, setEditLabel]         = React.useState('');
 
   const today = todayStr();
 
@@ -69,9 +74,6 @@ function YearView() {
       setIsDragging(false);
       const [s, e] = [dragStart, dragEnd].sort();
       if (s === e) {
-        // 단순 클릭 → 일력으로 이동
-        store.setDayViewDate(dragStart);
-        window.__switchTab && window.__switchTab('day');
         setDragStart(null); setDragEnd(null);
       } else {
         // 드래그 범위 선택 → 형광펜 저장
@@ -202,35 +204,20 @@ function YearView() {
               const rR = (isEnd   || isLastInMonth)  ? 3 : 0;
               return (
                 <div key={h.id}
-                  onClick={e => { e.stopPropagation(); setEditHlId(editHlId === h.id ? null : h.id); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setEditingHl(h);
+                    setEditStart(h.startDate);
+                    setEditEnd(h.endDate);
+                    setEditColor(h.color);
+                    setEditLabel(h.label || '');
+                    setShowEditModal(true);
+                  }}
                   style={{
                     height: BAR_H, background: h.color, cursor: 'pointer',
                     borderRadius: `${rL}px ${rR}px ${rR}px ${rL}px`,
-                  }}>
-                  {editHlId === h.id && isStart && (
-                    <div style={{
-                      position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 100,
-                      background: 'rgba(255,255,255,0.97)',
-                      backdropFilter: 'saturate(180%) blur(20px)',
-                      borderRadius: 14, padding: '14px 16px',
-                      boxShadow: '0 8px 40px rgba(0,0,0,0.16)',
-                      border: '1px solid rgba(0,0,0,0.08)',
-                      minWidth: 200,
-                    }} onClick={e => e.stopPropagation()}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1d1d1f', marginBottom: 3 }}>
-                        {h.label || '(레이블 없음)'}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#86868b', marginBottom: 12 }}>
-                        {h.startDate.slice(5).replace('-', '/')} ~ {h.endDate.slice(5).replace('-', '/')}
-                      </div>
-                      <button onClick={() => { store.removeHighlight(h.id); setEditHlId(null); }} style={{
-                        width: '100%', background: 'rgba(255,59,48,0.1)', color: '#c0392b',
-                        border: 'none', borderRadius: 8, padding: '7px 0',
-                        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                      }}>삭제</button>
-                    </div>
-                  )}
-                </div>
+                  }}
+                />
               );
             })}
           </div>
@@ -414,6 +401,94 @@ function YearView() {
         </div>
       )}
 
+      {/* Edit highlight modal */}
+      {showEditModal && editingHl && (() => {
+        const saveEdit = () => {
+          const [s, e] = [editStart, editEnd].sort();
+          store.updateHighlight(editingHl.id, { startDate: s, endDate: e, color: editColor, label: editLabel.trim() });
+          setShowEditModal(false); setEditingHl(null);
+        };
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }} onClick={() => { setShowEditModal(false); setEditingHl(null); }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.96)',
+              backdropFilter: 'saturate(180%) blur(40px)',
+              borderRadius: 22, padding: 28, width: 340,
+              boxShadow: 'rgba(0,0,0,0.22) 3px 5px 30px 0',
+              border: '1px solid rgba(0,0,0,0.08)',
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 20, color: '#1d1d1f', letterSpacing: -0.3 }}>구간 수정</h3>
+
+              {/* 날짜 선택 */}
+              <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+                {[['시작일', editStart, setEditStart], ['종료일', editEnd, setEditEnd]].map(([lbl, val, setter]) => (
+                  <div key={lbl} style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#86868b', marginBottom: 4, letterSpacing: 0.3 }}>{lbl}</div>
+                    <input type="date" value={val} onChange={e => setter(e.target.value)} style={{
+                      width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10,
+                      padding: '8px 10px', fontSize: 13, outline: 'none',
+                      fontFamily: 'inherit', color: '#1d1d1f', background: '#fff',
+                    }} />
+                  </div>
+                ))}
+              </div>
+
+              {/* 색상 */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', marginBottom: 10, letterSpacing: -0.1 }}>색상</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {HIGHLIGHT_COLORS.map(c => (
+                    <button key={c.name} onClick={() => setEditColor(c.value)} style={{
+                      flex: 1, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',
+                      background: solidColor(c.value), transition: 'all .15s',
+                      boxShadow: editColor === c.value
+                        ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px rgba(0,0,0,0.28)`
+                        : '0 1px 4px rgba(0,0,0,0.08)',
+                      transform: editColor === c.value ? 'scale(1.06)' : 'scale(1)',
+                    }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* 레이블 */}
+              <input autoFocus value={editLabel} onChange={e => setEditLabel(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                placeholder="레이블 (선택사항)"
+                style={{
+                  display: 'block', width: '100%', border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 12, padding: '12px 14px', fontSize: 17,
+                  outline: 'none', fontFamily: 'inherit', color: '#1d1d1f',
+                  background: '#fff', marginBottom: 20, letterSpacing: -0.2,
+                }} />
+
+              {/* 버튼 */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { store.removeHighlight(editingHl.id); setShowEditModal(false); setEditingHl(null); }} style={{
+                  flex: 1, background: 'rgba(255,59,48,0.1)', color: '#c0392b', border: 'none',
+                  borderRadius: 980, padding: '13px 0', cursor: 'pointer',
+                  fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+                }}>삭제</button>
+                <button onClick={() => { setShowEditModal(false); setEditingHl(null); }} style={{
+                  flex: 1, background: 'rgba(0,0,0,0.06)', color: '#1d1d1f', border: 'none',
+                  borderRadius: 980, padding: '13px 0', cursor: 'pointer',
+                  fontSize: 15, fontWeight: 400, fontFamily: 'inherit',
+                }}>취소</button>
+                <button onClick={saveEdit} style={{
+                  flex: 1, background: theme.primary, color: '#fff', border: 'none',
+                  borderRadius: 980, padding: '13px 0', cursor: 'pointer',
+                  fontSize: 15, fontWeight: 400, fontFamily: 'inherit',
+                }}>저장</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Add highlight modal */}
       {showPicker && (
         <div style={{
@@ -431,14 +506,17 @@ function YearView() {
           }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 20, color: '#1d1d1f', letterSpacing: -0.3 }}>구간 추가</h3>
 
-            <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: 12, padding: '10px 14px', marginBottom: 18 }}>
-              <div style={{ fontSize: 11, color: '#86868b', marginBottom: 2, letterSpacing: 0.3 }}>기간</div>
-              <div style={{ fontSize: 15, fontWeight: 500, color: '#1d1d1f', letterSpacing: -0.2 }}>
-                {dragStart && dragEnd && (() => {
-                  const [s, e] = [dragStart, dragEnd].sort();
-                  return `${s.slice(5).replace('-', '/')} ~ ${e.slice(5).replace('-', '/')}`;
-                })()}
-              </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+              {[['시작일', dragStart, setDragStart], ['종료일', dragEnd, setDragEnd]].map(([lbl, val, setter]) => (
+                <div key={lbl} style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#86868b', marginBottom: 4, letterSpacing: 0.3 }}>{lbl}</div>
+                  <input type="date" value={val || ''} onChange={e => setter(e.target.value)} style={{
+                    width: '100%', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10,
+                    padding: '8px 10px', fontSize: 13, outline: 'none',
+                    fontFamily: 'inherit', color: '#1d1d1f', background: '#fff',
+                  }} />
+                </div>
+              ))}
             </div>
 
             <div style={{ marginBottom: 18 }}>
