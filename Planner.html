@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>플래너</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -23,11 +22,9 @@
   --muted-48:    rgba(0,0,0,0.48);
   --border:      rgba(0,0,0,0.08);
 
-  /* Fonts — SF Pro on Apple, Noto Sans KR on Windows */
-  --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
-                  "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
-  --font-text:    "SF Pro Text",    system-ui, -apple-system, BlinkMacSystemFont,
-                  "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  /* Fonts — Pretendard */
+  --font-display: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-text:    "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -51,7 +48,6 @@ body {
 }
 
 button, input, textarea, select { font-family: inherit; }
-textarea { resize: none; }
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -193,7 +189,6 @@ const TABS = [
   { id: 'day',       label: '일력'       },
   { id: 'tenmin',    label: '10분플래너'  },
   { id: 'mandala',   label: '만다라트'   },
-  { id: 'checklist', label: '체크리스트' },
 ];
 
 /* ── App ─────────────────────────────────────────────────── */
@@ -207,7 +202,6 @@ function App() {
     return () => { delete window.__switchTab; };
   }, []);
 
-  const todayBadge = (data.todos[todayStr()] || []).filter(t => !t.done).length;
   const now = new Date();
 
   /* Active tab pill style — DO: Action Blue fill, white text */
@@ -249,7 +243,6 @@ function App() {
       <nav className="ap-sub-nav">
         {TABS.map(t => {
           const active = tab === t.id;
-          const badge  = t.id === 'checklist' && todayBadge > 0 ? todayBadge : null;
           return (
             <button
               key={t.id}
@@ -258,7 +251,6 @@ function App() {
               style={active ? activeTabStyle : {}}
             >
               {t.label}
-              {badge && <span className="ap-badge">{badge}</span>}
             </button>
           );
         })}
@@ -281,7 +273,6 @@ function App() {
         <div className={'ap-pane' + (tab === 'day'       ? ' active' : '')}><DayView /></div>
         <div className={'ap-pane' + (tab === 'tenmin'    ? ' active' : '')}><TenMinutePlanner /></div>
         <div className={'ap-pane' + (tab === 'mandala'   ? ' active' : '')}><MandalaView /></div>
-        <div className={'ap-pane' + (tab === 'checklist' ? ' active' : '')}><ChecklistView /></div>
       </main>
     </div>
   );

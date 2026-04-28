@@ -202,9 +202,11 @@ function DayView() {
   const [editData, setEditData]   = React.useState({});
   const [draggingId, setDraggingId] = React.useState(null);
   const [dragTop, setDragTop]     = React.useState(0);
+  const [sidebarW, setSidebarW]   = React.useState(272);
 
-  const dragRef  = React.useRef({ active:false, id:null, mouseY:0, origSlot:0, dur:0 });
-  const movedRef = React.useRef(false);
+  const dragRef    = React.useRef({ active:false, id:null, mouseY:0, origSlot:0, dur:0 });
+  const movedRef   = React.useRef(false);
+  const resizeRef  = React.useRef({ active:false, startX:0, startW:0 });
 
   const goDay = delta => {
     const d = parseDate(dateStr); d.setDate(d.getDate() + delta);
@@ -289,9 +291,23 @@ function DayView() {
       dragRef.current.active = false;
       setDraggingId(null);
     };
+    const onResizeMove = e => {
+      if (!resizeRef.current.active) return;
+      const dx = resizeRef.current.startX - e.clientX;
+      setSidebarW(Math.max(180, Math.min(520, resizeRef.current.startW + dx)));
+    };
+    const onResizeUp = () => { resizeRef.current.active = false; document.body.style.cursor = ''; };
+
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
-    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup',   onResizeUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+      document.removeEventListener('mousemove', onResizeMove);
+      document.removeEventListener('mouseup',   onResizeUp);
+    };
   }, []);
 
   const startDrag = (e, ev) => {
@@ -437,11 +453,11 @@ function DayView() {
                 borderTop:h===0?'none':'0.5px solid rgba(60,60,67,0.1)',
                 pointerEvents:'none',
               }}>
-                {h > 0 && h < 25 && (
+                {h < 25 && (
                   <span style={{
-                    position:'absolute', left:0, width:TIME_W-4,
+                    position:'absolute', left:0, top:SLOT_H, width:TIME_W-4,
                     fontSize:10, color:'#8E8E93', fontWeight:500,
-                    textAlign:'right', transform:'translateY(-7px)',
+                    textAlign:'right', transform:'translateY(-50%)',
                     display:'block', lineHeight:1,
                   }}>{String(h).padStart(2,'0')}:00</span>
                 )}
@@ -515,8 +531,25 @@ function DayView() {
           </div>
         </div>
 
+        {/* ── 리사이즈 핸들 ── */}
+        <div
+          onMouseDown={e => {
+            e.preventDefault();
+            resizeRef.current = { active:true, startX:e.clientX, startW:sidebarW };
+            document.body.style.cursor = 'col-resize';
+          }}
+          style={{
+            width:5, flexShrink:0, cursor:'col-resize',
+            background:'transparent',
+            borderLeft:'0.5px solid rgba(60,60,67,0.12)',
+            transition:'background .15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.08)'}
+          onMouseLeave={e => e.currentTarget.style.background='transparent'}
+        />
+
         {/* ── 사이드바: 할 일 ── */}
-        <div style={{ width:272, borderLeft:'0.5px solid rgba(60,60,67,0.12)', padding:'16px 18px',
+        <div style={{ width:sidebarW, padding:'16px 18px',
           background:'rgba(255,255,255,0.7)', backdropFilter:'blur(10px)', flexShrink:0, overflow:'auto' }}>
           <ChecklistPanel date={dateStr} todos={todosToday} theme={theme} />
         </div>
@@ -620,13 +653,16 @@ function ChecklistPanel({ date, todos, theme }) {
         </div>
       )}
 
-      <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()}
-          placeholder="새 할 일..."
-          style={{ ...AP.input, fontSize:14, padding:'9px 12px', flex:1, width:'auto' }}/>
+      <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:12 }}>
+        <textarea value={input} onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); add(); } }}
+          placeholder="새 할 일... (Enter로 추가, Shift+Enter로 줄바꿈)"
+          style={{ ...AP.input, fontSize:14, padding:'9px 12px', width:'100%',
+            minHeight:80, resize:'vertical', lineHeight:1.5 }}/>
         <button onClick={add} style={{
           background:theme.primary, color:'#fff', border:'none', borderRadius:12,
-          padding:'9px 14px', cursor:'pointer', fontSize:16, fontFamily:'inherit', lineHeight:1 }}>+</button>
+          padding:'9px 14px', cursor:'pointer', fontSize:14, fontWeight:600,
+          fontFamily:'inherit', lineHeight:1, alignSelf:'flex-end' }}>+ 추가</button>
       </div>
 
       <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -801,9 +837,11 @@ function TenMinutePlanner() {
   const [dateStr, setDateStr] = React.useState(todayStr());
   const [pData, setPData]     = React.useState(() => loadTmpData(todayStr()));
   const [activeTask, setActiveTask] = React.useState(null);
-  const isPaintingRef = React.useRef(false); // ref 사용 — React state 비동기 갱신 문제 해결
+  const isPaintingRef = React.useRef(false);
   const [erasing, setErasing] = React.useState(false);
   const erasingRef = React.useRef(false);
+  const [taskW, setTaskW] = React.useState(() => Math.round(window.innerWidth * 0.3));
+  const taskResizeRef = React.useRef({ active:false, startX:0, startW:0 });
 
   React.useEffect(() => { setPData(loadTmpData(dateStr)); setActiveTask(null); }, [dateStr]);
 
@@ -815,6 +853,18 @@ function TenMinutePlanner() {
     const stop = () => { isPaintingRef.current = false; };
     window.addEventListener('mouseup', stop);
     return () => window.removeEventListener('mouseup', stop);
+  }, []);
+
+  React.useEffect(() => {
+    const onMove = e => {
+      if (!taskResizeRef.current.active) return;
+      const dx = e.clientX - taskResizeRef.current.startX;
+      setTaskW(Math.max(180, Math.min(700, taskResizeRef.current.startW + dx)));
+    };
+    const onUp = () => { taskResizeRef.current.active = false; document.body.style.cursor = ''; };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
   }, []);
 
   const update = patch => {
@@ -890,7 +940,7 @@ function TenMinutePlanner() {
       {/* Body */}
       <div style={{ flex:1,overflow:'auto',display:'flex' }}>
         {/* Tasks */}
-        <div style={{ width:280,borderRight:'0.5px solid rgba(60,60,67,0.12)',
+        <div style={{ width:taskW,borderRight:'none',
           background:'#fff',display:'flex',flexDirection:'column',flexShrink:0 }}>
           <div style={{ padding:'9px 14px',borderBottom:'0.5px solid rgba(60,60,67,0.1)',
             ...AP.label, marginBottom:0 }}>TASKS</div>
@@ -940,6 +990,19 @@ function TenMinutePlanner() {
           </div>
         </div>
 
+        {/* 리사이즈 핸들 */}
+        <div
+          onMouseDown={e => {
+            e.preventDefault();
+            taskResizeRef.current = { active:true, startX:e.clientX, startW:taskW };
+            document.body.style.cursor = 'col-resize';
+          }}
+          style={{ width:5, flexShrink:0, cursor:'col-resize', background:'transparent',
+            borderLeft:'0.5px solid rgba(60,60,67,0.12)', transition:'background .15s' }}
+          onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.08)'}
+          onMouseLeave={e => e.currentTarget.style.background='transparent'}
+        />
+
         {/* Timetable */}
         <div style={{ flex:1,overflow:'auto',background:'#fff' }}>
           {/* Header */}
@@ -957,42 +1020,64 @@ function TenMinutePlanner() {
           </div>
 
           <div onMouseLeave={()=>{ isPaintingRef.current = false; }}>
-            {HOURS.map(h=>(
-              <div key={h} style={{ display:'flex',borderBottom:'0.5px solid rgba(60,60,67,0.06)' }}>
-                <div style={{ width:56,flexShrink:0,borderRight:'1.5px solid rgba(60,60,67,0.1)',
-                  display:'flex',alignItems:'center',justifyContent:'center',
-                  fontSize:12,color:'#8E8E93',fontWeight:500,
-                  background:'rgba(242,242,247,0.5)' }}>
-                  {String(h).padStart(2,'0')}:00
-                </div>
-                {Array.from({length:6},(_,s)=>{
-                  const ck = `${h}_${s}`;
-                  const ti = pData.grid[ck];
-                  const tc = ti!==undefined ? pData.tasks[ti]?.color : null;
-                  return (
-                    <div key={s}
-                      onMouseDown={()=>{ isPaintingRef.current = true; paintCell(h,s); }}
-                      onMouseEnter={()=>{ if(isPaintingRef.current) paintCell(h,s); }}
-                      onMouseUp={()=>{ isPaintingRef.current = false; }}
-                      style={{
-                        flex:1,height:34,
-                        background:tc||'transparent',
-                        borderLeft:s===0?'0.5px solid rgba(60,60,67,0.08)':'0.5px solid rgba(60,60,67,0.04)',
-                        cursor:'crosshair',transition:'background .06s',
-                        position:'relative',
+            {HOURS.map(h=>{
+              let rowTaskIdx = null, sMin = 6, sMax = -1;
+              for (let s=0; s<6; s++) {
+                const ti = pData.grid[`${h}_${s}`];
+                if (ti!==undefined && pData.tasks[ti]?.text) {
+                  if (rowTaskIdx===null) rowTaskIdx = ti;
+                  if (ti===rowTaskIdx) { sMin=Math.min(sMin,s); sMax=Math.max(sMax,s); }
+                }
+              }
+              const rowTask = rowTaskIdx!==null ? pData.tasks[rowTaskIdx] : null;
+              return (
+                <div key={h} style={{ display:'flex',borderBottom:'0.5px solid rgba(60,60,67,0.06)' }}>
+                  <div style={{ width:56,flexShrink:0,borderRight:'1.5px solid rgba(60,60,67,0.1)',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:12,color:'#8E8E93',fontWeight:500,
+                    background:'rgba(242,242,247,0.5)' }}>
+                    {String(h).padStart(2,'0')}:00
+                  </div>
+                  <div style={{ flex:1,display:'flex',position:'relative' }}>
+                    {Array.from({length:6},(_,s)=>{
+                      const ck = `${h}_${s}`;
+                      const ti = pData.grid[ck];
+                      const tc = ti!==undefined ? pData.tasks[ti]?.color : null;
+                      return (
+                        <div key={s}
+                          onMouseDown={()=>{ isPaintingRef.current = true; paintCell(h,s); }}
+                          onMouseEnter={()=>{ if(isPaintingRef.current) paintCell(h,s); }}
+                          onMouseUp={()=>{ isPaintingRef.current = false; }}
+                          style={{
+                            flex:1,height:34,
+                            background:tc||'transparent',
+                            borderLeft:s===0?'0.5px solid rgba(60,60,67,0.08)':'0.5px solid rgba(60,60,67,0.04)',
+                            cursor:'crosshair',transition:'background .06s',
+                          }}
+                        />
+                      );
+                    })}
+                    {rowTask && (
+                      <div style={{
+                        position:'absolute',
+                        left:`${sMin/6*100}%`,
+                        right:`${(6-sMax-1)/6*100}%`,
+                        top:0,bottom:0,
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        pointerEvents:'none',
                       }}>
-                      {tc&&ti!==undefined&&pData.tasks[ti]?.text&&s===0&&(
-                        <div style={{
-                          position:'absolute',left:3,top:'50%',transform:'translateY(-50%)',
-                          fontSize:9,color:'rgba(255,255,255,0.85)',fontWeight:600,
-                          pointerEvents:'none',whiteSpace:'nowrap',overflow:'hidden',maxWidth:80,
-                        }}>{pData.tasks[ti].text}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                        <span style={{
+                          fontSize:13,fontWeight:600,
+                          color:'rgba(255,255,255,0.92)',
+                          whiteSpace:'nowrap',overflow:'hidden',maxWidth:'95%',
+                          letterSpacing:-0.2,
+                        }}>{rowTask.text}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
