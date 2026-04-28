@@ -33,6 +33,7 @@ function YearView() {
   const numLanes = highlights.length === 0 ? 0 : Math.max(0, ...Object.values(hlLanes)) + 1;
   const cellH    = DATE_H + numLanes * (BAR_H + BAR_GAP) + MAX_EVTS * (EVT_H + EVT_GAP) + 4;
 
+  const [zoom, setZoom] = React.useState(1.0);
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart]   = React.useState(null);
   const [dragEnd, setDragEnd]       = React.useState(null);
@@ -341,14 +342,29 @@ function YearView() {
 
       {/* Toolbar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', padding: '14px 16px', flexShrink: 0,
+        position: 'relative',
         background: 'rgba(255,255,255,0.72)', backdropFilter: 'saturate(180%) blur(20px)',
         WebkitBackdropFilter: 'saturate(180%) blur(20px)',
         borderBottom: '1px solid rgba(0,0,0,0.08)',
       }}>
-        <button onClick={() => store.setYear(year - 1)} style={apBtnSt}>‹</button>
-        <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: -0.8, color: '#1d1d1f' }}>{year}</span>
-        <button onClick={() => store.setYear(year + 1)} style={apBtnSt}>›</button>
+        {/* 배율 조절 — 좌측 고정 */}
+        <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+          <button onClick={() => setZoom(z => Math.max(0.4, +(z - 0.1).toFixed(1)))}
+            style={{ ...apBtnSt, width:26, height:26, fontSize:15 }}>−</button>
+          <span style={{ fontSize:11, color:'#8E8E93', minWidth:34, textAlign:'center', fontWeight:500 }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))}
+            style={{ ...apBtnSt, width:26, height:26, fontSize:15 }}>+</button>
+        </div>
+
+        <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)',
+          display:'flex', alignItems:'center', gap:10 }}>
+          <button onClick={() => store.setYear(year - 1)} style={apBtnSt}>‹</button>
+          <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: -0.8, color: '#1d1d1f' }}>{year}</span>
+          <button onClick={() => store.setYear(year + 1)} style={apBtnSt}>›</button>
+        </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: '#86868b', letterSpacing: -0.1 }}>형광펜</span>
@@ -368,7 +384,7 @@ function YearView() {
 
       {/* Year grid */}
       <div style={{ flex: 1, overflow: 'auto', background: '#f5f5f7' }}>
-        <div style={{ background: '#fff', width: '100%' }}>
+        <div style={{ background: '#fff', width: '100%', zoom: zoom }}>
           {Array.from({ length: 12 }, (_, mi) => renderMonthRow(mi))}
         </div>
       </div>

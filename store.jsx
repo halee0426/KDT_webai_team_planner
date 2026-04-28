@@ -47,23 +47,29 @@ function todayStr() {
 const STORE_KEY = 'annual_planner_v3';
 
 function loadData() {
+  const today = todayStr();
+  const year  = new Date().getFullYear();
   try {
     const s = localStorage.getItem(STORE_KEY);
     if (s) {
       const d = JSON.parse(s);
       if (!THEMES[d.theme]) d.theme = 'blue';
+      d.dayViewDate   = today;
+      d.monthViewDate = today.slice(0, 7);
+      d.year          = year;
       return d;
     }
   } catch(e) {}
   return {
-    year: 2026,
+    year,
     theme: 'blue',
     events: [],
     highlights: [],
     todos: {},
     mandala: { cells: Array(81).fill('') },
-    dayViewDate: todayStr(),
-    monthViewDate: todayStr().slice(0,7),
+    diaries: {},
+    dayViewDate:   today,
+    monthViewDate: today.slice(0, 7),
   };
 }
 
@@ -168,6 +174,13 @@ class PlannerStore {
       this.data.todos = todos;
       this._save();
     }
+  }
+
+  // Diary
+  setDiary(date, text) {
+    const diaries = { ...this.data.diaries, [date]: text };
+    this.data.diaries = diaries;
+    this._save();
   }
 
   // Mandala

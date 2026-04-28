@@ -77,7 +77,7 @@ function MonthView() {
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#F2F2F7' }}>
       {/* Header */}
       <div style={{
-        display:'flex', alignItems:'center', gap:12, padding:'14px 24px',
+        display:'flex', alignItems:'center', justifyContent:'center', gap:12, padding:'14px 24px',
         background:'rgba(255,255,255,0.72)',
         backdropFilter:'saturate(180%) blur(20px)',
         WebkitBackdropFilter:'saturate(180%) blur(20px)',
@@ -328,7 +328,7 @@ function DayView() {
 
       {/* ── Header ── */}
       <div style={{
-        display:'flex', alignItems:'center', gap:12, padding:'14px 24px',
+        display:'flex', alignItems:'center', justifyContent:'center', gap:12, padding:'14px 24px',
         background:'rgba(255,255,255,0.72)',
         backdropFilter:'saturate(180%) blur(20px)',
         WebkitBackdropFilter:'saturate(180%) blur(20px)',
@@ -1085,4 +1085,344 @@ function TenMinutePlanner() {
   );
 }
 
-Object.assign(window, { MonthView, DayView, ChecklistView, ChecklistPanel, MandalaView, TenMinutePlanner });
+// ─── WeekView ──────────────────────────────────────────────────
+function WeekView() {
+  const SLOT_H = 52;
+  const TIME_W = 48;
+
+  const data  = useStore();
+  const theme = THEMES[data.theme] || THEMES.blue;
+  const today = todayStr();
+
+  const getMonday = d => {
+    const dt = parseDate(d);
+    const diff = dt.getDay() === 0 ? -6 : 1 - dt.getDay();
+    dt.setDate(dt.getDate() + diff);
+    return fmtDate(dt);
+  };
+
+  const [weekStart, setWeekStart] = React.useState(() => getMonday(store.data.dayViewDate || todayStr()));
+
+  // 일력에서 날짜 변경 시 해당 주로 이동
+  React.useEffect(() => {
+    if (data.dayViewDate) setWeekStart(getMonday(data.dayViewDate));
+  }, [data.dayViewDate]);
+
+  const weekDays = Array.from({length:7}, (_, i) => {
+    const d = parseDate(weekStart);
+    d.setDate(d.getDate() + i);
+    return fmtDate(d);
+  });
+
+  const goWeek = delta => {
+    const d = parseDate(weekStart);
+    d.setDate(d.getDate() + delta * 7);
+    setWeekStart(fmtDate(d));
+  };
+
+  const timeToH = t => {
+    if (!t) return 0;
+    const [h, m] = t.split(':').map(Number);
+    return h + m / 60;
+  };
+
+  const startD = parseDate(weekStart);
+  const endD   = parseDate(weekDays[6]);
+  const sameMonth = startD.getMonth() === endD.getMonth();
+  const weekLabel = sameMonth
+    ? `${startD.getFullYear()}년 ${startD.toLocaleDateString('ko-KR',{month:'long'})} ${startD.getDate()}–${endD.getDate()}일`
+    : `${startD.toLocaleDateString('ko-KR',{month:'long',day:'numeric'})} – ${endD.toLocaleDateString('ko-KR',{month:'long',day:'numeric'})}`;
+
+  const DOW_KO = ['월','화','수','목','금','토','일'];
+  const gridH  = 24 * SLOT_H;
+
+  const hasAllDay = weekDays.some(d => {
+    const evts = data.events.filter(e => e.date === d && !e.startTime && !e.time);
+    const hls  = (data.highlights||[]).filter(h => d >= h.startDate && d <= h.endDate);
+    return evts.length > 0 || hls.length > 0;
+  });
+
+  const goDay = d => { store.setDayViewDate(d); window.__switchTab && window.__switchTab('day'); };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#F2F2F7' }}>
+
+      {/* ── Header ── */}
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'center', gap:12, padding:'14px 24px',
+        background:'rgba(255,255,255,0.72)',
+        backdropFilter:'saturate(180%) blur(20px)',
+        WebkitBackdropFilter:'saturate(180%) blur(20px)',
+        borderBottom:'0.5px solid rgba(60,60,67,0.12)', flexShrink:0,
+      }}>
+        <button onClick={() => goWeek(-1)} style={apNavBtn}>‹</button>
+        <div style={{ minWidth:280, textAlign:'center' }}>
+          <div style={{ fontWeight:700, fontSize:17, letterSpacing:-0.3, color:'#1C1C1E' }}>{weekLabel}</div>
+        </div>
+        <button onClick={() => goWeek(1)} style={apNavBtn}>›</button>
+        <button onClick={() => setWeekStart(getMonday(todayStr()))} style={{
+          marginLeft:6, padding:'6px 14px',
+          border:'0.5px solid rgba(60,60,67,0.18)', borderRadius:10,
+          background:'rgba(0,0,0,0.04)', cursor:'pointer',
+          fontSize:13, fontWeight:500, color:'#3C3C43', fontFamily:'inherit',
+        }}>오늘</button>
+      </div>
+
+      {/* ── 그리드 ── */}
+      <div style={{ flex:1, overflow:'auto', background:'#fff', display:'flex', flexDirection:'column' }}>
+
+        {/* 요일 헤더 — sticky */}
+        <div style={{
+          display:'flex', position:'sticky', top:0, zIndex:10, flexShrink:0,
+          background:'rgba(255,255,255,0.95)', backdropFilter:'blur(10px)',
+          borderBottom:'0.5px solid rgba(60,60,67,0.12)',
+        }}>
+          <div style={{ width:TIME_W, flexShrink:0 }} />
+          {weekDays.map((d, i) => {
+            const dt   = parseDate(d);
+            const isT  = d === today;
+            const isSat = i === 5;
+            const isSun = i === 6;
+            const textColor = isSun ? '#FF3B30' : isSat ? '#007AFF' : '#1C1C1E';
+            const mutedColor = isSun ? '#FF3B30' : isSat ? '#007AFF' : '#8E8E93';
+            return (
+              <div key={d} onClick={() => goDay(d)}
+                style={{ flex:1, textAlign:'center', padding:'10px 0 8px',
+                  cursor:'pointer', borderLeft:'0.5px solid rgba(60,60,67,0.08)',
+                  transition:'background .1s' }}
+                onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.03)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                <div style={{ fontSize:11, fontWeight:500, color:mutedColor, marginBottom:4 }}>{DOW_KO[i]}</div>
+                {isT
+                  ? <div style={{ width:28, height:28, borderRadius:'50%', background:theme.primary,
+                      color:'#fff', fontSize:15, fontWeight:700,
+                      display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{dt.getDate()}</div>
+                  : <div style={{ fontSize:15, fontWeight:500, color:textColor }}>{dt.getDate()}</div>
+                }
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 종일 행 */}
+        {hasAllDay && (
+          <div style={{ display:'flex', borderBottom:'0.5px solid rgba(60,60,67,0.1)',
+            background:'rgba(242,242,247,0.5)', flexShrink:0 }}>
+            <div style={{ width:TIME_W, flexShrink:0, fontSize:10, color:'#8E8E93',
+              textAlign:'right', paddingRight:6, paddingTop:6 }}>종일</div>
+            {weekDays.map(d => {
+              const evts = data.events.filter(e => e.date === d && !e.startTime && !e.time);
+              const hls  = (data.highlights||[]).filter(h => d >= h.startDate && d <= h.endDate);
+              return (
+                <div key={d} style={{ flex:1, padding:'3px 2px', borderLeft:'0.5px solid rgba(60,60,67,0.08)',
+                  display:'flex', flexDirection:'column', gap:2, minHeight:26 }}>
+                  {hls.map(h => (
+                    <div key={h.id} style={{ background:h.color, borderRadius:4,
+                      padding:'1px 5px', fontSize:10, fontWeight:600, color:'rgba(0,0,0,0.65)',
+                      overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                      {h.label||''}
+                    </div>
+                  ))}
+                  {evts.map(ev => (
+                    <div key={ev.id} style={{ background:(ev.color||theme.primary)+'CC',
+                      borderRadius:4, padding:'1px 5px', fontSize:10, fontWeight:600, color:'#fff',
+                      overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                      {ev.title}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 시간 그리드 */}
+        <div style={{ display:'flex', flex:1, position:'relative', minHeight:gridH }}>
+
+          {/* 시간 레이블 */}
+          <div style={{ width:TIME_W, flexShrink:0, position:'relative', height:gridH }}>
+            {Array.from({length:24}, (_, h) => (
+              <div key={h} style={{
+                position:'absolute', top: h*SLOT_H + SLOT_H/2,
+                transform:'translateY(-50%)',
+                right:6, fontSize:10, color:'#8E8E93', fontWeight:500,
+                textAlign:'right', lineHeight:1, userSelect:'none',
+              }}>
+                {h === 0 ? '' : `${String(h).padStart(2,'0')}:00`}
+              </div>
+            ))}
+          </div>
+
+          {/* 요일별 컬럼 */}
+          {weekDays.map((d, di) => {
+            const timedEvts = data.events.filter(e => e.date === d && (e.startTime || e.time));
+            const isT = d === today;
+            return (
+              <div key={d} style={{ flex:1, position:'relative', height:gridH,
+                borderLeft:'0.5px solid rgba(60,60,67,0.08)',
+                background: isT ? theme.primary+'06' : 'transparent' }}>
+                {/* 시간선 */}
+                {Array.from({length:24}, (_, h) => (
+                  <div key={h} style={{ position:'absolute', left:0, right:0, top:h*SLOT_H,
+                    borderTop: h===0?'none':'0.5px solid rgba(60,60,67,0.07)', pointerEvents:'none' }} />
+                ))}
+                {/* 이벤트 블록 */}
+                {timedEvts.map(ev => {
+                  const startH = timeToH(ev.startTime || ev.time || '00:00');
+                  const endH   = ev.endTime ? timeToH(ev.endTime) : startH + 1;
+                  const top    = startH * SLOT_H;
+                  const height = Math.max(SLOT_H * 0.45, (endH - startH) * SLOT_H);
+                  const c      = ev.color || theme.primary;
+                  return (
+                    <div key={ev.id} onClick={() => goDay(d)} style={{
+                      position:'absolute', left:2, right:2, top, height,
+                      background:c+'22', borderLeft:`3px solid ${c}`,
+                      borderRadius:5, padding:'2px 5px', cursor:'pointer',
+                      overflow:'hidden', zIndex:2,
+                    }}>
+                      <div style={{ fontSize:10, fontWeight:600, color:c,
+                        whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{ev.title}</div>
+                      {height >= 32 && (
+                        <div style={{ fontSize:9, color:c+'AA' }}>{ev.startTime||ev.time||''}</div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* 현재 시간선 */}
+                {isT && (() => {
+                  const now = new Date();
+                  const top = (now.getHours() + now.getMinutes()/60) * SLOT_H;
+                  return (
+                    <div style={{ position:'absolute', left:0, right:0, top:top-1,
+                      height:2, background:theme.primary, zIndex:5, pointerEvents:'none' }}>
+                      <div style={{ position:'absolute', left:-3, top:-3,
+                        width:8, height:8, borderRadius:'50%', background:theme.primary }} />
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DiaryView ─────────────────────────────────────────────────
+function DiaryView() {
+  const data  = useStore();
+  const theme = THEMES[data.theme] || THEMES.blue;
+  const [dateStr, setDateStr] = React.useState(todayStr());
+  const today = todayStr();
+  const date  = parseDate(dateStr);
+
+  const text = (data.diaries || {})[dateStr] || '';
+
+  const goDay = delta => {
+    const d = parseDate(dateStr);
+    d.setDate(d.getDate() + delta);
+    setDateStr(fmtDate(d));
+  };
+
+  const entryDates = Object.keys(data.diaries || {})
+    .filter(d => (data.diaries[d] || '').trim())
+    .sort((a, b) => b.localeCompare(a));
+
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#F2F2F7' }}>
+
+      {/* ── Header ── */}
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'center', gap:12, padding:'14px 24px',
+        background:'rgba(255,255,255,0.72)',
+        backdropFilter:'saturate(180%) blur(20px)',
+        WebkitBackdropFilter:'saturate(180%) blur(20px)',
+        borderBottom:'0.5px solid rgba(60,60,67,0.12)', flexShrink:0,
+      }}>
+        <button onClick={() => goDay(-1)} style={apNavBtn}>‹</button>
+        <div style={{ minWidth:220, textAlign:'center' }}>
+          <div style={{ fontWeight:700, fontSize:19, letterSpacing:-0.3,
+            color: dateStr===today ? theme.primary : '#1C1C1E' }}>
+            {date.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })}
+          </div>
+          <div style={{ fontSize:12, color:'#8E8E93' }}>
+            {['일','월','화','수','목','금','토'][date.getDay()]}요일
+          </div>
+        </div>
+        <button onClick={() => goDay(1)} style={apNavBtn}>›</button>
+        <button onClick={() => setDateStr(today)} style={{
+          marginLeft:6, padding:'6px 14px',
+          border:'0.5px solid rgba(60,60,67,0.18)', borderRadius:10,
+          background:'rgba(0,0,0,0.04)', cursor:'pointer',
+          fontSize:13, fontWeight:500, color:'#3C3C43', fontFamily:'inherit',
+        }}>오늘</button>
+      </div>
+
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+
+        {/* ── 사이드바: 일기 목록 ── */}
+        <div style={{ width:220, borderRight:'0.5px solid rgba(60,60,67,0.12)',
+          background:'rgba(255,255,255,0.6)', flexShrink:0, overflow:'auto', padding:'12px 0' }}>
+          <div style={{ ...AP.label, padding:'0 16px', marginBottom:6 }}>일기 목록</div>
+          {entryDates.length === 0 ? (
+            <div style={{ textAlign:'center', color:'#C7C7CC', fontSize:13, padding:'24px 16px' }}>
+              아직 일기가 없어요
+            </div>
+          ) : entryDates.map(d => {
+            const sel     = d === dateStr;
+            const preview = (data.diaries[d] || '').split('\n')[0].slice(0, 28);
+            const dd      = parseDate(d);
+            return (
+              <div key={d} onClick={() => setDateStr(d)} style={{
+                padding:'10px 16px', cursor:'pointer',
+                background: sel ? theme.primary + '15' : 'transparent',
+                borderLeft: sel ? `3px solid ${theme.primary}` : '3px solid transparent',
+                transition:'background .1s',
+              }}>
+                <div style={{ fontSize:13, fontWeight:600, letterSpacing:-0.2,
+                  color: sel ? theme.primary : '#1C1C1E',
+                  display:'flex', alignItems:'center', gap:5 }}>
+                  {dd.toLocaleDateString('ko-KR', { month:'long', day:'numeric' })}
+                  {d === today && (
+                    <span style={{ fontSize:9, fontWeight:700, color:theme.primary,
+                      background:theme.primary+'20', borderRadius:4, padding:'1px 5px' }}>오늘</span>
+                  )}
+                </div>
+                <div style={{ fontSize:11, color:'#8E8E93', marginTop:2,
+                  overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                  {preview || '...'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── 본문 작성 영역 ── */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden',
+          padding:'32px 48px 20px' }}>
+          <textarea
+            value={text}
+            onChange={e => store.setDiary(dateStr, e.target.value)}
+            placeholder="오늘 하루를 기록해보세요..."
+            style={{
+              flex:1, width:'100%', border:'none', outline:'none',
+              background:'transparent', resize:'none',
+              fontFamily:'inherit', fontSize:16, lineHeight:1.9,
+              color:'#1C1C1E', letterSpacing:-0.2,
+            }}
+          />
+          <div style={{ textAlign:'right', fontSize:11, color:'#C7C7CC',
+            paddingTop:10, flexShrink:0, borderTop:'0.5px solid rgba(60,60,67,0.08)' }}>
+            {text.length}자 · {wordCount}단어
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { MonthView, DayView, ChecklistView, ChecklistPanel, MandalaView, TenMinutePlanner, WeekView, DiaryView });
