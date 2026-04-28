@@ -196,7 +196,8 @@ const TABS = [
 function App() {
   const data  = useStore();
   const theme = THEMES[data.theme] || THEMES.blue;
-  const [tab, setTab] = React.useState('year');
+  const [tab, setTab]             = React.useState('year');
+  const [showSettings, setShowSettings] = React.useState(false);
 
   React.useEffect(() => {
     window.__switchTab = (t) => setTab(t);
@@ -205,7 +206,6 @@ function App() {
 
   const now = new Date();
 
-  /* Active tab pill style — DO: Action Blue fill, white text */
   const activeTabStyle = {
     background: theme.primary,
     color: '#ffffff',
@@ -218,25 +218,17 @@ function App() {
       {/* ─── Global Nav ────────────────────────────────────── */}
       <header className="ap-global-nav">
         <span className="ap-global-nav__logo">플래너</span>
-
         <div className="ap-global-nav__actions">
-          {/* DO: single accent color per surface.
-              Theme dots live in nav (utility area) — compact 14px circles */}
-          {Object.entries(THEMES).map(([key, t]) => (
-            <button
-              key={key}
-              className="ap-theme-dot"
-              title={t.name}
-              onClick={() => store.setTheme(key)}
-              style={{
-                background: t.primary,
-                boxShadow: data.theme === key
-                  ? `0 0 0 2px rgba(255,255,255,0.9), 0 0 0 3.5px ${t.primary}`
-                  : '0 1px 2px rgba(0,0,0,0.4)',
-                transform: data.theme === key ? 'scale(1.2)' : 'scale(1)',
-              }}
-            />
-          ))}
+          <button onClick={() => setShowSettings(true)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#ffffff', fontSize: 18, lineHeight: 1,
+            padding: '4px 6px', borderRadius: 8,
+            opacity: 0.85, transition: 'opacity .15s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '0.85'}
+            title="설정"
+          >⚙</button>
         </div>
       </header>
 
@@ -255,8 +247,6 @@ function App() {
             </button>
           );
         })}
-
-        {/* Date chip — right-aligned, utility info */}
         <div className="ap-date-chip">
           <div className="ap-date-chip__day">
             {now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
@@ -276,6 +266,62 @@ function App() {
         <div className={'ap-pane' + (tab === 'tenmin'    ? ' active' : '')}><TenMinutePlanner /></div>
         <div className={'ap-pane' + (tab === 'diary'     ? ' active' : '')}><DiaryView /></div>
       </main>
+
+      {/* ─── 설정 패널 ─────────────────────────────────────── */}
+      {showSettings && (
+        <>
+          <div onClick={() => setShowSettings(false)} style={{
+            position:'fixed', inset:0, zIndex:300,
+            background:'rgba(0,0,0,0.18)', backdropFilter:'blur(2px)',
+          }} />
+          <div style={{
+            position:'fixed', top:0, right:0, bottom:0, width:300,
+            background:'#ffffff', zIndex:301,
+            boxShadow:'-8px 0 32px rgba(0,0,0,0.12)',
+            display:'flex', flexDirection:'column',
+          }}>
+            {/* 패널 헤더 */}
+            <div style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'18px 20px', borderBottom:'0.5px solid rgba(60,60,67,0.12)',
+            }}>
+              <span style={{ fontWeight:700, fontSize:17, letterSpacing:-0.3, color:'#1C1C1E' }}>설정</span>
+              <button onClick={() => setShowSettings(false)} style={{
+                background:'rgba(0,0,0,0.06)', border:'none', cursor:'pointer',
+                width:28, height:28, borderRadius:'50%',
+                fontSize:16, color:'#3C3C43', lineHeight:1,
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>×</button>
+            </div>
+
+            {/* 색상 테마 */}
+            <div style={{ padding:'20px', overflowY:'auto', flex:1 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#8E8E93', letterSpacing:0.5,
+                textTransform:'uppercase', marginBottom:14 }}>색상 테마</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10 }}>
+                {Object.entries(THEMES).map(([key, t]) => {
+                  const sel = data.theme === key;
+                  return (
+                    <button key={key} onClick={() => store.setTheme(key)} style={{
+                      padding:'12px 8px', borderRadius:14, border:'none', cursor:'pointer',
+                      background: sel ? t.primary+'18' : 'rgba(0,0,0,0.04)',
+                      outline: sel ? `2px solid ${t.primary}` : '2px solid transparent',
+                      outlineOffset: 0,
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:7,
+                      transition:'all .15s',
+                    }}>
+                      <div style={{ width:26, height:26, borderRadius:'50%', background:t.primary,
+                        boxShadow: sel ? `0 0 0 3px ${t.primary}30` : 'none' }} />
+                      <span style={{ fontSize:11, fontWeight: sel ? 600 : 400,
+                        color: sel ? t.primary : '#3C3C43', letterSpacing:-0.1 }}>{t.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

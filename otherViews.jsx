@@ -908,7 +908,6 @@ function TenMinutePlanner() {
             border:'0.5px solid rgba(60,60,67,0.18)',borderRadius:10,
             background:'rgba(0,0,0,0.04)',cursor:'pointer',fontSize:12,fontWeight:500,color:'#3C3C43',fontFamily:'inherit' }}>오늘</button>
           <div style={{ marginLeft:'auto',display:'flex',alignItems:'center',gap:8 }}>
-            <span style={{ fontSize:11,color:'#8E8E93' }}>TO-DO</span>
             <input value={pData.todo} onChange={e=>update({todo:e.target.value})}
               placeholder="오늘의 핵심 목표..."
               style={{ width:240,border:'none',borderBottom:'0.5px solid rgba(60,60,67,0.25)',
@@ -918,7 +917,6 @@ function TenMinutePlanner() {
         <div style={{ display:'flex',gap:20,alignItems:'center' }}>
           {[['COMMENT','comment',320],['TOTAL TIME','totalTime',120]].map(([lbl,k,w])=>(
             <div key={k} style={{ display:'flex',alignItems:'center',gap:7 }}>
-              <span style={{ fontSize:9,fontWeight:700,color:'#8E8E93',letterSpacing:1,textTransform:'uppercase',whiteSpace:'nowrap' }}>{lbl}</span>
               <input value={pData[k]} onChange={e=>update({[k]:e.target.value})}
                 style={{ width:w,border:'none',borderBottom:'0.5px solid rgba(60,60,67,0.2)',
                   padding:'2px 4px',fontSize:13,outline:'none',fontFamily:'inherit',background:'transparent',color:'#1C1C1E' }}/>
