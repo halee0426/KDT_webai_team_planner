@@ -42,11 +42,13 @@ export const useAIStore = create<AIStore>((set) => ({
 
     set({ insightLoading: true, insightError: null });
     try {
-      const data = await callAI<{}, unknown>('insight', {});
+      const data = await callAI<Record<string, never>, unknown>('insight', {});
       const parsed = InsightSchema.parse(data);
       localStorage.setItem(INSIGHT_CACHE_KEY, JSON.stringify(parsed));
       set({ insight: parsed, insightLoading: false });
     } catch (e) {
+      // AI 미연결 상태에서도 앱은 정상 동작 — 조용히 폴백
+      console.warn('인사이트 호출 실패 (AI 미연결 가능):', e);
       set({
         insightError: e instanceof Error ? e.message : 'AI 호출 실패',
         insightLoading: false,
