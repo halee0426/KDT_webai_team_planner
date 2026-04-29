@@ -6,6 +6,7 @@ import { watchAuthState, toUser } from '@/lib/firebase/auth';
 import { fetchUserProfile, upsertUserProfile } from '@/lib/firebase/sync';
 import { isFirebaseConfigured } from '@/lib/firebase/client';
 import { useUserStore } from '@/store/userStore';
+import { useEventStore } from '@/store/eventStore';
 
 export function useAuthSubscription() {
   useEffect(() => {
@@ -27,6 +28,9 @@ export function useAuthSubscription() {
           await upsertUserProfile(profile);
         }
         useUserStore.setState({ user: profile, loading: false });
+
+        // 게스트 로컬 데이터 → Firestore 머지 (todos·만다라트·일기)
+        useEventStore.getState().mergeOnLogin(fbUser.uid).catch(console.error);
       } catch (e) {
         console.error('사용자 프로필 로드 실패:', e);
         useUserStore.setState({ user: null, loading: false });

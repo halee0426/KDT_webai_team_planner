@@ -5,8 +5,13 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Event, Highlight, Todo, Diary } from '@/types/event';
-import type { MandalaCell } from '@/types/mandala';
+import type { MandalaCell, Mandala } from '@/types/mandala';
 import { EMPTY_MANDALA } from '@/types/mandala';
+import { isFirebaseConfigured } from '@/lib/firebase/client';
+import {
+  fetchEvents, fetchTodos, fetchHighlights,
+  fetchMandala, fetchDiaries, bulkUpload,
+} from '@/lib/firebase/sync';
 
 type State = {
   events: Event[];
@@ -142,21 +147,72 @@ export const useEventStore = create<State & Actions>()(
         diaries: { ...s.diaries, [date]: { date, text, mood, updatedAt: Date.now() } },
       })),
 
-      // ── Firestore 동기화 (D 담당) ───────────────────
+      // ── Firestore 동기화 ──────────────────────────────
       syncFromFirestore: async (uid) => {
-        // TODO: lib/firebase/sync.ts에서 users/{uid}/* 전체 읽어와 set
-        void uid;
+        if (!isFirebaseConfigured) return;
+        const [events, todos, highlights, mandala, diaries] = await Promise.all([
+          fetchEvents(uid),
+          fetchTodos(uid),
+          fetchHighlights(uid),
+          fetchMandala(uid),
+          fetchDiaries(uid),
+        ]);
+        set({
+          events,
+          todos,
+          highlights,
+          mandala: mandala ?? { id: 'default', cells: EMPTY_MANDALA() },
+          diaries,
+        });
       },
+
       syncToFirestore: async (uid) => {
-        // TODO: 현재 state를 Firestore에 업서트
-        void uid;
+        if (!isFirebaseConfigured) return;
+        const s = get();
+        await bulkUpload(uid, {
+          events: s.events,
+          todos: s.todos,
+          highlights: s.highlights,
+          mandala: s.mandala as Mandala,
+          diaries: s.diaries,
+        });
       },
+
+      // 게스트 로컬 데이터 + Firestore 원격 데이터를 로컬 우선으로 머지
       mergeOnLogin: async (uid) => {
-        // 1. 로컬 state 백업
-        // 2. Firestore에서 읽어옴
-        // 3. 로컬 데이터 우선 충돌 해결
-        // 4. 결과를 다시 Firestore에 업서트
-        void uid;
+        if (!isFirebaseConfigured) return;
+        const local = get();
+
+        const [remoteEvents, remoteTodos, remoteHighlights, remoteMandala, remoteDiaries] =
+          await Promise.all([
+            fetchEvents(uid),
+            fetchTodos(uid),
+            fetchHighlights(uid),
+            fetchMandala(uid),
+            fetchDiaries(uid),
+          ]);
+
+        const localEventIds = new Set(local.events.map((e) => e.id));
+        const localHlIds   = new Set(local.highlights.map((h) => h.id));
+
+        const merged = {
+          events: [
+            ...local.events,
+            ...remoteEvents.filter((e) => !localEventIds.has(e.id)),
+          ],
+          highlights: [
+            ...local.highlights,
+            ...remoteHighlights.filter((h) => !localHlIds.has(h.id)),
+          ],
+          todos: { ...remoteTodos, ...local.todos },
+          mandala: local.mandala.cells.some((c) => c !== '')
+            ? (local.mandala as Mandala)
+            : (remoteMandala ?? (local.mandala as Mandala)),
+          diaries: { ...remoteDiaries, ...local.diaries },
+        };
+
+        set(merged);
+        await bulkUpload(uid, merged);
       },
     }),
     {

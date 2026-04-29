@@ -7,7 +7,9 @@ import {
   User as UserIcon, Users as UsersIcon,
 } from "lucide-react";
 import { accents, AccentKey } from "@/components/tokens";
-import { initialSharedEvents, SharedEvent } from "@/components/eventStore";
+import { SharedEvent } from "@/components/eventStore";
+import { useAuthSubscription } from "@/hooks/useAuth";
+import { useSharedEventsFirebase } from "@/hooks/useSharedEventsFirebase";
 import { DayView } from "@/components/DayView";
 import { MonthView } from "@/components/MonthView";
 import { YearView } from "@/components/YearView";
@@ -26,6 +28,9 @@ type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary"
 type Stage = "splash" | "select" | "app";
 
 export default function App() {
+  // Firebase 인증 상태 구독 (로그인/로그아웃 감지 + Firestore 머지)
+  useAuthSubscription();
+
   const [theme, setTheme] = useState<Theme>("light");
   const [accentKey, setAccentKey] = useState<AccentKey>("blue");
   const [screen, setScreen] = useState<Screen>("day");
@@ -34,7 +39,9 @@ export default function App() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("splash");
   const [planKind, setPlanKind] = useState<"my" | "shared">("my");
-  const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+
+  // 연력·달력·일력 공유 데이터 — Firebase 자동 동기화
+  const [sharedEvents, setSharedEvents] = useSharedEventsFirebase();
 
   const isDark = useMemo(() => {
     if (theme === "dark") return true;
