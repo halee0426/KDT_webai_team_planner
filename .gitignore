@@ -40,6 +40,9 @@ desktop.ini
 # Vite/Vitest
 .vite/
 vite.config.ts.timestamp-*
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # Local scratch files
 *.tmp

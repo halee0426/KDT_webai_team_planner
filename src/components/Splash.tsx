@@ -19,7 +19,7 @@ export function Splash({ onDone, accent = "#0066cc" }: { onDone: () => void; acc
       style={{ background: "#000", opacity: phase === "out" ? 0 : 1 }}
     >
       <div
-        className="flex flex-col items-center gap-3 transition-all duration-700"
+        className="flex flex-col items-center gap-4 transition-all duration-700"
         style={{
           transform: phase === "in" ? "scale(1)" : "scale(1.05)",
           opacity: phase === "in" ? 1 : 0,
@@ -28,10 +28,10 @@ export function Splash({ onDone, accent = "#0066cc" }: { onDone: () => void; acc
         <div className="flex items-center justify-center" style={{ filter: `drop-shadow(0 12px 30px ${accent}66)` }}>
           <LogoMark size={84} accent={accent} rounded={22} />
         </div>
-        <div style={{ color: "#fff", fontSize: 32, fontWeight: 700, letterSpacing: "-0.5px" }}>
+        <div style={{ color: "#fff", fontSize: 40, fontWeight: 700, letterSpacing: "-0.7px" }}>
           하루온
         </div>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, letterSpacing: "-0.224px" }}>
+        <div style={{ color: "rgba(255,255,255,0.68)", fontSize: 18, letterSpacing: "-0.28px" }}>
           켜지는 하루, 채워지는 시간
         </div>
       </div>

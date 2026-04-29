@@ -178,4 +178,50 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(170, 180, 200, 0.55) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(210, 220, 235, 0.78) 0%,
+      rgba(150, 165, 190, 0.5) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    border-radius: 999px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 0 0 1px rgba(120, 130, 150, 0.08);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(224, 232, 243, 0.9) 0%,
+      rgba(164, 178, 204, 0.68) 100%
+    );
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

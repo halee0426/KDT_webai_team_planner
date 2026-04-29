@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
@@ -24,6 +24,17 @@ export function MonthView({
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [editingPlan, setEditingPlan] = useState<{ id: number; start: number; end: number; color: string; label: string } | null>(null);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const first = new Date(year, month, 1).getDay();
@@ -151,7 +162,7 @@ export function MonthView({
   }
 
   return (
-    <div className="px-4 pt-4 pb-32">
+    <div className={isDesktop ? "px-3 pt-2 pb-8" : "px-4 pt-4 pb-32"}>
       <div className="flex items-center justify-between px-1">
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>
           {year}년 {month + 1}월
@@ -174,7 +185,7 @@ export function MonthView({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 mt-4 mb-2">
+      <div className={`grid grid-cols-7 ${isDesktop ? "mt-3 mb-1" : "mt-4 mb-2"}`}>
         {wd.map((d, i) => (
           <div
             key={d}
@@ -192,12 +203,13 @@ export function MonthView({
       </div>
 
       <div
-        className="grid grid-cols-7 overflow-hidden rounded-2xl"
+        className={`grid grid-cols-7 overflow-hidden ${isDesktop ? "rounded-3xl" : "rounded-2xl"}`}
         style={{
           border: "0.5px solid var(--hairline)",
           background: "var(--bg-elevated)",
           touchAction: "none",
           userSelect: "none",
+          gridAutoRows: isDesktop ? "minmax(92px, 1fr)" : undefined,
         }}
         onPointerDown={onGridDown}
         onPointerMove={onGridMove}
@@ -211,21 +223,25 @@ export function MonthView({
           const tint = d ? tintOf(d) : undefined;
           const row = Math.floor(i / 7);
           const dots = d ? dotsFor(d) : 0;
+          const planStarts = d ? plans.filter((p) => p.start === d) : [];
+          const timedDayItems = d ? timedEvents.filter((e) => e.startDay === d) : [];
+          const inlineItemCount = planStarts.length + timedDayItems.length;
           return (
             <div
               key={i}
               data-day={d ?? undefined}
-              className="relative aspect-[1/1.15] flex flex-col items-center justify-start py-1"
+              className={`relative flex flex-col justify-start ${isDesktop ? "px-2 py-2" : "aspect-[1/1.15] items-center py-1"}`}
               style={{
                 background: tint,
                 borderLeft: dow === 0 ? "none" : "0.5px solid var(--hairline)",
                 borderTop: row === 0 ? "none" : "0.5px solid var(--hairline)",
+                minHeight: isDesktop ? 92 : undefined,
               }}
             >
               {d && (
                 <>
                   <div
-                    className="w-7 h-7 flex items-center justify-center rounded-full"
+                    className={`${isDesktop ? "w-6 h-6" : "w-7 h-7"} flex items-center justify-center rounded-full`}
                     style={{
                       background: isToday ? accent : "transparent",
                       border: isSelected && !isToday ? `1.5px solid ${accent}` : "none",
@@ -233,7 +249,7 @@ export function MonthView({
                   >
                     <span
                       style={{
-                        fontSize: 15,
+                        fontSize: isDesktop ? 14 : 15,
                         fontWeight: 500,
                         color: isToday
                           ? "#fff"
@@ -247,13 +263,52 @@ export function MonthView({
                       {d}
                     </span>
                   </div>
-                  {/* Show dots for timed events */}
-                  {dots > 0 && (
-                    <div className="flex gap-[2px] mt-1">
-                      {Array.from({ length: Math.min(dots, 3) }).map((_, j) => (
-                        <div key={j} className="w-1 h-1 rounded-full" style={{ background: accent }} />
+                  {isDesktop ? (
+                    <div className="mt-1.5 space-y-1 min-h-0">
+                      {planStarts.slice(0, 3).map((plan) => (
+                        <div
+                          key={`plan-${plan.id}`}
+                          className="truncate rounded-md px-2 py-[3px]"
+                          style={{
+                            background: plan.color,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                            color: "rgba(29,29,31,0.82)",
+                          }}
+                        >
+                          {plan.label || "새 플랜"}
+                        </div>
                       ))}
+                      {timedDayItems.slice(0, 3 - Math.min(planStarts.length, 3)).map((event) => (
+                        <div
+                          key={`event-${event.id}`}
+                          className="truncate rounded-md px-2 py-[3px]"
+                          style={{
+                            background: `${event.color || accent}22`,
+                            borderLeft: `2px solid ${event.color || accent}`,
+                            fontSize: 11,
+                            lineHeight: 1.2,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+                      {inlineItemCount > 3 && (
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", paddingLeft: 2 }}>
+                          +{inlineItemCount - 3}
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    dots > 0 && (
+                      <div className="flex gap-[2px] mt-1">
+                        {Array.from({ length: Math.min(dots, 3) }).map((_, j) => (
+                          <div key={j} className="w-1 h-1 rounded-full" style={{ background: accent }} />
+                        ))}
+                      </div>
+                    )
                   )}
                 </>
               )}
@@ -263,7 +318,7 @@ export function MonthView({
       </div>
 
       {/* Plan tags */}
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      {!isDesktop && <div className="mt-3 flex flex-wrap gap-1.5">
         {plans.map((p) => (
           <button
             key={p.id}
@@ -277,10 +332,10 @@ export function MonthView({
         <span style={{ fontSize: 11, color: "var(--text-muted)" }} className="self-center">
           드래그=추가 · 역드래그=삭제 · 탭=편집
         </span>
-      </div>
+      </div>}
 
       {/* Selected day detail panel */}
-      <div
+      {!isDesktop && <div
         className="mt-6 rounded-t-3xl pt-3 pb-2"
         style={{ background: "var(--bg-secondary)", margin: "0 -16px" }}
       >
@@ -309,7 +364,7 @@ export function MonthView({
             ))
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Add plan sheet */}
       {sheet && (
