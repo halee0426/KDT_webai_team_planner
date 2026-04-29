@@ -5,7 +5,7 @@
 //   onSelect: (kind: "my" | "shared") => void
 
 import { useMemo } from "react";
-import { LogoMark } from "./Logo";
+import { LogoLockup } from "./Logo";
 
 type PlanKind = "my" | "shared";
 
@@ -20,7 +20,9 @@ export type PlanSelectProps = {
     teamWeekShared?: number;
   };
   onSelect: (kind: PlanKind) => void;
+  /** @deprecated — 더 이상 사용하지 않지만 App.tsx 호환을 위해 유지 */
   onOpenSettings?: () => void;
+  /** @deprecated */
   onOpenHelp?: () => void;
 };
 
@@ -30,8 +32,6 @@ export function PlanSelect({
   recentPlanKind = "my",
   stats,
   onSelect,
-  onOpenSettings,
-  onOpenHelp,
 }: PlanSelectProps) {
   // accent 색상의 10% 톤 (배경) — RGB 변환 후 alpha 합성 대신 hex+1A 사용
   const accentSoft = `${accent}1A`;     // ~10% alpha
@@ -48,34 +48,32 @@ export function PlanSelect({
       className="absolute inset-0 z-[70] flex flex-col"
       style={{
         background: "var(--bg-secondary)",
-        padding: "max(env(safe-area-inset-top), 24px) 24px max(env(safe-area-inset-bottom), 32px)",
+        // 메인 앱 헤더와 동일하게: 위는 safe-area + 헤더 영역만큼, 좌우 20px
+        paddingTop: "env(safe-area-inset-top, 0)",
+        paddingLeft: 20,
+        paddingRight: 20,
+        paddingBottom: "max(env(safe-area-inset-bottom), 24px)",
         boxSizing: "border-box",
       }}
     >
-      {/* 상단 미니 헤더 */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <LogoMark size={28} accent={accent} />
-          <div
-            style={{
-              fontFamily: "'Baloo 2', system-ui, sans-serif",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.5px",
-              lineHeight: 1,
-            }}
-          >
-            Haru<span style={{ color: accent }}>:</span>on
-          </div>
-        </div>
+      {/* 상단 미니 헤더 — 메인 앱과 동일한 72px 높이, 동일한 LogoLockup */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 72,
+          flexShrink: 0,
+        }}
+      >
+        <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
         <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
           {dateLabel}
         </div>
       </div>
 
       {/* 인사 헤딩 */}
-      <div style={{ marginTop: 36 }}>
+      <div style={{ marginTop: 24 }}>
         <div style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "-0.2px" }}>
           {userName ? `안녕하세요, ${userName}님 👋` : "안녕하세요 👋"}
         </div>
@@ -98,7 +96,7 @@ export function PlanSelect({
       </div>
 
       {/* 카드 두 장 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 36 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 28 }}>
         <BigPlanCard
           kind="my"
           accent={accent}
@@ -117,22 +115,11 @@ export function PlanSelect({
           stats={stats}
           onClick={() => onSelect("shared")}
         />
+
+        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
+        <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
       </div>
 
-      {/* 하단 보조 */}
-      <div
-        style={{
-          marginTop: "auto",
-          paddingTop: 24,
-          display: "flex",
-          gap: 16,
-          justifyContent: "center",
-        }}
-      >
-        <FooterLink label="설정" onClick={onOpenSettings} />
-        <span style={{ fontSize: 12, color: "var(--line-strong, #D8D8DC)" }}>·</span>
-        <FooterLink label="도움말" onClick={onOpenHelp} />
-      </div>
     </div>
   );
 }
@@ -262,6 +249,103 @@ function BigPlanCard({
   );
 }
 
+function HarubotRecommendCard({
+  accent,
+  stats,
+  onClick,
+}: {
+  accent: string;
+  stats?: PlanSelectProps["stats"];
+  onClick: () => void;
+}) {
+  // todos 기반 메시지 (어제 못 끝낸 할일 N개 → 메시지)
+  const todayCount = stats?.todayCount ?? 0;
+  const message =
+    todayCount > 0
+      ? `오늘 일정 ${todayCount}개,\n오전에 정리해볼까요?`
+      : `오늘은 일정이 가벼워요.\n새로운 계획을 세워볼까요?`;
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        padding: "20px",
+        borderRadius: 20,
+        background: `linear-gradient(135deg, ${accent} 0%, ${accent}E0 100%)`,
+        border: "none",
+        boxShadow: `0 8px 24px ${accent}33`,
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: "inherit",
+        color: "#fff",
+      }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 16,
+          background: "rgba(255,255,255,0.22)",
+          display: "grid",
+          placeItems: "center",
+          flexShrink: 0,
+        }}
+      >
+        {/* 우리 LogoMark의 작은 흰색 버전 */}
+        <SunIconWhite size={28} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "-0.1px",
+            opacity: 0.9,
+            marginBottom: 4,
+          }}
+        >
+          ✨ 하루온봇 · 오늘의 추천
+        </div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: "-0.3px",
+            lineHeight: 1.4,
+            whiteSpace: "pre-line",
+          }}
+        >
+          {message}
+        </div>
+      </div>
+      <ChevronRight size={16} color="rgba(255,255,255,0.8)" />
+    </button>
+  );
+}
+
+/** 흰색 해 아이콘 (HarubotRecommendCard 전용) */
+function SunIconWhite({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.6" fill="#fff" />
+      <g stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
+        <path d="M16 5.5v2.5" />
+        <path d="M16 24v2.5" />
+        <path d="M5.5 16h2.5" />
+        <path d="M24 16h2.5" />
+        <path d="M8.5 8.5l1.8 1.8" />
+        <path d="M21.7 21.7l1.8 1.8" />
+        <path d="M8.5 23.5l1.8-1.8" />
+        <path d="M21.7 10.3l1.8-1.8" />
+      </g>
+    </svg>
+  );
+}
+
 function AvatarStack({ count }: { count: number }) {
   const palette = ["#FF3B30", "#FF9500", "#34C759", "#0066CC", "#AF52DE", "#5856D6"];
   const max = Math.min(count, 4);
@@ -281,26 +365,6 @@ function AvatarStack({ count }: { count: number }) {
         />
       ))}
     </div>
-  );
-}
-
-function FooterLink({ label, onClick }: { label: string; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "transparent",
-        border: 0,
-        cursor: onClick ? "pointer" : "default",
-        fontSize: 12,
-        color: "var(--text-muted)",
-        fontWeight: 500,
-        fontFamily: "inherit",
-        padding: 0,
-      }}
-    >
-      {label}
-    </button>
   );
 }
 

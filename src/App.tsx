@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Settings as SettingsIcon, Calendar, CalendarDays, Target,
-  MoreHorizontal, Sparkles, Sun, BookOpen, Clock, Grid3x3,
+  MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
   User as UserIcon, Users as UsersIcon,
 } from "lucide-react";
 import { accents, AccentKey } from "@/components/tokens";
@@ -24,7 +24,7 @@ import { DailyFlipView } from "@/components/DailyFlipView";
 import { Settings } from "@/components/Settings";
 import { Splash } from "@/components/Splash";
 import { PlanSelect } from "@/components/PlanSelect";
-import { LogoLockup } from "@/components/Logo";
+import { LogoLockup, LogoMark } from "@/components/Logo";
 import { InsightGreeting, shouldShowInsightToday } from "@/components/shared/InsightGreeting";
 import { AIChatModal, type AIEvent } from "@/components/ai/AIChatModal";
 import { usePersistedState } from "@/hooks/usePersistedState";
@@ -267,24 +267,13 @@ export default function App() {
         {/* ─── 메인 앱 셸 (stage === "app"일 때만 렌더) ─────────── */}
         {stage === "app" && (
         <>
-        {/* 상태바 — PWA 풀스크린 모드에서는 CSS로 숨김 (iOS 자체 상태바와 중복 방지) */}
-        <div className="app-statusbar absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-6"
-          style={{
-            height: 47,
-            background: "transparent",
-            color: "var(--text-primary)",
-            fontSize: 13,
-            fontWeight: 600,
-          }}>
-          <span>9:41</span>
-          <span style={{ fontSize: 11 }}>● ● ●</span>
-        </div>
+        {/* (자체 상태바 제거 — 폰 시연 시 iOS/Android 자체 상태바 그대로 사용) */}
 
         {/* 헤더 — 투명 배경 + 큰 로고 + 우측 플랜 토글 + 설정 */}
         <div
           className="app-header absolute left-0 right-0 z-20 flex items-center justify-between gap-3 px-5"
           style={{
-            top: 47,
+            top: 0,
             height: 72,
             background: "var(--bg-canvas)",
             borderBottom: "0.5px solid var(--hairline)",
@@ -362,7 +351,7 @@ export default function App() {
         </div>
 
         {/* 메인 스크롤 영역 */}
-        <div className="app-content absolute inset-0 overflow-y-auto" style={{ paddingTop: 119 }} key={planKind + screen}>
+        <div className="app-content absolute inset-0 overflow-y-auto" style={{ paddingTop: 72 }} key={planKind + screen}>
           {renderScreen()}
         </div>
 
@@ -387,7 +376,7 @@ export default function App() {
 
           <button
             onClick={() => setAiChatOpen(true)}
-            aria-label="AI 어시스턴트 열기"
+            aria-label="하루온봇 열기"
             className="absolute left-1/2 active:scale-95 transition-transform"
             style={{
               top: -8,
@@ -397,7 +386,7 @@ export default function App() {
               borderRadius: 28,
               background: accent,
               boxShadow: `0 6px 20px ${accent}66`,
-              color: "#fff",
+              padding: 0,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -405,7 +394,7 @@ export default function App() {
               cursor: "pointer",
             }}
           >
-            <Sparkles size={24} strokeWidth={1.5} />
+            <LogoMark size={32} accent={accent} rounded={10} />
           </button>
         </div>
 

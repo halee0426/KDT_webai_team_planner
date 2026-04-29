@@ -216,8 +216,7 @@ export function AIChatModal({
           >
             <X size={20} strokeWidth={1.8} />
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 16, fontWeight: 600, letterSpacing: "-0.2px" }}>
-            <LogoMark size={26} accent={accent} />
+          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.2px" }}>
             하루온봇
           </div>
           <button

@@ -41,6 +41,19 @@ export function DayView({
           { id: 2, time: "14:30 — 15:30", title: "1:1 미팅", loc: "온라인", hl: highlights[5].color },
         ];
 
+  // 다가오는 일정 (오늘 이후 며칠 내)
+  const upcoming =
+    planKind === "shared"
+      ? [
+          { id: 11, when: "내일 (목)", time: "10:00 — 11:30", title: "스프린트 회고", loc: "회의실 B", hl: highlights[2].color },
+          { id: 12, when: "5/2 (금)", time: "13:00", title: "분기 리뷰", loc: "본관 대회의실", hl: highlights[4].color },
+        ]
+      : [
+          { id: 11, when: "내일 (목)", time: "09:30", title: "디자인 리뷰", loc: "온라인", hl: highlights[2].color },
+          { id: 12, when: "5/2 (금)", time: "14:00 — 16:00", title: "병원 검진", loc: "강남 ○○병원", hl: highlights[0].color },
+          { id: 13, when: "5/4 (일)", time: "종일", title: "가족 모임", loc: "양평", hl: highlights[3].color },
+        ];
+
   const toggle = (id: number) =>
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   const move = (id: number) =>
@@ -96,6 +109,97 @@ export function DayView({
           </span>
         </div>
       )}
+
+      {/* 오늘 일정 — 헤더 바로 아래 (가장 먼저 보이게) */}
+      <SectionLabel>오늘 일정</SectionLabel>
+      <div className="space-y-2">
+        {events.length === 0 ? (
+          <div
+            className="rounded-2xl py-5 text-center"
+            style={{
+              background: "var(--bg-elevated)",
+              border: "0.5px solid var(--hairline)",
+              fontSize: 13,
+              color: "var(--text-muted)",
+            }}
+          >
+            오늘 잡힌 일정이 없어요
+          </div>
+        ) : (
+          events.map((e) => (
+            <div
+              key={e.id}
+              className="relative rounded-2xl overflow-hidden"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "0.5px solid var(--hairline)",
+                boxShadow: "var(--card-shadow)",
+              }}
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: e.hl }} />
+              <div className="pl-4 pr-4 py-3">
+                <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-secondary)]">
+                  {e.time}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }} className="mt-0.5">
+                  {e.title}
+                </div>
+                <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
+                  {e.loc}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 다가오는 일정 — 오늘 일정 다음 */}
+      <SectionLabel>다가오는 일정</SectionLabel>
+      <div className="space-y-2">
+        {upcoming.length === 0 ? (
+          <div
+            className="rounded-2xl py-5 text-center"
+            style={{
+              background: "var(--bg-elevated)",
+              border: "0.5px solid var(--hairline)",
+              fontSize: 13,
+              color: "var(--text-muted)",
+            }}
+          >
+            예정된 일정이 없어요
+          </div>
+        ) : (
+          upcoming.map((e) => (
+            <div
+              key={e.id}
+              className="relative rounded-2xl overflow-hidden"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "0.5px solid var(--hairline)",
+                boxShadow: "var(--card-shadow)",
+              }}
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: e.hl }} />
+              <div className="pl-4 pr-4 py-3">
+                <div className="flex items-baseline gap-2">
+                  <div style={{ fontSize: 12, fontWeight: 600, color: accent, letterSpacing: "-0.2px" }}>
+                    {e.when}
+                  </div>
+                  <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-secondary)]">
+                    {e.time}
+                  </div>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }} className="mt-0.5">
+                  {e.title}
+                </div>
+                <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
+                  {e.loc}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       {/* Today todos card */}
       <div
@@ -246,34 +350,6 @@ export function DayView({
             </div>
           )}
         </div>
-      </div>
-
-      <SectionLabel>오늘 일정</SectionLabel>
-      <div className="space-y-2">
-        {events.map((e) => (
-          <div
-            key={e.id}
-            className="relative rounded-2xl overflow-hidden"
-            style={{
-              background: "var(--bg-elevated)",
-              border: "0.5px solid var(--hairline)",
-              boxShadow: "var(--card-shadow)",
-            }}
-          >
-            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: e.hl }} />
-            <div className="pl-4 pr-4 py-3">
-              <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-secondary)]">
-                {e.time}
-              </div>
-              <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }} className="mt-0.5">
-                {e.title}
-              </div>
-              <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
-                {e.loc}
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
       <SectionLabel>한 줄 일기</SectionLabel>

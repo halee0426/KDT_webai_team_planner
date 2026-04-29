@@ -3,7 +3,7 @@
 // "오늘 하루 보지 않기" 시 localStorage 'kdt-insight-dismissed-date' = 'YYYY-MM-DD'.
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 
 const STORAGE_KEY = "kdt-insight-dismissed-date";
 
@@ -92,22 +92,18 @@ export function InsightGreeting({
           textAlign: "center",
         }}
       >
-        {/* 아이콘 */}
+        {/* 아이콘 — 하루온 로고 마크 */}
         <div
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: 18,
-            background: `${accent}1A`,
-            color: accent,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 20,
+            borderRadius: 18,
             boxShadow: `0 8px 24px ${accent}33, 0 0 0 6px ${accent}0F`,
           }}
         >
-          <Sparkles size={28} strokeWidth={1.8} />
+          <LogoMark size={56} accent={accent} rounded={18} />
         </div>
 
         {/* 제목 */}
