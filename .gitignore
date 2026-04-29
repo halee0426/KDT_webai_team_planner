@@ -61,5 +61,4 @@ _backup_my_views/
 firebase-debug.log
 firestore-debug.log
 
-# Legacy prototype files are kept in the repo when needed:
-# Planner.html, otherViews.jsx, store.jsx, yearView.jsx, DESIGN-apple.md
+# Legacy prototype files were moved to `legacy-prototype/` for reference.
