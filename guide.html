@@ -241,7 +241,8 @@
     <div class="toc-item" data-target="page-11"><span class="toc-num">10</span><span>팀원 분담</span></div>
     <div class="toc-item" data-target="page-12"><span class="toc-num">11</span><span>시연 시나리오</span></div>
     <div class="toc-item" data-target="page-13"><span class="toc-num">12</span><span>리스크 & 대응</span></div>
-    <div class="toc-item" data-target="page-14"><span class="toc-num">13</span><span>참고 자료</span></div>
+    <div class="toc-item" data-target="page-14"><span class="toc-num">13</span><span>앱 배포 & 시연</span></div>
+    <div class="toc-item" data-target="page-15"><span class="toc-num">14</span><span>참고 자료</span></div>
     <div class="toc-item" data-target="page-15"><span class="toc-num">A</span><span>D1 즉시 시작</span></div>
 
     <div class="sidebar-footer">
@@ -1065,7 +1066,123 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 13. 참고 자료
+## 13. 앱 배포 & 시연 방식
+
+> 발표 청중이 폰에서 앱을 직접 만져볼 수 있도록 한 배포·시연 전략.
+> 비용 0원, 시연 임팩트는 상용 앱 수준.
+
+### 13.1 배포 전략 한눈에
+
+```
+[웹 빌드]                  [배포]                   [시연]
+React + Vite + PWA  →  Vercel (HTTPS, 무료)  →  iOS/Android 폰
+                          │                       │
+                          ├ haruon-omega.vercel.app      ├ 사파리 → 홈에 추가
+                          └ git push 자동 배포     └ 풀스크린 PWA 앱
+```
+
+### 13.2 왜 PWA인가
+
+| 항목 | 네이티브 (.ipa/.apk) | **PWA** |
+|------|---------------------|---------|
+| 비용 | iOS $99 + Mac 필수 | **무료** |
+| 빌드 환경 | Mac / Android Studio | Vercel |
+| 배포 시간 | 심사 1~3일 | git push 즉시 |
+| 청중 설치 | 앱스토어 검색 | URL → 홈에 추가 |
+| 4~5일 가능? | ❌ Mac 없으면 X | ✅ 30분 |
+
+**결론**: 발표 임박 + Windows에서는 PWA가 유일한 합리적 선택.
+
+### 13.3 PWA 셋업 (적용 완료)
+
+| 항목 | 내용 |
+|------|------|
+| 플러그인 | vite-plugin-pwa |
+| manifest | name "Haru:on", display standalone, theme #0066cc |
+| iOS 메타 | apple-mobile-web-app-capable, apple-touch-icon |
+| 아이콘 | 192/512/180px PNG (sharp 자동 생성) |
+| Service Worker | autoUpdate, 정적 자원 캐싱 |
+| 오프라인 | 네트워크 끊겨도 앱 셸 동작 |
+
+### 13.4 Vercel 배포
+
+**첫 배포 (1회)**:
+```
+npm install -g vercel
+vercel login
+vercel --prod
+```
+
+**이후 자동 배포**:
+- main 브랜치 push → Vercel 자동 빌드 → 즉시 라이브 (1~3분)
+- URL: https://haruon-omega.vercel.app
+
+**환경 변수** (Vercel 대시보드에서 등록):
+- OPENAI_API_KEY (서버 전용)
+- VITE_FIREBASE_* (Firebase 6개)
+
+### 13.5 사용자별 시연 흐름
+
+**iPhone**:
+1. 사파리(필수)에서 haruon-omega.vercel.app 접속
+2. 하단 공유 ↑ 탭
+3. "홈 화면에 추가" 탭
+4. 홈에 Haru:on 아이콘 생김
+5. 탭 → 풀스크린 앱 등장
+
+**Android**:
+1. Chrome에서 haruon-omega.vercel.app 접속
+2. 우상단 ⋮ 메뉴
+3. "앱 설치" 또는 "홈 화면에 추가"
+4. 홈에 아이콘 → 탭 → 풀스크린
+
+**데스크톱 (시연용)**:
+- 그냥 브라우저 접속 → 화면 가운데 모바일 프레임 박스 형태
+
+### 13.6 발표장 시연 시나리오
+
+```
+1. PC 빔프로젝터: haruon-omega.vercel.app (모바일 프레임)
+   "여러분, 저희가 만든 Haru:on 플래너입니다."
+
+2. 본인 iPhone 꺼냄
+   "제 폰 홈에 Haru:on 아이콘이 있습니다.
+    웹사이트가 아니라 진짜 앱처럼 동작합니다."
+
+3. 아이콘 탭 → 풀스크린 앱 진입
+   "사파리 주소창 없이 풀스크린으로 뜹니다."
+
+4. 차별화 시연: 인사이트 → 자연어 입력 → 만다라트
+
+5. 청중 참여
+   "여러분도 직접 써보실 수 있습니다.
+    이 주소 접속하시고 홈 화면에 추가하시면 끝입니다."
+   (URL 슬라이드 또는 QR)
+```
+
+### 13.7 시연 안전장치
+
+| 리스크 | 대응 |
+|--------|------|
+| 발표장 와이파이 불안정 | 사전에 본인 폰에 PWA 설치 → 오프라인 캐시로 동작 |
+| Vercel 장애 (희박) | 발표 30분 전 모바일 데이터로 사전 확인 |
+| iOS 풀스크린 안 됨 | apple-mobile-web-app-capable 메타 (적용됨) |
+| 도메인 타이핑 어려움 | QR 코드 또는 단톡방 링크 |
+| AI 응답 지연 | 데모 데이터 미리 입력 → 즉시 보여줌 |
+
+### 13.8 v2 — 진짜 네이티브 앱으로
+
+| 단계 | 도구 | 비용 |
+|------|------|------|
+| Android | Capacitor + Android Studio | 무료 (Play 등록 시 $25 1회) |
+| iOS | Mac + Capacitor + Xcode | $99/년 (Apple Developer) |
+| 클라우드 빌드 (Mac 없이) | Codemagic / EAS Build | 무료 (제한) |
+
+**Capacitor의 장점**: 우리 React 코드 99% 그대로 사용, 네이티브 wrapper만 추가. localStorage / Firebase / OpenAI 호출 모두 그대로 동작.
+
+---SPLIT---
+
+## 14. 참고 자료
 
 - **OpenAI API** (런타임 LLM) — https://platform.openai.com/docs
 - **Anthropic Claude** (개발 보조용) — https://docs.claude.com

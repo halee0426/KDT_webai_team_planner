@@ -30,3 +30,33 @@ export const initialSharedEvents: SharedEvent[] = [
   { id: 7, year: 2026, month: 3, startDay: 29, endDay: 29, title: "1:1 미팅",    color: highlights[5].color, startSlot: 29, endSlot: 31 },
   { id: 8, year: 2026, month: 3, startDay: 29, endDay: 29, title: "운동",        color: highlights[1].color, startSlot: 38, endSlot: 40 },
 ];
+
+/** 할일 타입 — DayView에서 사용 */
+export type Todo = {
+  id: number;
+  text: string;
+  done: boolean;
+  /** 어제 미완료 → 오늘 자동 이전된 항목 */
+  rolled?: boolean;
+  /** "나중에" 그룹 (오늘 X) */
+  later?: boolean;
+};
+
+/** 나의 플랜 초기 todos */
+export const initialMyTodos: Todo[] = [
+  { id: 1, text: "디자인 리뷰 준비", done: false },
+  { id: 2, text: "주간 회고 작성", done: true },
+  { id: 3, text: "운동 30분", done: false, rolled: true },
+  { id: 4, text: "책 한 챕터 읽기", done: false, later: true },
+  { id: 5, text: "포트폴리오 업데이트", done: false, later: true },
+  { id: 6, text: "여름휴가 계획", done: false, later: true },
+];
+
+/** 공동 플랜 초기 todos */
+export const initialSharedTodos: Todo[] = [
+  { id: 1, text: "회의록 공유 (지민)", done: false },
+  { id: 2, text: "디자인 시안 확인 (수아)", done: true },
+  { id: 3, text: "프로젝트 일정 합의", done: false },
+  { id: 4, text: "분기 회고 자료 정리", done: false, later: true },
+  { id: 5, text: "외부 협업사 미팅 준비", done: false, later: true },
+];

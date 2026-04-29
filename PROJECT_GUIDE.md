@@ -824,7 +824,144 @@ match /shares/{shareId} {
 
 ---
 
-## 12. 참고 자료
+## 12. 앱 배포 & 시연 방식
+
+> 발표 청중이 실제로 폰에서 앱을 만져볼 수 있도록 만든 배포·시연 전략.
+> 학생 프로젝트 비용 0원, 시연 임팩트는 상용 앱 수준.
+
+### 12.1 배포 전략 한눈에
+
+```
+[웹 빌드]                  [배포]                   [시연]
+React + Vite + PWA  ──▶  Vercel (HTTPS, 무료)  ──▶  iOS/Android 폰
+                              │                       │
+                              ├─ haruon-omega.vercel.app    ├─ 사파리 → "홈에 추가"
+                              └─ git push 자동 배포    └─ 풀스크린 PWA 앱
+```
+
+### 12.2 왜 PWA인가 — 의사결정 근거
+
+| 비교 항목 | 네이티브 앱 (.ipa/.apk) | PWA |
+|----------|------------------------|-----|
+| 비용 | iOS $99/년 + Mac 필수 | **무료** |
+| 빌드 환경 | Mac (iOS) / Android Studio | Vercel (브라우저만) |
+| 배포 시간 | TestFlight 심사 1~3일 | git push **즉시** |
+| 청중 설치 난이도 | 앱스토어 검색·다운 | URL 접속 → "홈에 추가" |
+| 진짜 앱 같은 인상 | ★★★★★ | **★★★★☆** |
+| 4~5일 안에 가능? | ❌ Mac 없으면 불가 | ✅ 30분 |
+
+**결론**: 발표 임박 + Windows 환경에서는 PWA가 유일하게 합리적인 선택.
+
+### 12.3 PWA 셋업 (이미 적용 완료)
+
+| 항목 | 내용 |
+|------|------|
+| **플러그인** | `vite-plugin-pwa` |
+| **manifest** | `name: "Haru:on"`, `display: "standalone"`, `theme_color: "#0066cc"` |
+| **iOS 메타** | `apple-mobile-web-app-capable`, `apple-touch-icon` |
+| **아이콘** | 192/512/180px PNG (sharp로 SVG 자동 변환) |
+| **Service Worker** | autoUpdate, 정적 자원 캐싱 |
+| **오프라인** | 네트워크 끊겨도 앱 셸 동작 (localStorage 데이터 유지) |
+
+### 12.4 Vercel 배포
+
+#### 첫 배포 (1회)
+```bash
+npm install -g vercel
+vercel login
+vercel --prod
+```
+
+#### 이후 자동 배포
+- `main` 브랜치 push → Vercel 자동 빌드 → 즉시 라이브
+- 배포 시간: 1~3분
+- **실제 배포된 URL**: `https://haruon-omega.vercel.app`
+  - `haruon`이 이미 다른 사용자가 점유 중이라 Vercel이 `-omega` 접미사 자동 부여
+  - 깔끔한 도메인 원하면 Settings → Domains에서 커스텀 도메인 추가 가능
+- **첫 배포 결과** (참고): 빌드 28초 / 번들 263KB (gzip 74KB) / Workbox 11개 파일 프리캐시 370KB
+
+#### 환경 변수 (Vercel 대시보드에서 등록)
+```
+OPENAI_API_KEY=sk-...
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+> **보안**: `OPENAI_API_KEY`는 클라이언트에 노출되지 않게 Edge Functions에서만 사용. `VITE_*` 접두어 변수는 클라이언트에 노출되어도 안전한 값(Firebase API 키는 보안 규칙으로 보호).
+
+### 12.5 사용자별 시연 흐름
+
+#### iPhone 사용자
+1. 사파리(필수, Chrome 안 됨)에서 `haruon-omega.vercel.app` 접속
+2. 하단 **공유 버튼 (↑)** 탭
+3. 스크롤 → **"홈 화면에 추가"** 탭
+4. **추가** 확인
+5. 홈 화면에 **Haru:on 아이콘** 생김
+6. 탭 → **풀스크린** 앱 등장 (사파리 주소창 X)
+
+#### Android 사용자
+1. Chrome에서 `haruon-omega.vercel.app` 접속
+2. 우상단 **⋮ 메뉴** 탭
+3. **"앱 설치"** 또는 **"홈 화면에 추가"** 탭
+4. 홈 화면에 **Haru:on 아이콘** 생김
+5. 탭 → **풀스크린** 앱 등장
+
+#### 데스크톱 (시연용 PC)
+- 그냥 브라우저로 `haruon-omega.vercel.app` 접속
+- 화면 가운데 **모바일 프레임 박스 (375×812)** 형태로 보임 (시연·디자인 검토용)
+
+### 12.6 발표장 시연 시나리오
+
+```
+1. PC 화면: 빔프로젝터 → haruon-omega.vercel.app (모바일 프레임 박스 형태)
+   "여러분, 저희가 만든 Haru:on 플래너입니다."
+
+2. 본인 iPhone 꺼냄
+   "보시는 것처럼 제 폰 홈 화면에 Haru:on 앱 아이콘이 있습니다.
+    웹사이트가 아니라 진짜 앱처럼 동작합니다."
+
+3. 아이콘 탭 → 풀스크린 앱 진입
+   "탭하면 이렇게 사파리 주소창 없이 풀스크린으로 뜹니다."
+
+4. 차별화 시연 (인사이트 → 자연어 입력 → 만다라트)
+
+5. 청중 참여
+   "여러분도 직접 써보실 수 있습니다.
+    iPhone은 사파리에서, Android는 Chrome에서 이 주소 접속하시고
+    홈 화면에 추가하시면 끝입니다."
+   (URL 슬라이드 또는 QR 코드 보여주기)
+```
+
+### 12.7 시연 안전장치
+
+| 리스크 | 대응 |
+|--------|------|
+| **발표장 와이파이 불안정** | 사전에 본인 iPhone에 PWA 설치 → 오프라인 캐시로도 앱 셸 동작 |
+| **Vercel 장애** (희박) | 발표 30분 전 모바일 데이터로 한 번 더 접속 확인 |
+| **iOS 사파리에서 풀스크린 안 됨** | `apple-mobile-web-app-capable` 메타 누락 확인 (이미 적용됨) |
+| **Vercel 도메인 타이핑 어려움** | QR 코드 또는 단톡방 링크로 우회 |
+| **AI 응답 지연** | 시연용 데모 데이터 미리 입력해서 "이미 만들어진 결과" 보여줌 |
+
+### 12.8 v2 — 진짜 네이티브 앱으로 가는 길
+
+발표 끝난 후 본격 운영하려면:
+
+| 단계 | 도구 | 비용 |
+|------|------|------|
+| **Android** | Capacitor + Android Studio | 무료 (Play Store 등록 시 $25 1회) |
+| **iOS** | Mac 필요 → Capacitor + Xcode | $99/년 (Apple Developer) |
+| **클라우드 빌드** (Mac 없이 iOS) | Codemagic / EAS Build | 무료 (제한 있음) |
+| **현재 PWA 코드** | 그대로 사용 (Capacitor가 wrapper) | 재작성 X |
+
+**Capacitor의 장점**: 우리 React 코드 99% 그대로 → 네이티브 앱 wrapper만 추가. `localStorage`, `Firebase`, `OpenAI` 호출 모두 그대로 동작.
+
+---
+
+## 13. 참고 자료
 
 - **OpenAI API** (런타임 LLM): https://platform.openai.com/docs
 - **Anthropic Claude** (개발 보조용): https://docs.claude.com

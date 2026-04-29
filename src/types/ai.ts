@@ -11,7 +11,7 @@ export type Insight = {
 
 /** 자연어 → 일정 분해 결과 */
 export type ParseEventResult = {
-  events: Omit<Event, 'id' | 'createdBy' | 'createdAt'>[];
+  events: (Omit<Event, 'id' | 'createdBy' | 'createdAt' | 'color'> & { color?: string })[];
 };
 
 /** 만다라트 자동 분해 결과 */

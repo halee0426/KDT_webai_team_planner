@@ -34,7 +34,7 @@ export function WeekView({ accent, planKind = "my" }: { accent: string; planKind
   const [drag, setDrag] = useState<{ day: number; aSlot: number; bSlot: number } | null>(null);
   const [sheet, setSheet] = useState<{ day: number; start: number; end: number } | null>(null);
   const [title, setTitle] = useState("");
-  const [color, setColor] = useState(highlights[4].color);
+  const [color, setColor] = useState<string>(highlights[4].color);
   const [editingBlock, setEditingBlock] = useState<{ block: Block; startH: number; endH: number } | null>(null);
 
   const pickCol = (x: number, y: number): { day: number; slot: number } | null => {

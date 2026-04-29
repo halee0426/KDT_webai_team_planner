@@ -1,1 +1,5 @@
+/* 본문/UI: Pretendard (한국어 가독성) */
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+
+/* 로고 전용: Baloo 2 (Google Fonts) — 둥글고 단단한 느낌, 영문 워드마크 */
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap");

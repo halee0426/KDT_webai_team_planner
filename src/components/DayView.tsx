@@ -1,28 +1,27 @@
 import { useMemo, useState } from "react";
 import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
 import { highlights } from "./tokens";
+import type { Todo } from "./eventStore";
 
-type Todo = { id: number; text: string; done: boolean; rolled?: boolean; later?: boolean };
-
-export function DayView({ accent, planKind = "my" }: { accent: string; planKind?: "my" | "shared" }) {
-  const [todos, setTodos] = useState<Todo[]>(
-    planKind === "shared"
-      ? [
-          { id: 1, text: "회의록 공유 (지민)", done: false },
-          { id: 2, text: "디자인 시안 확인 (수아)", done: true },
-          { id: 3, text: "프로젝트 일정 합의", done: false },
-          { id: 4, text: "분기 회고 자료 정리", done: false, later: true },
-          { id: 5, text: "외부 협업사 미팅 준비", done: false, later: true },
-        ]
-      : [
-          { id: 1, text: "디자인 리뷰 준비", done: false },
-          { id: 2, text: "주간 회고 작성", done: true },
-          { id: 3, text: "운동 30분", done: false, rolled: true },
-          { id: 4, text: "책 한 챕터 읽기", done: false, later: true },
-          { id: 5, text: "포트폴리오 업데이트", done: false, later: true },
-          { id: 6, text: "여름휴가 계획", done: false, later: true },
-        ],
-  );
+export function DayView({
+  accent,
+  planKind = "my",
+  todos,
+  onTodosChange,
+}: {
+  accent: string;
+  planKind?: "my" | "shared";
+  todos: Todo[];
+  onTodosChange: (todos: Todo[]) => void;
+}) {
+  // 부모로 끌어올린 todos를 setter 형식으로 사용 (기존 setTodos 호출 호환)
+  const setTodos: React.Dispatch<React.SetStateAction<Todo[]>> = (updater) => {
+    if (typeof updater === "function") {
+      onTodosChange((updater as (prev: Todo[]) => Todo[])(todos));
+    } else {
+      onTodosChange(updater);
+    }
+  };
   const [diary, setDiary] = useState("");
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [adding, setAdding] = useState<"today" | "later" | null>(null);
