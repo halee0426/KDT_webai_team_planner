@@ -221,27 +221,27 @@
     <div class="brand-title">웹기반 AI 플래너<small>팀 프로젝트 가이드</small></div>
 
     <div class="toc-section">표지</div>
-    <div class="toc-item active" data-target="page-cover"><span class="toc-num">00</span><span>표지</span></div>
-    <div class="toc-item" data-target="page-1"><span class="toc-num">01</span><span>한 줄 요약</span></div>
+    <div class="toc-item active" data-target="page-cover"><span class="toc-num">—</span><span>표지</span></div>
+    <div class="toc-item" data-target="page-1"><span class="toc-num">—</span><span>한 줄 요약</span></div>
 
     <div class="toc-section">기획</div>
-    <div class="toc-item" data-target="page-2"><span class="toc-num">02</span><span>프로젝트 개요</span></div>
-    <div class="toc-item" data-target="page-3"><span class="toc-num">03</span><span>핵심 기능 명세</span></div>
+    <div class="toc-item" data-target="page-2"><span class="toc-num">01</span><span>프로젝트 개요</span></div>
+    <div class="toc-item" data-target="page-3"><span class="toc-num">02</span><span>핵심 기능 명세</span></div>
 
     <div class="toc-section">기술</div>
-    <div class="toc-item" data-target="page-4"><span class="toc-num">04</span><span>기술 스택</span></div>
-    <div class="toc-item" data-target="page-5"><span class="toc-num">05</span><span>AI · 인공지능 스택</span></div>
+    <div class="toc-item" data-target="page-4"><span class="toc-num">03</span><span>기술 스택</span></div>
+    <div class="toc-item" data-target="page-5"><span class="toc-num">04</span><span>AI · 인공지능 스택</span></div>
 
     <div class="toc-section">실행</div>
-    <div class="toc-item" data-target="page-6"><span class="toc-num">06</span><span>작업 파이프라인</span></div>
-    <div class="toc-item" data-target="page-7"><span class="toc-num">07</span><span>사용 툴 정리</span></div>
-    <div class="toc-item" data-target="page-8"><span class="toc-num">08</span><span>파일 구조</span></div>
-    <div class="toc-item" data-target="page-9"><span class="toc-num">09</span><span>데이터 모델</span></div>
-    <div class="toc-item" data-target="page-10"><span class="toc-num">10</span><span>AI 호출 흐름</span></div>
-    <div class="toc-item" data-target="page-11"><span class="toc-num">11</span><span>팀원 분담</span></div>
-    <div class="toc-item" data-target="page-12"><span class="toc-num">12</span><span>시연 시나리오</span></div>
-    <div class="toc-item" data-target="page-13"><span class="toc-num">13</span><span>리스크 & 대응</span></div>
-    <div class="toc-item" data-target="page-14"><span class="toc-num">14</span><span>참고 자료</span></div>
+    <div class="toc-item" data-target="page-6"><span class="toc-num">05</span><span>작업 파이프라인</span></div>
+    <div class="toc-item" data-target="page-7"><span class="toc-num">06</span><span>사용 툴 정리</span></div>
+    <div class="toc-item" data-target="page-8"><span class="toc-num">07</span><span>파일 구조</span></div>
+    <div class="toc-item" data-target="page-9"><span class="toc-num">08</span><span>데이터 모델</span></div>
+    <div class="toc-item" data-target="page-10"><span class="toc-num">09</span><span>AI 호출 흐름</span></div>
+    <div class="toc-item" data-target="page-11"><span class="toc-num">10</span><span>팀원 분담</span></div>
+    <div class="toc-item" data-target="page-12"><span class="toc-num">11</span><span>시연 시나리오</span></div>
+    <div class="toc-item" data-target="page-13"><span class="toc-num">12</span><span>리스크 & 대응</span></div>
+    <div class="toc-item" data-target="page-14"><span class="toc-num">13</span><span>참고 자료</span></div>
 
     <div class="sidebar-footer">
       <button class="theme-toggle" id="themeToggle">
@@ -739,7 +739,7 @@
 | **OpenAI API endpoint** | LLM 호출 (Edge Functions 경유) |
 | **Firebase API** | Firestore + Auth |
 
-### 5.8 향후 도입 검토
+### 6.8 향후 도입 검토
 
 | 도구 | 도입 시점 | 용도 |
 |------|-----------|------|
@@ -750,7 +750,7 @@
 
 ---SPLIT---
 
-## 6. 파일 구조
+## 7. 파일 구조
 
 ```
 KDT_webai_team_planner/
@@ -844,12 +844,12 @@ KDT_webai_team_planner/
 
 ---SPLIT---
 
-## 7. 데이터 모델
+## 8. 데이터 모델
 
 > 모든 도메인 데이터는 **사용자 단위(uid)로 격리**되어 Firestore에 저장된다.
 > 비로그인 사용자는 동일한 구조를 localStorage에 보관하다가, 로그인 시 자동으로 Firestore와 머지된다.
 
-### 7.1 사용자 모델 (User)
+### 8.1 사용자 모델 (User)
 
 ```
 type User = {
@@ -873,7 +873,7 @@ type User = {
 };
 ```
 
-### 7.2 도메인 데이터 (User 하위)
+### 8.2 도메인 데이터 (User 하위)
 
 ```
 type Event = {
@@ -919,7 +919,7 @@ type ShareLink = {
 };
 ```
 
-### 7.3 Firestore 컬렉션 구조
+### 8.3 Firestore 컬렉션 구조
 
 ```
 firestore/
@@ -934,7 +934,7 @@ firestore/
     └─ { ownerUid, scope, payload, expiresAt }
 ```
 
-### 7.4 Security Rules (요지)
+### 8.4 Security Rules (요지)
 
 ```
 match /users/{uid}/{collection}/{docId} {
@@ -949,7 +949,7 @@ match /shares/{shareId} {
 }
 ```
 
-### 7.5 비로그인 ↔ 로그인 데이터 머지
+### 8.5 비로그인 ↔ 로그인 데이터 머지
 
 1. **비로그인 사용자**: 모든 데이터는 localStorage에만
 2. **로그인 시**: localStorage 데이터를 Firestore에 업로드 (충돌 시 로컬 우선)
@@ -957,7 +957,7 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 8. AI 호출 흐름
+## 9. AI 호출 흐름
 
 자연어 입력 → 일정 추가 흐름:
 
@@ -1001,7 +1001,7 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 9. 팀원 작업 분담 제안
+## 10. 팀원 작업 분담 제안
 
 > 4명 기준 예시. 인원·강점에 맞춰 조정.
 
@@ -1020,7 +1020,7 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 10. 시연 시나리오 (발표용)
+## 11. 시연 시나리오 (발표용)
 
 ### 시나리오 1 — 여행 (일반 사용자 어필)
 1. 앱 실행 → 빈 캘린더
@@ -1042,7 +1042,7 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 11. 리스크 & 대응
+## 12. 리스크 & 대응
 
 | 리스크 | 대응 |
 |--------|------|
@@ -1055,7 +1055,7 @@ match /shares/{shareId} {
 
 ---SPLIT---
 
-## 12. 참고 자료
+## 13. 참고 자료
 
 - **Anthropic Claude API** — https://docs.claude.com
 - **OpenAI API** — https://platform.openai.com/docs
