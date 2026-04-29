@@ -1,7 +1,7 @@
 // 진입점 · 라우팅 · 전역 부트스트랩
-// 담당: A
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import YearView from '@/components/views/YearView';
 import MonthView from '@/components/views/MonthView';
 import WeekView from '@/components/views/WeekView';
@@ -11,19 +11,23 @@ import MandalaView from '@/components/views/MandalaView';
 import DiaryView from '@/components/views/DiaryView';
 import LoginPage from '@/components/auth/LoginPage';
 import SignupPage from '@/components/auth/SignupPage';
+import Settings from '@/components/shared/Settings';
 import TabBar from '@/components/shared/TabBar';
+import FAB from '@/components/shared/FAB';
+import AIInputSheet from '@/components/ai/AIInputSheet';
 import MergeOnLogin from '@/components/auth/MergeOnLogin';
 import { useAuthSubscription } from '@/hooks/useAuth';
 import { useThemeApply } from '@/hooks/useTheme';
 
-export default function App() {
-  useAuthSubscription();
-  useThemeApply();
+function AppShell() {
+  const location = useLocation();
+  const [aiOpen, setAiOpen] = useState(false);
+  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup';
 
   return (
-    <BrowserRouter>
+    <>
       <MergeOnLogin />
-      <main style={{ paddingBottom: 64 }}>
+      <main>
         <Routes>
           <Route path="/" element={<Navigate to="/day" replace />} />
           <Route path="/year" element={<YearView />} />
@@ -33,12 +37,30 @@ export default function App() {
           <Route path="/tenmin" element={<TenMinPlanner />} />
           <Route path="/mandala" element={<MandalaView />} />
           <Route path="/diary" element={<DiaryView />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={<Navigate to="/day" replace />} />
         </Routes>
       </main>
-      <TabBar />
+      {!isAuthRoute && (
+        <>
+          <FAB onClick={() => setAiOpen(true)} />
+          <TabBar />
+          <AIInputSheet open={aiOpen} onClose={() => setAiOpen(false)} />
+        </>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  useAuthSubscription();
+  useThemeApply();
+
+  return (
+    <BrowserRouter>
+      <AppShell />
     </BrowserRouter>
   );
 }

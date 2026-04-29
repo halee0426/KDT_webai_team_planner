@@ -1,7 +1,9 @@
-// AI 호출 큐 · 캐시 · 로딩 상태
-// 담당: C (AI 엔지니어)
+// AI 호출 상태 + 캐시
+// Edge Function (/api/ai/*) 경유
 
 import { create } from 'zustand';
+import { callAI } from '@/lib/ai/client';
+import { ParseEventResultSchema, MandalaDecompositionSchema, InsightSchema, WeeklyRecapSchema } from '@/lib/ai/schemas';
 import type { Insight, ParseEventResult, MandalaDecomposition, WeeklyRecap } from '@/types/ai';
 
 type AIStore = {
@@ -9,39 +11,61 @@ type AIStore = {
   insightLoading: boolean;
   insightError: string | null;
 
-  // 호출 함수
   fetchInsight: (force?: boolean) => Promise<void>;
   parseEvent: (text: string) => Promise<ParseEventResult>;
   decomposeMandala: (centerGoal: string) => Promise<MandalaDecomposition>;
   generateRecap: (weekStart: string) => Promise<WeeklyRecap>;
 };
 
-export const useAIStore = create<AIStore>((set, get) => ({
+const INSIGHT_CACHE_KEY = 'kdt-insight-cache';
+const INSIGHT_TTL = 60 * 60 * 1000; // 1시간
+
+export const useAIStore = create<AIStore>((set) => ({
   insight: null,
   insightLoading: false,
   insightError: null,
 
   fetchInsight: async (force = false) => {
-    // TODO: lib/ai/client.ts의 fetchInsight 호출 (캐시 + Streaming)
-    void force; void set; void get;
-    throw new Error('Not implemented yet');
+    // 캐시 확인
+    if (!force) {
+      try {
+        const raw = localStorage.getItem(INSIGHT_CACHE_KEY);
+        if (raw) {
+          const cached = JSON.parse(raw) as Insight;
+          if (Date.now() - cached.generatedAt < INSIGHT_TTL) {
+            set({ insight: cached, insightLoading: false });
+            return;
+          }
+        }
+      } catch {}
+    }
+
+    set({ insightLoading: true, insightError: null });
+    try {
+      const data = await callAI<{}, unknown>('insight', {});
+      const parsed = InsightSchema.parse(data);
+      localStorage.setItem(INSIGHT_CACHE_KEY, JSON.stringify(parsed));
+      set({ insight: parsed, insightLoading: false });
+    } catch (e) {
+      set({
+        insightError: e instanceof Error ? e.message : 'AI 호출 실패',
+        insightLoading: false,
+      });
+    }
   },
 
   parseEvent: async (text) => {
-    // TODO: /api/ai/parse-event 호출 + Zod 검증
-    void text;
-    throw new Error('Not implemented yet');
+    const data = await callAI<{ text: string }, unknown>('parse-event', { text });
+    return ParseEventResultSchema.parse(data);
   },
 
   decomposeMandala: async (centerGoal) => {
-    // TODO: /api/ai/mandala 호출 + Zod 검증
-    void centerGoal;
-    throw new Error('Not implemented yet');
+    const data = await callAI<{ centerGoal: string }, unknown>('mandala', { centerGoal });
+    return MandalaDecompositionSchema.parse(data);
   },
 
   generateRecap: async (weekStart) => {
-    // TODO: /api/ai/recap 호출 (Streaming)
-    void weekStart;
-    throw new Error('Not implemented yet');
+    const data = await callAI<{ weekStart: string }, unknown>('recap', { weekStart });
+    return WeeklyRecapSchema.parse(data);
   },
 }));

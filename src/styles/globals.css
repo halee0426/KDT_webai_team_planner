@@ -1,6 +1,10 @@
 /* 전역 스타일 — Pretendard 폰트 + 라이트/다크 변수 */
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* Light mode (기본) */
   --bg:           #ffffff;
