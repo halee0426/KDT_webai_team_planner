@@ -223,18 +223,22 @@ export default function App() {
 
   return (
     <div
-      className="size-full flex items-center justify-center min-h-screen app-outer"
+      className="app-outer"
       style={{
-        // 데스크톱(브라우저)에선 회색 배경 + 모바일 프레임 박스
-        // 모바일/PWA에선 globals.css가 var(--bg-canvas)로 덮어써서 풀스크린
         background: isDark ? "#0a0a0a" : "#e5e5ea",
         fontFamily: "Pretendard, -apple-system, sans-serif",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <div
         className="relative overflow-hidden app-frame"
         style={{
+          // 데스크톱 기본: 모바일 프레임 박스 (globals.css가 모바일에선 100vw로 덮어씀)
           width: 375,
+          maxWidth: "100vw",
           height: 812,
           background: "var(--bg-canvas)",
           color: "var(--text-primary)",
