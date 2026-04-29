@@ -1,0 +1,2 @@
+# shadcn/ui 컴포넌트는 `npx shadcn@latest add <name>` 명령으로 추가됩니다.
+# 예: npx shadcn@latest add button card dialog sheet tabs drawer toast input

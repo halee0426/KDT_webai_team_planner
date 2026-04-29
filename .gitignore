@@ -45,3 +45,14 @@ vite.config.ts.timestamp-*
 *.tmp
 *.bak
 .scratch/
+
+# ── Vercel ─────────────────────────────
+.vercel
+
+# ── Firebase ───────────────────────────
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# ── 작업 폴더에서 안 쓰는 옛 파일 (보존용 git만 추적) ──
+# 기존 prototype 파일은 살려둠: Planner.html, otherViews.jsx, store.jsx, yearView.jsx, DESIGN-apple.md
