@@ -45,3 +45,4 @@ vite.config.ts.timestamp-*
 *.tmp
 *.bak
 .scratch/
+pre/
