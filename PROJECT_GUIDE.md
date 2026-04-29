@@ -36,13 +36,15 @@
 | 🤝 **AI는 거드는 손길** | 자연어로 일정 추가, 만다라트 분해 도움, 주간 회고 정리. 단 결정과 입력의 주도권은 사용자에게. AI가 만든 결과는 항상 미리보기 → 승인 단계를 거친다. |
 
 ### 1.4 일정 (4~5일 스프린트)
-| Day | 작업 |
-|-----|------|
-| D1 | 환경 셋업 · 기존 Figma Make 코드를 워크스페이스로 가져오기 · 라우팅 구성 |
-| D2 | AI 자연어 입력 → 일정 자동 추가 MVP |
-| D3 | AI 만다라트 자동 분해 + 회고 요약 |
-| D4 | 공유 링크(Firebase) · UI 다듬기 · 모바일 반응형 |
-| D5 | 데모 시나리오 · 발표자료 · 배포(Vercel) |
+| Day | 큰 그림 |
+|-----|---------|
+| D1 | 환경 셋업 + 6개 뷰 통합 |
+| D2 | AI 인사이트·자연어 일정 + 사용자 인증 |
+| D3 | Firestore 동기화 + 만다라트 분해 |
+| D4 | 통합·QA·모바일·다크모드 |
+| D5 | 배포 + 데모 + 발표 |
+
+> 단계별 상세 매핑은 **§4.3 일정 매핑** 참조.
 
 ---
 
@@ -167,9 +169,8 @@
 | **충돌 감지 규칙** | 일정 시간대 겹침 검사 | AI 또는 사용자가 일정 추가 시 같은 날짜·시간 범위 다른 이벤트와 겹치는지 즉시 검사. | 미팅 두 개를 같은 시간에 잡으면 화면에서 빨간 줄로 즉시 알려준다. |
 
 #### 3.5.5 AI 기능 ↔ 적용 뷰 매핑
-| 위치 | AI가 거드는 것 | 사용 모델 |
-|----|------------------|-----------|
-> 모든 AI 기능은 **`gpt-4o-mini` 단일 모델**로 동작. 각 위치에서 적용하는 **기법**이 다를 뿐.
+
+> 모든 AI 기능은 **`gpt-4o-mini` 단일 모델**로 동작 (§3.5.1 참조). 각 위치에서 적용하는 **기법**이 다를 뿐.
 
 | 위치 | AI가 거드는 것 | 적용 기법 |
 |----|------------------|-----------|
@@ -443,7 +444,7 @@
 | **Vercel Edge Functions** | AI API 키 보호용 서버리스 (4개 엔드포인트) | `/api/ai/insight`, `/parse-event`, `/mandala`, `/recap` |
 | **Vercel** | 호스팅 + 자동 배포 + 환경변수 | main 푸시 시 자동 |
 | **localStorage / sessionStorage** | 비로그인·오프라인 즉시 동작 + 캐시 | 로그인 시 Firestore와 자동 머지 |
-| **OpenAI Node SDK (openai)** | LLM 호출 | TypeScript 타입 |
+| **OpenAI Node SDK (`openai`)** | LLM 호출 | TypeScript 타입 |
 
 ### 5.5 개발 환경 도구
 | 도구 | 용도 | 비고 |
@@ -485,7 +486,7 @@
 
 ## 6. 파일 구조
 
-### 4.1 전체 구조 (Figma Make 베이스 → 정리 후)
+### 6.1 전체 구조 (Figma Make 베이스 → 정리 후)
 ```
 KDT_webai_team_planner/
 ├─ public/
@@ -537,15 +538,15 @@ KDT_webai_team_planner/
 │  │
 │  ├─ lib/
 │  │  ├─ ai/
-│  │  │  ├─ client.ts              # Claude/OpenAI SDK 래퍼
-│  │  │  ├─ prompts.ts             # 시스템 프롬프트 모음
-│  │  │  ├─ schemas.ts             # JSON Schema (일정/만다라트/회고)
+│  │  │  ├─ client.ts              # OpenAI SDK 래퍼 (재시도·캐싱·타임아웃)
+│  │  │  ├─ prompts.ts             # 시스템 프롬프트 4종 + 버전 태그
+│  │  │  ├─ schemas.ts             # Zod 스키마 (일정·만다라트·회고·인사이트)
 │  │  │  └─ parser.ts              # 응답 파싱·검증
 │  │  │
 │  │  ├─ firebase/
-│  │  │  ├─ client.ts              # Firestore 초기화
+│  │  │  ├─ client.ts              # Firebase 초기화 (Auth + Firestore)
 │  │  │  ├─ share.ts               # 공유 링크 생성/조회
-│  │  │  └─ auth.ts                # Google OAuth
+│  │  │  └─ auth.ts                # Firebase Auth (Google·이메일·카카오)
 │  │  │
 │  │  └─ utils/
 │  │     ├─ date.ts                # fmtDate, parseDate, daysInMonth …
@@ -580,15 +581,18 @@ KDT_webai_team_planner/
 └─ README.md
 ```
 
-### 4.2 핵심 파일 책임 정리
+### 6.2 핵심 파일 책임 정리
 | 파일 | 책임 |
 |------|------|
-| `App.tsx` | 라우팅 · 전역 상태 부트스트랩 |
-| `eventStore.ts` | 모든 도메인 데이터(events, highlights, todos, mandala, diaries) 단일 진실 공급원 |
-| `lib/ai/client.ts` | Claude/OpenAI 호출 · 재시도 · 캐싱 |
-| `lib/ai/prompts.ts` | 시스템 프롬프트 모음 (일정 분해·만다라트·회고) |
-| `lib/ai/schemas.ts` | LLM 응답 JSON Schema → Zod 검증 |
-| `lib/firebase/share.ts` | 읽기 전용 공유 링크 생성 |
+| `App.tsx` | 라우팅 · 전역 상태 부트스트랩 · 라이트/다크 테마 적용 |
+| `userStore.ts` | 현재 로그인 사용자 · 인증 상태 · 프로필 |
+| `eventStore.ts` | 도메인 데이터(events, highlights, todos, mandala, diaries) 단일 진실 공급원 |
+| `lib/ai/client.ts` | OpenAI 호출 래퍼 · 재시도 3회 · 캐싱 3단계 · 타임아웃 12초 |
+| `lib/ai/prompts.ts` | 시스템 프롬프트 4종 (인사이트·일정·만다라트·회고) + 버전 태그 |
+| `lib/ai/schemas.ts` | Zod 스키마로 LLM 응답 검증 |
+| `lib/firebase/auth.ts` | Firebase Auth — 로그인·회원가입·탈퇴·idToken 발급 |
+| `lib/firebase/share.ts` | 읽기 전용 공유 링크 생성/조회 |
+| `firestore.rules` | 본인 uid 데이터만 read/write 허용 |
 | `tokens.ts` | 색·폰트·radius·shadow 디자인 토큰 |
 
 ---
@@ -713,26 +717,33 @@ match /shares/{shareId} {
 ## 8. AI 호출 흐름 (예시: 자연어 → 일정 추가)
 
 ```
-[사용자]                        [Frontend]                        [Claude API]
-   │                               │                                   │
-   │ "제주 3박4일 일정 짜줘"        │                                   │
-   │──────────────────────────────▶│                                   │
-   │                               │ 시스템 프롬프트 + JSON Schema +    │
-   │                               │ 사용자 텍스트                       │
-   │                               │──────────────────────────────────▶│
-   │                               │                                   │
-   │                               │              tool_use:            │
-   │                               │  addEvents([{date:..., title:...},│
-   │                               │              {date:..., title:...}│
-   │                               │              ...])                │
-   │                               │◀──────────────────────────────────│
-   │                               │ Zod 검증 → 미리보기 렌더           │
-   │      [확인/수정 화면]          │                                   │
-   │◀──────────────────────────────│                                   │
-   │  "이대로 저장"                 │                                   │
-   │──────────────────────────────▶│ store.addEvents(...)              │
-   │                               │ Firestore 동기화                   │
+[사용자]            [Frontend]      [Edge Function]      [OpenAI API]
+   │                    │                 │                    │
+   │ "제주 3박4일"       │                 │                    │
+   │───────────────────▶│                 │                    │
+   │                    │ idToken+text    │                    │
+   │                    │────────────────▶│                    │
+   │                    │                 │ 시스템 프롬프트     │
+   │                    │                 │ + JSON Schema      │
+   │                    │                 │ + 사용자 텍스트     │
+   │                    │                 │───────────────────▶│
+   │                    │                 │                    │
+   │                    │                 │  tool_call:        │
+   │                    │                 │  addEvents([...])  │
+   │                    │                 │◀───────────────────│
+   │                    │ JSON 결과       │                    │
+   │                    │◀────────────────│ Zod 검증           │
+   │  [확인/수정 화면]   │                 │                    │
+   │◀───────────────────│                 │                    │
+   │ "이대로 저장"       │                 │                    │
+   │───────────────────▶│ store.addEvents()                    │
+   │                    │ Firestore 동기화                      │
 ```
+
+**핵심 포인트**:
+- API 키는 Edge Function 환경변수에만 보관 (클라이언트 노출 X)
+- `idToken` 검증으로 익명 호출 차단
+- LLM 응답은 항상 Zod 스키마 검증 후 사용자 미리보기를 거쳐야 저장됨
 
 ### 시스템 프롬프트 예시 (일정 분해)
 ```
@@ -752,20 +763,25 @@ match /shares/{shareId} {
 
 ## 9. 팀원 작업 분담 제안
 
-> 인원수 모르는 상태이므로 4명 기준 예시. 실제 팀에 맞게 조정.
+> 4명 기준 예시. 실제 팀에 맞게 조정.
 
 | 역할 | 담당 영역 | 주요 산출물 |
 |------|----------|-------------|
-| **A. 프론트 리드** | App 셸 · 라우팅 · 디자인 토큰 · 6개 뷰 통합 | `App.tsx`, `tokens.ts`, 뷰 통합 |
-| **B. UI/UX** | shadcn 커스터마이즈 · 모바일 반응형 · 다크모드 | `components/shared/*`, 모바일 레이아웃 |
-| **C. AI 엔지니어** | Claude/OpenAI 통합 · 프롬프트 · 스키마 · 미리보기 | `lib/ai/*`, `AIInputSheet.tsx`, `AIPreview.tsx` |
-| **D. 백엔드/배포** | Firebase 셋업 · 공유 링크 · 인증 · Vercel 배포 | `lib/firebase/*`, 배포 파이프라인 |
+| **A. 프론트 리드** | App 셸·라우팅·디자인 토큰·6개 뷰 통합·PWA 설정 | `App.tsx`, `tokens.ts`, `vite.config.ts`, 6개 뷰 통합 |
+| **B. UI/UX** | shadcn 커스터마이즈·모바일 반응형·다크모드·인사이트 인사말 UI | `components/shared/*`, `InsightGreeting.tsx`, 모바일 레이아웃 |
+| **C. AI 엔지니어** | OpenAI 통합·프롬프트 4종·Zod 스키마·미리보기 UI·Streaming | `lib/ai/*`, `AIInputSheet.tsx`, `AIPreview.tsx`, Edge Functions |
+| **D. 백엔드/인증/배포** | Firebase Auth(로그인·회원가입·탈퇴)·Firestore 스키마·공유 링크·Vercel 배포 | `components/auth/*`, `lib/firebase/*`, `firestore.rules`, `userStore.ts` |
 
 ### 협업 규칙
 - 브랜치: `main` (배포) / `dev` (통합) / `feat/*` (개인 작업)
 - PR: 최소 1명 리뷰 후 머지
 - 일일 스탠드업: 10분 (어제·오늘·블로커)
 - 커밋 메시지: `[영역] 내용` — 예: `[ai] 만다라트 분해 프롬프트 추가`
+
+### 페어링·블로커
+- C가 만든 Edge Function 인터페이스가 결정되면 → A·B는 그걸 호출하는 UI를 병렬로
+- D가 Firestore 스키마 확정 → 나머지 셋이 데이터 모델을 동시에 사용
+- 블로커 발생 시 즉시 채팅 공유 — "이 PR 누가 좀 봐줘"
 
 ---
 
@@ -795,23 +811,128 @@ match /shares/{shareId} {
 
 | 리스크 | 대응 |
 |--------|------|
-| AI 응답 시간 (4~8초) | 로딩 스켈레톤 · "AI가 일정 짜는 중" 애니메이션 |
-| AI 응답 부정확 | 항상 미리보기 → 사용자가 수정 후 저장 |
-| API 비용 | Haiku 모델 활용 + localStorage 캐싱 + 무료 티어 |
-| Firebase 무료 한도 초과 | 발표 데모 한정 사용, 일반 공개는 v2 |
-| Figma Make 코드 통합 난이도 | D1에 1명이 풀타임으로 환경 셋업 전담 |
-| 4~5일 타이트 | 차별화 기능 1~2개에만 집중, 나머지는 v2로 |
+| AI 응답 시간 (1~3초, 회고 5~8초) | 로딩 스켈레톤 · "AI가 일정 짜는 중" 애니메이션 · Streaming UI |
+| AI 응답 부정확 | 항상 미리보기 → 사용자 수정 후 저장. Zod 스키마 검증으로 형식 깨진 응답 즉시 재시도 |
+| **AI 비용 초과** | gpt-4o-mini 단일화 · localStorage 캐싱 3단계 · 사용자당 분당 5회 / 일당 50회 레이트 리밋 |
+| **AI 키 노출** | Vercel Edge Functions 경유로만 호출, 클라이언트 빌드물에 키 포함 X |
+| **Firebase 무료 한도** (Spark plan) | 일일 50K 읽기 · 20K 쓰기 한도. 발표 데모 한정 사용, 사용량 모니터링 필수 |
+| **사용자 데이터 보안** | Security Rules로 본인 uid만 read/write · idToken 검증으로 익명 호출 차단 · 약관 동의 시점 기록 |
+| **Figma Make 코드 통합 난이도** | D1에 1명이 풀타임으로 환경 셋업 전담 |
+| **4~5일 타이트** | 폴백 우선순위: 만다라트 분해 > 자연어 일정 > 인사이트 인사말 > 회고. 막히면 위에서부터 v2로 |
+| **API 키 도용 / API 키 만료** | OpenAI 대시보드에서 사용량 알림 설정 + 비상 시 키 회전 매뉴얼 |
+| **공유 링크 악용** | 만료 시간 필수 (기본 30일), payload는 스냅샷이라 원본과 격리 |
 
 ---
 
 ## 12. 참고 자료
 
-- Anthropic Claude API: https://docs.claude.com
-- OpenAI API: https://platform.openai.com/docs
-- shadcn/ui: https://ui.shadcn.com
-- Firebase Firestore: https://firebase.google.com/docs/firestore
-- Vite PWA: https://vite-pwa-org.netlify.app
-- Pretendard: https://github.com/orioncactus/pretendard
+- **OpenAI API** (런타임 LLM): https://platform.openai.com/docs
+- **Anthropic Claude** (개발 보조용): https://docs.claude.com
+- **shadcn/ui**: https://ui.shadcn.com
+- **Tailwind CSS**: https://tailwindcss.com
+- **Firebase Auth**: https://firebase.google.com/docs/auth
+- **Firebase Firestore**: https://firebase.google.com/docs/firestore
+- **Vercel Edge Functions**: https://vercel.com/docs/functions
+- **Vite PWA**: https://vite-pwa-org.netlify.app
+- **Pretendard**: https://github.com/orioncactus/pretendard
+- **React Router v6**: https://reactrouter.com
+- **Zustand**: https://zustand-demo.pmnd.rs
+- **Zod**: https://zod.dev
+- **Recharts**: https://recharts.org
+- **date-fns**: https://date-fns.org
+
+---
+
+## 부록 A. D1 즉시 시작 가이드
+
+### A.1 저장소 클론 + 환경 셋업
+
+```bash
+# 1) 저장소 클론
+git clone https://github.com/halee0426/KDT_webai_team_planner.git
+cd KDT_webai_team_planner
+
+# 2) 새 Vite + React + TS 프로젝트로 초기화 (기존 코드 위에 덧입힘)
+npm create vite@latest . -- --template react-ts
+
+# 3) 핵심 의존성 설치
+npm install \
+  react-router-dom \
+  zustand \
+  zod \
+  date-fns \
+  recharts \
+  clsx tailwind-merge \
+  lucide-react \
+  sonner
+
+# 4) Tailwind + PostCSS
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+
+# 5) PWA
+npm install -D vite-plugin-pwa
+
+# 6) Firebase + OpenAI
+npm install firebase openai
+
+# 7) shadcn/ui 초기화 (CLI가 components/ui 자동 생성)
+npx shadcn@latest init
+# 그 후 필요한 컴포넌트만 개별 추가:
+npx shadcn@latest add button card dialog sheet tabs drawer toast input textarea select switch
+```
+
+### A.2 환경 변수 (`.env.local`)
+
+> **절대 깃에 커밋 X.** `.gitignore`에 이미 `.env*` 등록됨.
+
+```
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Firebase (콘솔의 프로젝트 설정에서 복사)
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+### A.3 첫 커밋 전 체크리스트
+
+- [ ] `.env.local` 작성됐는가
+- [ ] `npm run dev` 가 5173 포트에서 뜨는가
+- [ ] Pretendard 폰트가 화면에 적용되었는가
+- [ ] `tokens.ts`에 라이트/다크 변수가 정의됐는가
+- [ ] React Router로 라우트 6개가 매핑됐는가
+
+### A.4 D1 종료 시점에 있어야 할 것
+
+- 라우팅 동작하는 빈 셸 (오늘/캘린더/연력/주력/10분/만다라트/일기)
+- 하단 탭바 + FAB
+- 디자인 토큰 + 라이트/다크 토글
+- `src/lib/firebase/client.ts` 초기화만 (실제 호출은 D3)
+- `src/lib/ai/client.ts` 빈 함수 시그니처 (구현은 D2)
+- localStorage 기반 `eventStore.ts` (D2에 useStore 연결)
+
+### A.5 팀 공유 슬랙 메시지 템플릿
+
+```
+🚀 KDT 플래너 D1 작업 시작합니다
+
+[저장소] https://github.com/halee0426/KDT_webai_team_planner
+[가이드] guide.html (브라우저에서 열어주세요)
+[브랜치 규칙] feat/<영역>-<짧은이름> · main 직접 푸시 X · PR 1명 리뷰
+
+오늘 합의한 작업 분담:
+- A: 환경 셋업 + 라우팅 + 디자인 토큰
+- B: 모바일 레이아웃 + shadcn 커스터마이즈
+- C: OpenAI SDK + Edge Functions 스켈레톤
+- D: Firebase 콘솔 셋업 + Auth 화면
+
+질문/블로커 → 채팅 즉시. 18시 스탠드업 10분.
+```
 
 ---
 
