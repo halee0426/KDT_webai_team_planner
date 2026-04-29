@@ -225,25 +225,16 @@ export default function App() {
     <div
       className="app-outer"
       style={{
-        background: isDark ? "#0a0a0a" : "#e5e5ea",
         fontFamily: "Pretendard, -apple-system, sans-serif",
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        // 회색/검정 시연 배경은 CSS에서 데스크톱 전용으로 처리. 인라인에서 빼서 모바일 충돌 제거
       }}
     >
       <div
         className="relative overflow-hidden app-frame"
         style={{
-          // 데스크톱 기본: 모바일 프레임 박스 (globals.css가 모바일에선 100vw로 덮어씀)
-          width: 375,
-          maxWidth: "100vw",
-          height: 812,
+          // CSS 변수만 인라인으로 전달, 크기는 CSS에서 처리
           background: "var(--bg-canvas)",
           color: "var(--text-primary)",
-          borderRadius: 40,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
           ...cssVars,
         }}
       >
