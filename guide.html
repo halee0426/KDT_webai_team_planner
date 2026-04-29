@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웹기반 AI 플래너 — 팀 가이드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --bg:           #f5f1e8;
+    --bg-page:      #fffdf7;
+    --bg-elev:      #ffffff;
+    --ink:          #1d1d1f;
+    --ink-soft:     rgba(29,29,31,0.66);
+    --ink-mute:     rgba(29,29,31,0.42);
+    --line:         rgba(29,29,31,0.10);
+    --line-strong:  rgba(29,29,31,0.18);
+    --accent:       #0066cc;
+    --accent-soft:  rgba(0,102,204,0.10);
+    --hl-yellow:    rgba(255,221,87,0.55);
+    --shadow:       0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    --radius:       18px;
+    --punch:        #c8b78a;
+  }
+  [data-theme="dark"] {
+    --bg:           #0e0e10;
+    --bg-page:      #18181a;
+    --bg-elev:      #202024;
+    --ink:          #f1f1f3;
+    --ink-soft:     rgba(241,241,243,0.66);
+    --ink-mute:     rgba(241,241,243,0.42);
+    --line:         rgba(241,241,243,0.10);
+    --line-strong:  rgba(241,241,243,0.20);
+    --accent:       #5aa9ff;
+    --accent-soft:  rgba(90,169,255,0.14);
+    --hl-yellow:    rgba(255,221,87,0.22);
+    --shadow:       0 1px 2px rgba(0,0,0,0.4), 0 12px 40px rgba(0,0,0,0.4);
+    --punch:        #3a342a;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; overflow: hidden; }
+  .sidebar {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 32px 24px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .brand { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: var(--ink-mute); text-transform: uppercase; margin-bottom: 8px; }
+  .brand-title { font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--ink); margin-bottom: 24px; letter-spacing: -0.02em; }
+  .brand-title small { font-weight: 400; color: var(--ink-mute); font-size: 14px; display: block; margin-top: 2px; }
+  .toc-section { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--ink-mute); text-transform: uppercase; margin: 18px 0 6px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--ink-soft);
+    transition: all .15s; user-select: none;
+  }
+  .toc-item:hover { background: var(--accent-soft); color: var(--ink); }
+  .toc-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .toc-num { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-mute); min-width: 18px; }
+  .toc-item.active .toc-num { color: var(--accent); }
+  .sidebar-footer { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .theme-toggle {
+    background: var(--bg); border: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 7px 14px;
+    font-size: 12px; font-weight: 600; color: var(--ink-soft);
+    cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--ink-soft); }
+  .build-tag { font-size: 11px; color: var(--ink-mute); }
+
+  .book { overflow-y: auto; padding: 48px 56px 96px; scroll-behavior: smooth; }
+  .book::-webkit-scrollbar { width: 8px; }
+  .book::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+
+  .page {
+    max-width: 840px; margin: 0 auto 64px;
+    background: var(--bg-page);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 56px 64px;
+    position: relative;
+    border: 1px solid var(--line);
+  }
+  .page::before {
+    content: ''; position: absolute;
+    left: 28px; top: 24px; bottom: 24px; width: 1px;
+    background: linear-gradient(to bottom, transparent 0, var(--punch) 8%, var(--punch) 92%, transparent 100%);
+    opacity: 0.45;
+  }
+  .page-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 18px; margin-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-mute);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  }
+  .page-meta .date { font-weight: 600; }
+  .page-meta .num { letter-spacing: 0.08em; }
+
+  .cover { text-align: center; padding: 96px 64px; background: linear-gradient(180deg, var(--bg-page) 0%, var(--bg-elev) 100%); }
+  .cover h1 {
+    font-size: 48px; font-weight: 700; letter-spacing: -0.04em;
+    line-height: 1.15; margin: 18px 0 22px;
+    background: linear-gradient(135deg, var(--ink) 0%, var(--accent) 120%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .cover .lead { font-size: 18px; color: var(--ink-soft); max-width: 540px; margin: 0 auto 36px; line-height: 1.55; }
+  .cover-stamp {
+    display: inline-block; border: 1.5px solid var(--accent);
+    color: var(--accent); padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .cover-meta {
+    display: inline-flex; gap: 24px; margin-top: 56px;
+    padding-top: 28px; border-top: 1px dashed var(--line-strong);
+    font-size: 12px; color: var(--ink-mute);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .md h1, .md h2, .md h3, .md h4 { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); line-height: 1.3; }
+  .md h1 { font-size: 32px; margin: 0 0 24px; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+  .md h2 { font-size: 24px; margin: 40px 0 14px; display: flex; align-items: baseline; gap: 10px; }
+  .md h2::before { content: ''; width: 4px; height: 18px; background: var(--accent); border-radius: 2px; flex-shrink: 0; transform: translateY(2px); }
+  .md h3 { font-size: 18px; margin: 28px 0 10px; color: var(--ink); }
+  .md h4 { font-size: 15px; margin: 20px 0 8px; color: var(--ink-soft); }
+  .md p { margin: 0 0 14px; font-size: 15px; line-height: 1.75; }
+  .md a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .md strong { background: var(--hl-yellow); padding: 0 3px; font-weight: 700; border-radius: 2px; }
+  .md em { font-style: italic; color: var(--ink-soft); }
+  .md ul, .md ol { margin: 0 0 16px 22px; padding: 0; }
+  .md li { margin: 6px 0; font-size: 15px; line-height: 1.7; }
+  .md ul li::marker { color: var(--accent); }
+  .md blockquote {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px; margin: 18px 0;
+    border-radius: 0 10px 10px 0;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .md blockquote p { margin: 0; }
+  .md blockquote strong { background: transparent; padding: 0; }
+  .md hr { border: none; height: 1px; background: var(--line-strong); margin: 36px 0; }
+  .md code {
+    background: var(--bg); padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Consolas, Menlo, monospace;
+    font-size: 13px; color: var(--accent);
+    border: 1px solid var(--line);
+  }
+  .md pre {
+    background: #1a1a1d; color: #e6e6ea;
+    padding: 18px 20px; border-radius: 12px;
+    overflow-x: auto; margin: 16px 0;
+    font-size: 13px; line-height: 1.6;
+    border: 1px solid var(--line-strong);
+    white-space: pre;
+  }
+  .md pre code { background: transparent; padding: 0; color: inherit; border: none; font-size: inherit; font-family: inherit; }
+  .md table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    margin: 18px 0; border: 1px solid var(--line-strong);
+    border-radius: 10px; overflow: hidden;
+    font-size: 14px; background: var(--bg-elev);
+  }
+  .md th { background: var(--bg); padding: 11px 14px; font-weight: 700; text-align: left; color: var(--ink); border-bottom: 1px solid var(--line-strong); }
+  .md td { padding: 11px 14px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: top; }
+  .md tr:last-child td { border-bottom: none; }
+  .md tr:hover td { background: var(--accent-soft); }
+
+  .progress { position: fixed; top: 0; left: 280px; right: 0; height: 3px; background: var(--accent); z-index: 50; transform-origin: 0 50%; transform: scaleX(0); transition: transform .1s ease-out; }
+
+  .page-nav { position: fixed; right: 28px; bottom: 28px; display: flex; flex-direction: column; gap: 8px; z-index: 40; }
+  .page-nav button {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-elev); color: var(--ink-soft);
+    cursor: pointer; font-size: 18px; font-family: inherit;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .page-nav button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .menu-fab { display: none; }
+  @media (max-width: 880px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: fixed; inset: 0; transform: translateX(-100%); transition: transform .25s ease; z-index: 100; width: min(86vw, 320px); box-shadow: var(--shadow); }
+    .sidebar.open { transform: translateX(0); }
+    .progress { left: 0; }
+    .book { padding: 28px 16px 80px; }
+    .page { padding: 36px 28px; border-radius: 14px; }
+    .page::before { display: none; }
+    .cover h1 { font-size: 34px; }
+    .cover { padding: 60px 28px; }
+    .menu-fab { display: flex; position: fixed; left: 16px; top: 16px; z-index: 110; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--bg-elev); box-shadow: var(--shadow); cursor: pointer; font-size: 18px; align-items: center; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<button class="menu-fab" id="menuFab" aria-label="목차 열기">☰</button>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">KDT WebAI · v1.0</div>
+    <div class="brand-title">웹기반 AI 플래너<small>팀 프로젝트 가이드</small></div>
+
+    <div class="toc-section">표지</div>
+    <div class="toc-item active" data-target="page-cover"><span class="toc-num">00</span><span>표지</span></div>
+    <div class="toc-item" data-target="page-1"><span class="toc-num">01</span><span>한 줄 요약</span></div>
+
+    <div class="toc-section">기획</div>
+    <div class="toc-item" data-target="page-2"><span class="toc-num">02</span><span>프로젝트 개요</span></div>
+    <div class="toc-item" data-target="page-3"><span class="toc-num">03</span><span>핵심 기능 명세</span></div>
+
+    <div class="toc-section">기술</div>
+    <div class="toc-item" data-target="page-4"><span class="toc-num">04</span><span>기술 스택</span></div>
+    <div class="toc-item" data-target="page-5"><span class="toc-num">05</span><span>파일 구조</span></div>
+    <div class="toc-item" data-target="page-6"><span class="toc-num">06</span><span>데이터 모델</span></div>
+    <div class="toc-item" data-target="page-7"><span class="toc-num">07</span><span>AI 호출 흐름</span></div>
+
+    <div class="toc-section">실행</div>
+    <div class="toc-item" data-target="page-8"><span class="toc-num">08</span><span>팀원 분담</span></div>
+    <div class="toc-item" data-target="page-9"><span class="toc-num">09</span><span>시연 시나리오</span></div>
+    <div class="toc-item" data-target="page-10"><span class="toc-num">10</span><span>리스크 & 대응</span></div>
+    <div class="toc-item" data-target="page-11"><span class="toc-num">11</span><span>참고 자료</span></div>
+
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="themeToggle">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">다크</span>
+      </button>
+      <span class="build-tag" id="dateTag"></span>
+    </div>
+  </aside>
+
+  <main class="book" id="book"></main>
+</div>
+
+<div class="page-nav">
+  <button id="prevBtn" title="이전">↑</button>
+  <button id="nextBtn" title="다음">↓</button>
+</div>
+
+<!-- ── 페이지 본문은 별도 div에 텍스트로 보관 후 JS가 읽음 (백틱 이스케이프 문제 회피) ── -->
+<script id="md-source" type="text/plain">
+# 웹기반 AI 플래너 — 팀 프로젝트 가이드
+
+> KDT WebAI Team Planner · 2026.04 · v1.0
+
+## 한 줄 요약
+
+**"AI가 같이 짜주는 일정·목표·회고 통합 플래너."**
+
+여행이든 자기계발이든, 자연어 한 줄이면 AI가 일정과 목표를 분해해 채워주는 모바일 우선 웹앱.
+
+핵심 메시지 3개:
+- 🌟 **자연어 입력만으로 일정 생성** — "제주 3박 4일 일정 짜줘"
+- 🎯 **만다라트 자동 분해** — 81칸을 AI가 채움
+- ⏱️ **10분 단위 시간 시각화** — 시간 사용을 색칠로 분석
+
+---SPLIT---
+
+## 1. 프로젝트 개요
+
+### 1.1 배경
+- 시중 플래너 앱은 **"입력은 사람이, AI는 부가 기능"** 인 경우가 대부분.
+- 여행 계획·자기계발·운동 루틴처럼 **목표를 일정으로 분해하는 일**이 가장 귀찮은 부분.
+- 우리는 이 "분해" 단계를 AI가 대신 해주는 플래너를 만든다.
+
+### 1.2 타깃 사용자
+- **1차**: 여행 계획·자기계발 목표를 가진 20–30대
+- **2차**: 학습/공부 루틴을 짜는 학생, 직장인 회고 사용자
+
+### 1.3 차별화 포인트
+
+| 구분 | 내용 |
+|------|------|
+| 🌟 **AI 자연어 입력** | "제주 3박 4일 짜줘" → 일정·만다라트 자동 변환 |
+| 🎯 **만다라트 자동 분해** | 81칸 만다라트를 AI가 채워줌 |
+| ⏱️ **10분 단위 시각화** | 18시간 × 6칸 = 108칸 그리드를 색칠해서 분석 |
+
+### 1.4 일정 (4~5일 스프린트)
+
+| Day | 작업 |
+|-----|------|
+| D1 | 환경 셋업 · 기존 Figma Make 코드 가져오기 · 라우팅 |
+| D2 | AI 자연어 입력 → 일정 자동 추가 MVP |
+| D3 | AI 만다라트 자동 분해 + 회고 요약 |
+| D4 | 공유 링크(Firebase) · UI 다듬기 · 모바일 반응형 |
+| D5 | 데모 시나리오 · 발표자료 · 배포(Vercel) |
+
+---SPLIT---
+
+## 2. 핵심 기능 명세
+
+### 2.1 6가지 뷰
+
+| 뷰 | 용도 | 핵심 인터랙션 |
+|----|------|----------------|
+| **연력** (Year) | 1년 전체 · 형광펜 기간 표시 | 드래그로 기간 선택 → 색·라벨 부여 |
+| **달력** (Month) | 월간 일정 한눈에 | 셀 탭 → 일력으로 이동 |
+| **주력** (Week) | 주간 시간표 | 빈 슬롯 탭 → 빠른 추가 |
+| **일력** (Day) | 30분 단위 타임그리드 + 할일 | 드래그로 시간대 선택 |
+| **10분 플래너** | 18×6 그리드 색칠로 시간 분석 | 작업 선택 → 셀 드래그 페인팅 |
+| **만다라트** | 9×9 목표 분해 | 중심 목표 → AI 분해 → 셀 편집 |
+| **일기** | 날짜별 텍스트 일기 | 자동 저장 |
+
+### 2.2 AI 차별화 기능
+
+| 기능 | 설명 | 예시 입력 |
+|------|------|-----------|
+| **자연어 → 일정 분해** | 자유 텍스트 → 다중 일정 생성 | "제주 3박 4일, 첫째 날 한라산" |
+| **만다라트 자동 분해** | 핵심 목표 → 8 세부 + 64 실행 | "영어 회화 마스터" |
+| **주간 회고 요약** | 한 주 데이터 → 자연어 회고 | 자동, 수정 가능 |
+| **할일 패턴 분석** | 자주 미루는 항목 감지 → 재배치 | "3주째 미뤄짐, 시간 옮길까요?" |
+
+---SPLIT---
+
+## 3. 기술 스택
+
+### 3.1 프론트엔드
+
+| 분류 | 기술 | 선정 이유 |
+|------|------|-----------|
+| **언어** | TypeScript | 타입 안정성, 협업 인터페이스 명확화 |
+| **프레임워크** | React 18 | Figma Make 출력 코드 그대로 활용 |
+| **빌드 도구** | Vite | 빠른 HMR · 최소 설정 |
+| **스타일링** | Tailwind CSS + shadcn/ui | 약 50개 컴포넌트 즉시 사용 |
+| **폰트** | Pretendard | 한글 가독성·일관성 |
+| **상태 관리** | Zustand 패턴 (eventStore.ts) | 가벼움 |
+| **라우팅** | React Router v6 | 6개 뷰 SPA 라우팅 |
+| **차트** | Recharts | 회고 대시보드 |
+| **PWA** | Vite PWA Plugin | 모바일 홈화면 추가 · 오프라인 |
+| **아이콘** | Lucide React | shadcn 기본 |
+
+### 3.2 백엔드 / 데이터
+
+| 분류 | 기술 | 선정 이유 |
+|------|------|-----------|
+| **로컬 저장** | localStorage | 즉시 보존 · 백엔드 의존 0 |
+| **클라우드 저장** | Firebase Firestore | 백엔드 코드 0 · 무료 티어 |
+| **인증** | Firebase Auth (Google) | 공유 링크에 필요 |
+| **호스팅** | Vercel | git push 자동 배포 |
+| **AI 호출** | Claude API · OpenAI API | 자연어 → JSON 변환 |
+| **CDN** | jsDelivr | Pretendard 등 정적 자원 |
+
+### 3.3 머신러닝 / AI 기법
+
+| 기법 | 적용 위치 | 설명 |
+|------|------------|------|
+| **LLM 자연어 이해 (NLU)** | AI 자연어 입력 | Claude Sonnet 4.5로 의도 분류 |
+| **Function Calling / Tool Use** | 일정 자동 추가 | LLM이 addEvent() 인자를 JSON으로 출력 |
+| **Structured Output (JSON Schema)** | 만다라트 분해 | 81개 셀을 스키마로 강제 |
+| **Few-shot Prompting** | 만다라트 · 회고 | 좋은 예시 2~3개를 시스템 프롬프트에 |
+| **Chain-of-Thought** | 복잡한 일정 분해 | "단계적으로 생각하라" 지시 |
+| **Retrieval (선택)** | 패턴 분석 | 과거 todo 임베딩 → 유사 패턴 검색 |
+| **Rule-based Heuristics** | 미완료 자동 이전 | LLM 없이 규칙만 (rolloverTodos) |
+| **Sentiment Tagging** | 일기 무드 라벨링 | Claude Haiku로 비용 절감 |
+
+> **비용 최적화**
+> - 메인 분해: Claude Sonnet 4.5 (품질 우선)
+> - 가벼운 분류: Claude Haiku 4.5 또는 GPT-4o-mini (1/10 비용)
+> - 자주 호출: localStorage 캐싱
+
+### 3.4 개발 도구
+- **버전 관리**: Git + GitHub
+- **에디터**: VS Code
+- **린트**: ESLint + Prettier
+- **타입 체크**: TypeScript strict mode
+- **로컬 서버**: Vite dev server (port 5173)
+
+---SPLIT---
+
+## 4. 파일 구조
+
+```
+KDT_webai_team_planner/
+├─ public/
+│  └─ favicon.svg, manifest.json, icons/
+├─ src/
+│  ├─ App.tsx                 # 진입점 · 라우팅
+│  ├─ main.tsx                # ReactDOM mount
+│  │
+│  ├─ components/
+│  │  ├─ views/              # 6개 메인 뷰
+│  │  │  ├─ DayView.tsx
+│  │  │  ├─ MonthView.tsx
+│  │  │  ├─ WeekView.tsx
+│  │  │  ├─ YearView.tsx
+│  │  │  ├─ TenMinPlanner.tsx
+│  │  │  ├─ MandalaView.tsx
+│  │  │  └─ DiaryView.tsx
+│  │  │
+│  │  ├─ ai/                 # ⭐ 차별화 신규
+│  │  │  ├─ AIInputSheet.tsx
+│  │  │  ├─ AIPreview.tsx
+│  │  │  └─ MandalaAIButton.tsx
+│  │  │
+│  │  ├─ shared/             # 공통
+│  │  │  ├─ TabBar.tsx
+│  │  │  ├─ FAB.tsx
+│  │  │  ├─ Sheet.tsx
+│  │  │  ├─ Splash.tsx
+│  │  │  └─ Settings.tsx
+│  │  │
+│  │  └─ ui/                 # shadcn/ui (자동 생성)
+│  │
+│  ├─ store/
+│  │  ├─ eventStore.ts       # 일정·할일·만다라트
+│  │  ├─ themeStore.ts
+│  │  └─ aiStore.ts
+│  │
+│  ├─ lib/
+│  │  ├─ ai/
+│  │  │  ├─ client.ts        # Claude/OpenAI 래퍼
+│  │  │  ├─ prompts.ts       # 시스템 프롬프트
+│  │  │  ├─ schemas.ts       # Zod 검증
+│  │  │  └─ parser.ts
+│  │  │
+│  │  ├─ firebase/
+│  │  │  ├─ client.ts
+│  │  │  ├─ share.ts         # 공유 링크
+│  │  │  └─ auth.ts
+│  │  │
+│  │  └─ utils/
+│  │     ├─ date.ts
+│  │     ├─ time.ts
+│  │     └─ rollover.ts
+│  │
+│  ├─ hooks/
+│  │  ├─ useStore.ts
+│  │  ├─ useAI.ts
+│  │  ├─ useTheme.ts
+│  │  └─ useShareLink.ts
+│  │
+│  ├─ styles/
+│  │  ├─ globals.css
+│  │  ├─ theme.css
+│  │  ├─ tokens.ts           # 디자인 토큰
+│  │  ├─ tailwind.css
+│  │  └─ fonts.css
+│  │
+│  └─ types/
+│     ├─ event.ts
+│     ├─ mandala.ts
+│     └─ ai.ts
+│
+├─ index.html
+├─ package.json
+├─ vite.config.ts
+└─ tsconfig.json
+```
+
+### 핵심 파일 책임
+
+| 파일 | 책임 |
+|------|------|
+| **App.tsx** | 라우팅 · 전역 상태 부트스트랩 |
+| **eventStore.ts** | 모든 도메인 데이터 단일 진실 공급원 |
+| **lib/ai/client.ts** | Claude/OpenAI 호출 · 재시도 · 캐싱 |
+| **lib/ai/prompts.ts** | 시스템 프롬프트 모음 |
+| **lib/ai/schemas.ts** | LLM 응답 Zod 검증 |
+| **lib/firebase/share.ts** | 읽기 전용 공유 링크 |
+| **tokens.ts** | 색·폰트·radius 디자인 토큰 |
+
+---SPLIT---
+
+## 5. 데이터 모델
+
+```
+type Event = {
+  id: string;
+  date: string;            // 'YYYY-MM-DD'
+  title: string;
+  color: string;
+  startTime?: string;
+  endTime?: string;
+};
+
+type Highlight = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+  label?: string;
+};
+
+type Todo = {
+  id: string;
+  text: string;
+  done: boolean;
+  rolledFrom?: string;
+  rolledId?: string;
+};
+
+type MandalaCell = string;  // 81개
+
+type Diary = {
+  date: string;
+  text: string;
+  mood?: '😊' | '😐' | '😢';
+};
+
+type ShareLink = {
+  id: string;
+  ownerUid: string;
+  scope: 'day' | 'week' | 'mandala';
+  payload: any;
+  expiresAt?: number;
+};
+```
+
+이 7개 타입이 **앱 데이터의 전부**입니다. 새 기능은 이 위에 얹히는 형태로.
+
+---SPLIT---
+
+## 6. AI 호출 흐름
+
+자연어 입력 → 일정 추가 흐름:
+
+```
+[사용자]              [Frontend]              [Claude API]
+   |                     |                        |
+   | "제주 3박4일"        |                        |
+   |-------------------->|                        |
+   |                     | 시스템프롬프트 +         |
+   |                     | JSON Schema +          |
+   |                     | 사용자 텍스트            |
+   |                     |----------------------->|
+   |                     |                        |
+   |                     |     tool_use:          |
+   |                     |     addEvents([...])    |
+   |                     |<-----------------------|
+   |                     | Zod 검증 → 미리보기      |
+   | [확인/수정 화면]      |                        |
+   |<--------------------|                        |
+   | "이대로 저장"         |                        |
+   |-------------------->| store.addEvents()      |
+   |                     | Firestore 동기화        |
+```
+
+### 시스템 프롬프트 예시
+
+```
+당신은 한국어 일정 분해 전문가입니다.
+사용자 텍스트를 받아 addEvents() 함수를
+정확한 JSON 인자로 호출하세요.
+
+규칙:
+1. 시작 날짜 미명시 시 오늘 + 1일 기본값.
+2. "3박 4일"은 4일치 events.
+3. 한 일자에 2~4개 활동(이동/식사/주요/휴식).
+4. 시간은 09:00–22:00 사이.
+5. 짧고 명확한 제목 (예: "한라산 등반").
+```
+
+> **핵심 원칙**: AI 결과는 항상 미리보기를 거친다. 바로 저장하지 않는다.
+
+---SPLIT---
+
+## 7. 팀원 작업 분담 제안
+
+> 4명 기준 예시. 인원·강점에 맞춰 조정.
+
+| 역할 | 담당 영역 | 주요 산출물 |
+|------|----------|-------------|
+| **A. 프론트 리드** | App 셸 · 라우팅 · 디자인 토큰 · 뷰 통합 | App.tsx, tokens.ts |
+| **B. UI/UX** | shadcn 커스터마이즈 · 모바일 반응형 · 다크모드 | shared/* |
+| **C. AI 엔지니어** | Claude/OpenAI 통합 · 프롬프트 · 미리보기 | lib/ai/*, AIInputSheet.tsx |
+| **D. 백엔드/배포** | Firebase · 공유 링크 · 인증 · Vercel 배포 | lib/firebase/* |
+
+### 협업 규칙
+- 브랜치: main(배포) / dev(통합) / feat/*(개인)
+- PR: 최소 1명 리뷰 후 머지
+- 일일 스탠드업: 10분 (어제·오늘·블로커)
+- 커밋: [영역] 내용 — 예: [ai] 만다라트 분해 프롬프트 추가
+
+---SPLIT---
+
+## 8. 시연 시나리오 (발표용)
+
+### 시나리오 1 — 여행 (일반 사용자 어필)
+1. 앱 실행 → 빈 캘린더
+2. FAB ✨ 탭 → "다음 주 부산 2박 3일 가족 여행, 첫날 해운대"
+3. 3초 후 일정 9개 자동 생성 → 미리보기
+4. "그대로 저장" → 캘린더에 컬러풀하게 채워짐
+5. 공유 링크 생성 → QR로 부모님께 전송
+
+### 시나리오 2 — 자기계발 (차별화 어필)
+1. 만다라트 진입 → "TOEIC 900점" 입력
+2. ✨ AI 분해 → 81칸 자동 채움
+3. 셀 탭해서 수정 가능
+4. 실행 셀 하나를 일정으로 드래그 → 일력에 추가
+
+### 시나리오 3 — 회고 (만족도 어필)
+1. 일요일 "주간 회고" 자동 생성
+2. AI: "운동 3회 완료, 독서 1회 — 다음 주 재배치 제안"
+3. 사용자 확인 → 다음 주 일정 자동 조정
+
+---SPLIT---
+
+## 9. 리스크 & 대응
+
+| 리스크 | 대응 |
+|--------|------|
+| AI 응답 시간 (4~8초) | 로딩 스켈레톤 · 짜는 중 애니메이션 |
+| AI 응답 부정확 | 항상 미리보기 → 수정 후 저장 |
+| API 비용 | Haiku + 캐싱 + 무료 티어 |
+| Firebase 무료 한도 | 발표 데모 한정 |
+| Figma Make 통합 난이도 | D1 1명 풀타임 셋업 전담 |
+| 4~5일 타이트 | 차별화 1~2개에만 집중 |
+
+---SPLIT---
+
+## 10. 참고 자료
+
+- **Anthropic Claude API** — https://docs.claude.com
+- **OpenAI API** — https://platform.openai.com/docs
+- **shadcn/ui** — https://ui.shadcn.com
+- **Firebase Firestore** — https://firebase.google.com/docs/firestore
+- **Vite PWA** — https://vite-pwa-org.netlify.app
+- **Pretendard** — https://github.com/orioncactus/pretendard
+- **React Router v6** — https://reactrouter.com
+- **Zod** — https://zod.dev
+
+---
+
+> 본 문서는 팀원 공유용 가이드라인입니다.
+> 변경 시 PROJECT_GUIDE.md 와 함께 업데이트해주세요.
+</script>
+
+<script>
+(function() {
+  'use strict';
+
+  // 매우 단순한 마크다운 렌더러 (외부 의존 0)
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderInline(s) {
+    // 인라인 코드 placeholder
+    var codes = [];
+    s = s.replace(/`([^`]+)`/g, function(_, c) {
+      codes.push(escapeHtml(c));
+      return 'IC' + (codes.length - 1) + '';
+    });
+    // 링크
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // 굵게
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // 인라인 코드 복원
+    s = s.replace(/IC(\d+)/g, function(_, i) {
+      return '<code>' + codes[+i] + '</code>';
+    });
+    return s;
+  }
+
+  function renderMarkdown(src) {
+    // 코드블록 추출
+    var codeBlocks = [];
+    src = src.replace(/```([\s\S]*?)```/g, function(_, code) {
+      codeBlocks.push(escapeHtml(code.replace(/^\n/, '')));
+      return 'CB' + (codeBlocks.length - 1) + '';
+    });
+
+    var lines = src.split('\n');
+    var out = [];
+    var i = 0;
+    var inUl = false, inOl = false, inP = false, inBQ = false;
+
+    function closeP() { if (inP) { out.push('</p>'); inP = false; } }
+    function closeUl() { if (inUl) { out.push('</ul>'); inUl = false; } }
+    function closeOl() { if (inOl) { out.push('</ol>'); inOl = false; } }
+    function closeBQ() { if (inBQ) { out.push('</blockquote>'); inBQ = false; } }
+    function closeAll() { closeP(); closeUl(); closeOl(); closeBQ(); }
+
+    while (i < lines.length) {
+      var line = lines[i];
+      var t = line.trim();
+
+      if (!t) { closeAll(); i++; continue; }
+
+      // 코드블록 placeholder
+      var cbm = t.match(/^CB(\d+)$/);
+      if (cbm) {
+        closeAll();
+        out.push('<pre><code>' + codeBlocks[+cbm[1]] + '</code></pre>');
+        i++; continue;
+      }
+
+      // 헤딩
+      var hm = t.match(/^(#{1,6})\s+(.+)$/);
+      if (hm) {
+        closeAll();
+        var lv = hm[1].length;
+        out.push('<h' + lv + '>' + renderInline(hm[2]) + '</h' + lv + '>');
+        i++; continue;
+      }
+
+      // hr
+      if (/^---+$/.test(t)) {
+        closeAll();
+        out.push('<hr>');
+        i++; continue;
+      }
+
+      // 인용문
+      if (t.charAt(0) === '>') {
+        closeP(); closeUl(); closeOl();
+        if (!inBQ) { out.push('<blockquote>'); inBQ = true; }
+        out.push('<p>' + renderInline(t.replace(/^>\s?/, '')) + '</p>');
+        i++; continue;
+      } else if (inBQ) {
+        closeBQ();
+      }
+
+      // 표
+      if (t.indexOf('|') >= 0 && i + 1 < lines.length && /^\s*\|?[\s|:\-]+\|?\s*$/.test(lines[i+1])) {
+        closeAll();
+        var headers = t.replace(/^\||\|$/g, '').split('|').map(function(s){return s.trim();});
+        var th = '';
+        for (var k = 0; k < headers.length; k++) th += '<th>' + renderInline(headers[k]) + '</th>';
+        out.push('<table><thead><tr>' + th + '</tr></thead><tbody>');
+        i += 2;
+        while (i < lines.length && lines[i].trim().indexOf('|') >= 0) {
+          var row = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(function(s){return s.trim();});
+          var tr = '';
+          for (var m = 0; m < row.length; m++) tr += '<td>' + renderInline(row[m]) + '</td>';
+          out.push('<tr>' + tr + '</tr>');
+          i++;
+        }
+        out.push('</tbody></table>');
+        continue;
+      }
+
+      // 리스트
+      if (/^[-*+]\s+/.test(t)) {
+        closeP(); closeOl();
+        if (!inUl) { out.push('<ul>'); inUl = true; }
+        out.push('<li>' + renderInline(t.replace(/^[-*+]\s+/, '')) + '</li>');
+        i++; continue;
+      }
+      if (/^\d+\.\s+/.test(t)) {
+        closeP(); closeUl();
+        if (!inOl) { out.push('<ol>'); inOl = true; }
+        out.push('<li>' + renderInline(t.replace(/^\d+\.\s+/, '')) + '</li>');
+        i++; continue;
+      }
+
+      // 일반 문단
+      closeUl(); closeOl();
+      if (!inP) { out.push('<p>'); inP = true; }
+      out.push(renderInline(line) + ' ');
+      i++;
+    }
+    closeAll();
+    return out.join('');
+  }
+
+  // ── 시작 ──
+  document.addEventListener('DOMContentLoaded', function() {
+    var book = document.getElementById('book');
+    var src = document.getElementById('md-source').textContent;
+    var sections = src.split('---SPLIT---');
+
+    // 표지
+    var coverHtml =
+      '<section class="page cover" id="page-cover">' +
+        '<span class="cover-stamp">Team Project · 2026</span>' +
+        '<h1>웹기반 AI 플래너<br>팀 가이드라인</h1>' +
+        '<p class="lead">"AI가 같이 짜주는 일정·목표·회고 통합 플래너"<br>' +
+        'Figma Make 베이스 + 자연어 인터페이스 + 만다라트 자동 분해</p>' +
+        '<div class="cover-meta">' +
+          '<span>KDT WebAI</span>' +
+          '<span id="todayCover"></span>' +
+          '<span>v 1.0</span>' +
+        '</div>' +
+      '</section>';
+    book.insertAdjacentHTML('beforeend', coverHtml);
+
+    // 본문 페이지
+    var today = new Date();
+    var dateStr = today.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+    var compact = today.getFullYear() + '.' + String(today.getMonth()+1).padStart(2,'0') + '.' + String(today.getDate()).padStart(2,'0');
+
+    for (var s = 0; s < sections.length; s++) {
+      var md = sections[s].trim();
+      if (!md) continue;
+      var pageNum = s + 1;
+      var titleM = md.match(/^#{1,6}\s+(.+)$/m);
+      var title = titleM ? titleM[1].replace(/^\d+\.\s*/, '') : 'Section';
+      var html =
+        '<section class="page" id="page-' + pageNum + '">' +
+          '<div class="page-meta">' +
+            '<span class="date">' + dateStr + '</span>' +
+            '<span class="num">PAGE ' + String(pageNum).padStart(2,'0') + ' · ' + title + '</span>' +
+          '</div>' +
+          '<div class="md">' + renderMarkdown(md) + '</div>' +
+        '</section>';
+      book.insertAdjacentHTML('beforeend', html);
+    }
+
+    // 날짜 라벨
+    document.getElementById('dateTag').textContent = compact;
+    var todayCover = document.getElementById('todayCover');
+    if (todayCover) todayCover.textContent = compact;
+
+    // 요소 캐시
+    var bookEl = book;
+    var progressEl = document.getElementById('progress');
+    var tocItems = document.querySelectorAll('.toc-item');
+    var pages = document.querySelectorAll('.page');
+
+    // 목차 클릭
+    for (var ti = 0; ti < tocItems.length; ti++) {
+      (function(item) {
+        item.addEventListener('click', function() {
+          var id = item.getAttribute('data-target');
+          var target = document.getElementById(id);
+          if (target) {
+            bookEl.scrollTo({ top: target.offsetTop - 16, behavior: 'smooth' });
+          }
+          for (var k = 0; k < tocItems.length; k++) tocItems[k].classList.remove('active');
+          item.classList.add('active');
+          document.getElementById('sidebar').classList.remove('open');
+        });
+      })(tocItems[ti]);
+    }
+
+    // 스크롤 동기화
+    bookEl.addEventListener('scroll', function() {
+      var max = bookEl.scrollHeight - bookEl.clientHeight;
+      var ratio = max > 0 ? bookEl.scrollTop / max : 0;
+      progressEl.style.transform = 'scaleX(' + ratio + ')';
+
+      var mid = bookEl.scrollTop + bookEl.clientHeight / 3;
+      var activeIdx = 0;
+      for (var p = 0; p < pages.length; p++) {
+        if (pages[p].offsetTop <= mid) activeIdx = p;
+      }
+      var activeId = pages[activeIdx] ? pages[activeIdx].id : null;
+      for (var k = 0; k < tocItems.length; k++) {
+        if (tocItems[k].getAttribute('data-target') === activeId) {
+          tocItems[k].classList.add('active');
+        } else {
+          tocItems[k].classList.remove('active');
+        }
+      }
+    });
+
+    // 이전/다음
+    function currentIdx() {
+      var mid = bookEl.scrollTop + bookEl.clientHeight / 3;
+      var idx = 0;
+      for (var p = 0; p < pages.length; p++) {
+        if (pages[p].offsetTop <= mid) idx = p;
+      }
+      return idx;
+    }
+    document.getElementById('prevBtn').addEventListener('click', function() {
+      var i = Math.max(0, currentIdx() - 1);
+      bookEl.scrollTo({ top: pages[i].offsetTop - 16, behavior: 'smooth' });
+    });
+    document.getElementById('nextBtn').addEventListener('click', function() {
+      var i = Math.min(pages.length - 1, currentIdx() + 1);
+      bookEl.scrollTo({ top: pages[i].offsetTop - 16, behavior: 'smooth' });
+    });
+
+    // 다크모드
+    var btn = document.getElementById('themeToggle');
+    var icon = document.getElementById('themeIcon');
+    var label = document.getElementById('themeLabel');
+    var saved = localStorage.getItem('guide_theme');
+    if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      icon.textContent = '☀️';
+      label.textContent = '라이트';
+    }
+    btn.addEventListener('click', function() {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        icon.textContent = '🌙';
+        label.textContent = '다크';
+        localStorage.setItem('guide_theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        icon.textContent = '☀️';
+        label.textContent = '라이트';
+        localStorage.setItem('guide_theme', 'dark');
+      }
+    });
+
+    // 모바일 햄버거
+    var fab = document.getElementById('menuFab');
+    if (fab) {
+      fab.addEventListener('click', function() {
+        document.getElementById('sidebar').classList.toggle('open');
+      });
+    }
+
+    // 키보드
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        e.preventDefault();
+        document.getElementById('nextBtn').click();
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        document.getElementById('prevBtn').click();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
