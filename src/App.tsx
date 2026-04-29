@@ -223,18 +223,21 @@ export default function App() {
 
   return (
     <div
-      className="app-outer"
+      className="size-full flex items-center justify-center min-h-screen app-outer"
       style={{
+        background: isDark ? "#0a0a0a" : "#e5e5ea",
         fontFamily: "Pretendard, -apple-system, sans-serif",
-        // 회색/검정 시연 배경은 CSS에서 데스크톱 전용으로 처리. 인라인에서 빼서 모바일 충돌 제거
       }}
     >
       <div
         className="relative overflow-hidden app-frame"
         style={{
-          // CSS 변수만 인라인으로 전달, 크기는 CSS에서 처리
+          width: 375,
+          height: 812,
           background: "var(--bg-canvas)",
           color: "var(--text-primary)",
+          borderRadius: 40,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
           ...cssVars,
         }}
       >
