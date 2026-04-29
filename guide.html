@@ -227,19 +227,21 @@
     <div class="toc-section">기획</div>
     <div class="toc-item" data-target="page-2"><span class="toc-num">02</span><span>프로젝트 개요</span></div>
     <div class="toc-item" data-target="page-3"><span class="toc-num">03</span><span>핵심 기능 명세</span></div>
+    <div class="toc-item" data-target="page-6"><span class="toc-num">06</span><span>작업 파이프라인</span></div>
 
     <div class="toc-section">기술</div>
     <div class="toc-item" data-target="page-4"><span class="toc-num">04</span><span>기술 스택</span></div>
     <div class="toc-item" data-target="page-5"><span class="toc-num">05</span><span>AI · 인공지능 스택</span></div>
-    <div class="toc-item" data-target="page-6"><span class="toc-num">06</span><span>파일 구조</span></div>
-    <div class="toc-item" data-target="page-7"><span class="toc-num">07</span><span>데이터 모델</span></div>
-    <div class="toc-item" data-target="page-8"><span class="toc-num">08</span><span>AI 호출 흐름</span></div>
+    <div class="toc-item" data-target="page-7"><span class="toc-num">07</span><span>사용 툴 정리</span></div>
+    <div class="toc-item" data-target="page-8"><span class="toc-num">08</span><span>파일 구조</span></div>
+    <div class="toc-item" data-target="page-9"><span class="toc-num">09</span><span>데이터 모델</span></div>
+    <div class="toc-item" data-target="page-10"><span class="toc-num">10</span><span>AI 호출 흐름</span></div>
 
     <div class="toc-section">실행</div>
-    <div class="toc-item" data-target="page-9"><span class="toc-num">09</span><span>팀원 분담</span></div>
-    <div class="toc-item" data-target="page-10"><span class="toc-num">10</span><span>시연 시나리오</span></div>
-    <div class="toc-item" data-target="page-11"><span class="toc-num">11</span><span>리스크 & 대응</span></div>
-    <div class="toc-item" data-target="page-12"><span class="toc-num">12</span><span>참고 자료</span></div>
+    <div class="toc-item" data-target="page-11"><span class="toc-num">11</span><span>팀원 분담</span></div>
+    <div class="toc-item" data-target="page-12"><span class="toc-num">12</span><span>시연 시나리오</span></div>
+    <div class="toc-item" data-target="page-13"><span class="toc-num">13</span><span>리스크 & 대응</span></div>
+    <div class="toc-item" data-target="page-14"><span class="toc-num">14</span><span>참고 자료</span></div>
 
     <div class="sidebar-footer">
       <button class="theme-toggle" id="themeToggle">
@@ -359,10 +361,11 @@
 
 | 분류 | 기술 | 선정 이유 |
 |------|------|-----------|
-| **로컬 저장** | localStorage | 즉시 보존 · 백엔드 의존 0 |
-| **클라우드 저장** | Firebase Firestore | 백엔드 코드 0 · 무료 티어 |
-| **인증** | Firebase Auth (Google) | 공유 링크에 필요 |
-| **호스팅** | Vercel | git push 자동 배포 |
+| **사용자 인증** | Firebase Auth — Google · 이메일/비밀번호 · 카카오(선택) | 데이터 동기화·AI 인사이트·공유의 진입점. **앱 핵심 기능** |
+| **사용자 DB** | Firestore — users/{uid} | 프로필(이름·아바타·생성일) + 환경설정(테마·언어) |
+| **개인 데이터 DB** | Firestore — users/{uid}/{events,todos,...} | 일정·할일·만다라트·일기를 사용자 단위로 격리 저장 |
+| **로컬 저장** | localStorage (eventStore.ts) | 비로그인·오프라인 즉시 동작 → 로그인 시 자동 머지 |
+| **호스팅** | Vercel | git push 자동 배포 + 환경변수 안전 보관 |
 | **CDN** | jsDelivr | Pretendard 등 정적 자원 |
 
 > AI 모델·SDK·기법은 분량이 많아 §3.5 AI · 인공지능 스택으로 별도 정리.
@@ -390,25 +393,31 @@
 > 우리 프로젝트의 **AI 보조 기능**을 구현하기 위한 모든 기술을 한 곳에 정리한 섹션.
 > 사용자의 주도권을 해치지 않는 선에서 — 자연어 입력, 목표 분해, 회고 코칭, 패턴 감지를 담당.
 
-### 3.5.1 모델 (LLM Providers)
+### 3.5.1 모델 (LLM Provider)
+
+> **비용 최적화를 위해 OpenAI gpt-4o-mini 단일 모델로 운영한다.**
+> SDK·인증·프롬프트 관리가 한 곳으로 모이고, 학생 프로젝트 비용 한도 안에서 모든 기능 구현 가능.
 
 | 모델 | 용도 | 선정 이유 |
 |------|------|-----------|
-| **Anthropic Claude Sonnet 4.5** | 메인 분해 작업 — 일정 자연어 추가, 만다라트 분해, 주간 회고 | 한국어 이해도 높음 · 긴 컨텍스트 · Tool Use 안정적 |
-| **Anthropic Claude Haiku 4.5** | 가벼운 분류·요약 — 일기 무드 태깅, 짧은 답변 | Sonnet 대비 1/10 가격 · 응답 속도 빠름 |
-| **OpenAI GPT-4o-mini** | Claude 장애 시 백업 / 비용 비교용 | 이중화 안정성 |
-| **text-embedding-3-small** | 패턴 감지용 임베딩 (선택) | 과거 todo·event 의미 검색 |
+| **OpenAI gpt-4o-mini** | 모든 LLM 작업 — 인사이트 인사말, 자연어 일정 추가, 만다라트 분해, 주간 회고, 일기 무드 태깅, 형광펜 라벨 제안 | 입력 $0.15 / 출력 $0.60 per 1M tokens 저비용 · Function Calling / Structured Output / Streaming 지원 · 한국어 안정 · 응답 빠름 (1~3초) |
+| **text-embedding-3-small** (선택) | 패턴 감지용 임베딩 | 과거 todo·event 의미 검색. v2 도입 검토 |
+
+> **모델 단일화 트레이드오프**
+> - 장점: 토큰 1개로 모든 기능 · 라이브러리 단일 · 디버깅 쉬움
+> - 단점: 무거운 작업에서 더 큰 모델 대비 품질이 약할 수 있음
+> - 대응: **프롬프트 엔지니어링 + Few-shot**으로 품질 끌어올림, 결과는 항상 사용자 미리보기로 보정
 
 ### 3.5.2 호출 방식 (API & SDK)
 
 | 항목 | 기술 | 설명 |
 |------|------|------|
-| **공식 SDK** | @anthropic-ai/sdk · openai | TypeScript 타입 지원 · 재시도 내장 |
-| **호출 위치** | 프론트 → Vercel Edge Functions | API 키를 클라이언트에 노출하지 않음 |
-| **응답 검증** | Zod 스키마 | LLM 응답이 정해진 구조를 어기면 즉시 재시도 |
-| **재시도 정책** | 지수 백오프 3회 | 네트워크·rate limit 대응 |
+| **공식 SDK** | openai (Node/TypeScript) | TypeScript 타입 지원 · 재시도 내장 · Function Calling/Structured Output 풍부 |
+| **호출 위치** | 프론트 → Vercel Edge Functions | OPENAI_API_KEY를 환경 변수로만, 클라이언트 노출 X |
+| **응답 검증** | Zod 스키마 | 응답이 구조를 어기면 즉시 재시도 |
+| **재시도 정책** | 지수 백오프 3회 (1s→2s→4s) | 네트워크·rate limit 대응 |
 | **캐싱** | localStorage + sessionStorage | 같은 입력 반복 호출 차단 |
-| **프롬프트 캐싱** | Anthropic Prompt Caching | 시스템 프롬프트 캐시 → 비용 90%↓ |
+| **시스템 프롬프트 단일화** | lib/ai/prompts.ts 한 파일 | 동일 시스템 프롬프트 재사용 → 응답 일관성 + 디버깅 용이 |
 
 ### 3.5.3 적용 기법 (LLM Techniques)
 
@@ -439,24 +448,34 @@
 
 ### 3.5.5 AI 기능 ↔ 적용 뷰 매핑
 
-| 위치 | AI가 거드는 것 | 사용 모델 |
+> 모든 AI 기능은 **gpt-4o-mini 단일 모델**로 동작. 각 위치에서 적용하는 **기법**이 다를 뿐.
+
+| 위치 | AI가 거드는 것 | 적용 기법 |
 |----|------------------|-----------|
-| **앱 진입 (홈 상단)** | ✨ **AI 인사이트 인사말** — 사용자 데이터를 보고 한두 줄 격려·요약·환기 (예: "어제 못 끝낸 할일 2개, 오전에 정리해볼까요?" / "이번 주 운동 3회 채우셨어요!") | Haiku + Streaming |
-| **연력** | 형광펜 라벨 자동 제안 | Haiku |
-| **달력 · 주력 · 일력** | 자연어로 일정 추가 | Sonnet (Tool Use) |
-| **10분 플래너** | 작업 자동 카테고리 + 색상 제안 | Haiku |
-| **만다라트** | 핵심 목표 → 8 세부 + 64 실행 자동 분해 | Sonnet (Structured Output) |
-| **일기** | 무드 자동 태깅 · 한 주 감정 요약 | Haiku |
-| **(주간) 회고** | 한 주 데이터 → 자연어 코멘트 + 다음 주 제안 | Sonnet + Streaming |
+| **앱 진입 (홈 상단)** | ✨ **AI 인사이트 인사말** — 사용자 데이터를 보고 한두 줄 격려·요약·환기 (예: "어제 못 끝낸 할일 2개, 오전에 정리해볼까요?" / "이번 주 운동 3회 채우셨어요!") | Context Summarization + Streaming |
+| **연력** | 형광펜 라벨 자동 제안 | Few-shot Prompting |
+| **달력 · 주력 · 일력** | 자연어로 일정 추가 | Function Calling (Tool Use) |
+| **10분 플래너** | 작업 자동 카테고리 + 색상 제안 | Few-shot + Structured Output |
+| **만다라트** | 핵심 목표 → 8 세부 + 64 실행 자동 분해 | Structured Output (JSON Schema) |
+| **일기** | 무드 자동 태깅 · 한 주 감정 요약 | Few-shot Classification |
+| **(주간) 회고** | 한 주 데이터 → 자연어 코멘트 + 다음 주 제안 | Chain-of-Thought + Streaming |
 
 ### 3.5.6 비용·성능 가드레일
 
-- **메인 분해 작업** (일정·만다라트): Claude Sonnet 4.5 — 품질 우선
-- **가벼운 분류·요약** (무드·라벨): Claude Haiku 4.5 — 1/10 가격
-- **캐싱 3단계**: 입력 캐시 → 시스템 프롬프트 캐시 → 결과 7일 보관
-- **레이트 리밋**: 사용자당 분당 5회, 일당 50회 (무료 티어 보호)
-- **타임아웃**: 12초 — 초과 시 "다시 시도" 버튼 제공
-- **장애 대응**: Claude 실패 → OpenAI 폴백 → 그래도 실패 시 수동 입력
+- **단일 모델**: gpt-4o-mini — 입력 $0.15 / 출력 $0.60 per 1M tokens (한 번 호출 평균 0.001~0.005달러)
+- **호출 빈도 예상**:
+  - 인사이트 인사말: 앱 진입당 1회 (캐시되면 0회)
+  - 자연어 일정 추가: 사용자 액션당 1회
+  - 만다라트 분해: 드물게 (주 1~2회)
+  - 주간 회고: 주 1회
+- **캐싱 3단계**:
+  1. 동일 입력 → localStorage 즉시 반환 (비용 0)
+  2. 인사이트 → 1시간 이내 같은 데이터면 재사용
+  3. 회고/만다라트 결과 → Firestore 7일 보관, 다시 보기 가능
+- **레이트 리밋**: 사용자당 분당 5회, 일당 50회 (예산 보호)
+- **타임아웃**: 12초 — 초과 시 "다시 시도" 버튼
+- **토큰 절약**: 인사이트 입력은 최근 7일만 요약, max_tokens 명시 (인사이트 80, 회고 400 등)
+- **장애 대응**: 호출 실패 시 친절한 에러 + 수동 입력 폴백 (인사이트는 정적 메시지로)
 
 ### 3.5.7 프롬프트 거버넌스
 
@@ -468,7 +487,270 @@
 
 ---SPLIT---
 
-## 4. 파일 구조
+## 4. 작업 파이프라인
+
+> **아이디어 → 차별화 → 디자인 → 프론트엔드 → 백엔드/DB → 배포 → 시연** 까지의 전체 흐름.
+> 각 단계마다 목적·산출물·도구·체크포인트를 정의하고, 4~5일 스프린트 안에서 1~3은 압축, 4~7은 병렬로 진행한다.
+
+### 4.1 단계별 흐름 (한눈에)
+
+```
+[1] 아이디어 수립
+       ↓ (문제 정의 · 사용자 가설)
+[2] 차별화 전략 수립
+       ↓ (코어 5개 + AI 보조 원칙)
+[3] 디자인 (UX → UI)
+       ↓ (Figma Make 베이스 + 토큰)
+[4] 프론트엔드 개발  ┐
+                    │ (병렬)
+[5] 백엔드 / DB     ┤
+                    │
+[6] AI 통합          ┘
+       ↓
+[7] 통합 · QA · 최적화
+       ↓
+[8] 배포
+       ↓
+[9] 시연 · 발표 · 회고
+```
+
+### 4.2 단계별 상세
+
+#### 1단계 — 아이디어 수립
+- **목적**: 누구의 어떤 불편을 해결할 것인가를 한 문장으로
+- **활동**: 시중 플래너 비교(굳이어플·모트모트·구글캘린더·Notion), 종이 다이어리의 시간 줌인 구조 발견, 타깃 가설 수립
+- **산출물**: 한 줄 요약, 타깃 정의
+- **도구**: Notion · 화이트보드 · 사용자 인터뷰
+- **체크포인트**: 한 문장으로 컨셉 설명 가능? 차별점 있음?
+
+#### 2단계 — 차별화 전략 수립
+- **목적**: 코어 자산(연력·10분) vs 보조 도구(AI) 분리. AI는 거드는 보조 원칙 합의
+- **활동**: 5가지 차별화 도출, AI 인사이트 인사말 컨셉 확정, 시연 시나리오 초안
+- **산출물**: §1.3 차별화 5개 / §3.5 AI 스택 / 시연 시나리오 초안
+- **도구**: PROJECT_GUIDE.md, 회의록
+- **체크포인트**: "왜 우리 앱이 필요한가"에 30초 안에 답?
+
+#### 3단계 — 디자인 (UX → UI)
+- **목적**: 머릿속 컨셉을 검증할 화면으로 만들기
+- **활동**:
+  - **3-1 UX**: 6개 뷰 모바일 와이어프레임, USER FLOW, 핵심 인터랙션
+  - **3-2 디자인 토큰**: 색상(라이트/다크) · 타이포(Pretendard) · radius · shadow
+  - **3-3 UI 시안**: Figma Make로 8개 화면 + AI 입력 모달 + 인사이트 영역
+  - **3-4 라이트+다크** 동시
+- **산출물**: Figma 파일, tokens.ts 초안, 화면 캡처 8장
+- **도구**: Figma / Figma Make
+- **체크포인트**: 모바일 375px 동작? 토큰만 바꿔도 다크/라이트 전환?
+
+#### 4단계 — 프론트엔드 개발
+- **목적**: Figma Make 코드를 워크스페이스로 옮겨 동작하는 앱으로
+- **활동**:
+  - **4-1 환경**: Vite + React 18 + TS, Tailwind, shadcn/ui, ESLint+Prettier, Pretendard
+  - **4-2 라우팅**: React Router v6 — 6개 뷰 SPA
+  - **4-3 토큰 적용**: tokens.ts + theme.css
+  - **4-4 6개 뷰 구현**: 연력(형광펜) · 10분(그리드 페인팅) · 일력(30분) · 달력 · 주력 · 만다라트 · 일기
+  - **4-5 공통 컴포넌트**: TabBar, FAB, Sheet, Splash, Settings, AIInputSheet, AIPreview, **InsightGreeting**
+  - **4-6 모바일 반응형 + PWA**: manifest.json, Service Worker, 홈화면 추가
+- **산출물**: src/ 코드, vite.config.ts, package.json, PWA manifest
+- **도구**: VS Code, Vite dev server, Chrome DevTools
+- **체크포인트**: 폰에서 동작? 홈에 설치 가능? 다크/라이트 무리 없음?
+
+#### 5단계 — 백엔드 / 사용자 인증 / DB 구축
+- **목적**: 사용자 식별 + 개인 데이터 영속 + 공유 링크 + AI 키 보관소
+- **활동**:
+  - **5-1 로컬 (게스트 모드)**: eventStore.ts → localStorage 단일 진실, 비로그인 즉시 동작
+  - **5-2 사용자 인증 (Firebase Auth)**:
+    - 로그인 옵션: Google OAuth (1순위) · 이메일+비밀번호 (2순위) · 카카오 (선택, v2)
+    - 회원가입: 이름·프로필 사진(선택)·약관 동의(개인정보·AI 데이터)
+    - 로그인 / 비밀번호 재설정 / 로그아웃 / 회원 탈퇴 (Firestore 데이터 함께 제거)
+  - **5-3 사용자 DB**: Firestore users/{uid}에 프로필 + 환경설정 + 동의 시점. 도메인 데이터는 모두 users/{uid}/... 서브컬렉션
+  - **5-4 데이터 머지**: 비로그인 localStorage → 로그인 시 Firestore 자동 업로드 (로컬 우선 충돌 해결)
+  - **5-5 Security Rules**: 본인 uid 데이터만 read/write
+  - **5-6 공유 링크**: 읽기 전용 스냅샷 → shares/{shareId}, QR 코드
+  - **5-7 AI 백엔드 (Vercel Edge Functions)**:
+    - /api/ai/insight (사용자 데이터 컨텍스트 압축)
+    - /api/ai/parse-event
+    - /api/ai/mandala
+    - /api/ai/recap (Streaming)
+    - **API 키는 서버 환경변수에만**, 호출 시 idToken 검증으로 익명 호출 차단
+- **산출물**: User 모델, 로그인/회원가입/탈퇴 화면, Firestore 스키마, firestore.rules, /api/* 4개, .env.local
+- **도구**: Firebase 콘솔, Vercel CLI, Postman
+- **체크포인트**: 비로그인 게스트 동작? 로그인 시 게스트 데이터 자동 머지? 공유 링크 보기 전용? AI 키 빌드물 노출 X? 다른 uid 접근 시 권한 거부?
+
+#### 6단계 — AI 통합 (4·5와 병렬)
+- **목적**: §3.5 AI 스택을 실제 동작
+- **활동**:
+  - **6-1 SDK**: openai 단일 (gpt-4o-mini 사용)
+  - **6-2 프롬프트** (lib/ai/prompts.ts): 인사이트 / 일정 / 만다라트 / 회고 4종 + 버전 태그
+  - **6-3 스키마** (lib/ai/schemas.ts): Zod 검증
+  - **6-4 호출 래퍼** (lib/ai/client.ts): 재시도 3회, 타임아웃 12초, 캐시 3단계
+  - **6-5 UI 통합**: AIInputSheet → AIPreview → 사용자 승인 → store
+  - **6-6 Streaming**: 인사이트와 회고에 토큰 단위 출력
+- **산출물**: lib/ai/* 모듈, 프롬프트 4종, 호출 로그
+- **도구**: OpenAI Playground, Vercel logs, Zod
+- **체크포인트**: 같은 입력 두 번이면 캐시 적중? 결과 항상 미리보기? 친절한 에러 안내?
+
+#### 7단계 — 통합 · QA · 최적화
+- **목적**: 4·5·6 결과 합쳐 끝까지 동작하는 한 흐름
+- **활동**:
+  - **7-1 시나리오 3개 통과**: 여행 / 자기계발 / 회고
+  - **7-2 디바이스**: 안드로이드 / iOS Safari / Chrome
+  - **7-3 접근성**: 키보드 탭, 색 대비 WCAG AA, 폰트
+  - **7-4 성능**: Lighthouse, 번들 사이즈, Lazy load
+  - **7-5 에러 핸들링**: 네트워크 / AI 타임아웃 / Firestore 권한
+  - **7-6 카피**: 한국어만, 친절한 톤
+- **산출물**: QA 체크리스트, 버그 트래커, Lighthouse 리포트
+- **도구**: Chrome DevTools, Lighthouse
+- **체크포인트**: 시연 시나리오 3개 끊김 없이 시연 가능?
+
+#### 8단계 — 배포
+- **목적**: 발표장에서 누구나 URL/QR로 접속
+- **활동**:
+  - **8-1** Vercel 프로젝트 연결 — main 자동 배포
+  - **8-2** 환경 변수 등록 (OPENAI_API_KEY, Firebase 설정)
+  - **8-3** 도메인 — 무료 *.vercel.app
+  - **8-4** PWA 설치 안내 페이지
+  - **8-5** QR 코드 인쇄
+- **산출물**: 라이브 URL, QR, 배포 노트, 롤백 절차
+- **도구**: Vercel, QR generator
+- **체크포인트**: git push 자동 배포? QR 찍으면 3초 안에 앱?
+
+#### 9단계 — 시연 · 발표 · 회고
+- **목적**: 4~5일 결과를 명확한 메시지로 전달, v2 방향 정리
+- **활동**:
+  - **9-1 시연 대본**: 3분 안에 차별화 5개를 보여주는 동선
+  - **9-2 데모 데이터**: 빈 화면이 아니라 풍성한 일정·만다라트
+  - **9-3 슬라이드**: 한 줄 요약 → 차별화 → AI 스택 → 라이브 시연 → 시나리오 → 마무리
+  - **9-4 백업 플랜**: 인터넷 끊김 / Vercel 장애 / AI 지연 — 각각 대응
+  - **9-5 회고**: 잘된 점 / 막힌 점 / v2 개선
+- **산출물**: 슬라이드, 시연 영상(녹화), 회고 문서
+- **도구**: Keynote / 구글 슬라이드, OBS Studio
+- **체크포인트**: 청중에게 30초 안에 차별화 설명 가능?
+
+### 4.3 일정 매핑 (4~5일 스프린트)
+
+| Day | 단계 | 주요 작업 |
+|-----|------|-----------|
+| **D0 (사전)** | 1·2 | 아이디어/차별화 합의 — 본 가이드 작성 |
+| **D1** | 3·4 | 디자인 토큰 + 프론트 환경 셋업 + 라우팅 |
+| **D2** | 4·6 | 6개 뷰 구현(병렬) + AI SDK + 인사이트 MVP |
+| **D3** | 5·6 | Firestore + 자연어 일정 추가 + 만다라트 분해 |
+| **D4** | 7 | 통합·QA·모바일·다크모드 마무리 |
+| **D5** | 8·9 | 배포 + 데모 데이터 + 시연 리허설 + 슬라이드 |
+
+### 4.4 단계 간 의존성 & 위험 신호
+
+- **3단계 24h 이상 지연** → 4단계는 Figma Make 출력본으로 시작, 다듬기는 D4로
+- **5단계 막힘** → 공유 링크는 v2로 미루고 localStorage 단독 운영
+- **6단계 막힘** → 인사이트는 정적 메시지로 폴백, AI 기능 비활성화 토글
+- **8단계 막힘** → 발표 PC에서 로컬 npm run dev 직접 시연
+
+> **원칙**: AI가 모두 빠져도 코어(연력·10분·연결성)는 살아남는다. 그래서 발표는 무조건 성립한다.
+
+---SPLIT---
+
+## 5. 사용 툴 정리
+
+> 본 프로젝트에 실제로 사용한 도구·서비스·라이브러리를 한 곳에 모아 정리.
+> 4~5일 스프린트 안에서 빠르게 결과를 내기 위해 **이미 검증된 무료/저비용 도구**를 우선 채택.
+
+### 5.1 디자인 도구
+
+| 도구 | 용도 | 비고 |
+|------|------|------|
+| **Figma** | UI 시안 작성, 디자인 토큰 정의, 팀원 간 디자인 리뷰 | Pro 팀 워크스페이스 (Dev Mode 활성화) |
+| **Figma Make** | 자연어 프롬프트로 React+Tailwind 코드 자동 생성 → 본 프로젝트의 **베이스 코드 출처** | shadcn/ui 50개 컴포넌트 + 6개 뷰 자동 스캐폴딩 |
+| **Figma MCP 서버** | Claude(Cowork)가 Figma 파일을 직접 읽고 분석 | 디자인-기획 연결 자동화 |
+| **Pretendard** | 한글 본문/제목 단일 폰트 | jsDelivr CDN, 무료 오픈 폰트 |
+| **Lucide Icons** | 아이콘 세트 | shadcn/ui 기본 |
+
+### 5.2 AI · LLM 도구
+
+| 도구 | 용도 | 비고 |
+|------|------|------|
+| **Anthropic Claude** | **기획·문서 작성·코드 보조** — 본 가이드 작성, 차별화 전략 수립, 다이어리 뷰어(guide.html) 구현, 디자인 분석 등 프로젝트 전 과정의 사고 파트너 | Cowork(데스크톱) 환경 |
+| **OpenAI gpt-4o-mini** | **앱 런타임 AI 기능** — 인사이트 인사말, 자연어 일정 추가, 만다라트 분해, 주간 회고, 일기 무드, 형광펜 라벨 | 비용 최적화로 단일 모델 운영 (§3.5) |
+| **OpenAI Playground** | 프롬프트 테스트, 파라미터 튜닝 | 배포 전 사전 검증 |
+| **text-embedding-3-small** (선택) | 패턴 감지 임베딩 (v2 후보) | 과거 todo·event 의미 검색 |
+
+> **두 AI의 역할 분리:**
+> - **Claude** = 우리가(개발팀이) 만드는 과정에서 쓰는 도구 (기획·문서·코드 작성)
+> - **OpenAI** = 사용자가 앱 안에서 만나는 도구 (런타임 AI 기능)
+
+### 5.3 프론트엔드 라이브러리
+
+| 라이브러리 | 용도 | 비고 |
+|------------|------|------|
+| **React 18** | UI 프레임워크 | Figma Make 기본 출력 |
+| **TypeScript** | 정적 타입 검사 | strict mode |
+| **Vite** | 빌드 도구 / dev server | 빠른 HMR, 최소 설정 |
+| **Tailwind CSS** | 유틸리티 기반 스타일링 | 디자인 토큰 함께 사용 |
+| **shadcn/ui** | 사전 디자인 React UI 컴포넌트 50개 (Button, Dialog, Sheet, Tabs, Calendar, Drawer 등) | 코드 직접 복사·수정 가능 |
+| **Radix UI** | shadcn/ui의 내부 의존성 (접근성 + 키보드) | 자동 포함 |
+| **Lucide React** | 아이콘 라이브러리 | shadcn/ui 짝꿍 |
+| **React Router v6** | SPA 라우팅 | 6개 뷰 전환 |
+| **Recharts** | 차트 시각화 | 10분 플래너 분석, 회고 대시보드 |
+| **clsx · tailwind-merge** | 조건부 className 결합 | shadcn/ui 표준 |
+| **date-fns** | 날짜 유틸 (포맷·연산) | 가벼움 |
+| **Zod** | 런타임 스키마 검증 | LLM 응답 검증, 폼 검증 |
+| **Zustand** | 가벼운 상태 관리 | eventStore.ts 패턴 |
+| **Sonner** | 토스트 알림 | shadcn/ui 표준 |
+| **Vite PWA Plugin** | PWA 매니페스트, Service Worker 자동 생성 | 모바일 홈화면 추가 |
+
+### 5.4 백엔드 · 데이터 도구
+
+| 도구 | 용도 | 비고 |
+|------|------|------|
+| **Firebase Auth** | 로그인 / 회원가입 — Google OAuth, 이메일/비밀번호, (선택) 카카오 | 비로그인 게스트 → 로그인 시 자동 마이그레이션 |
+| **Firebase Firestore** | 사용자별 데이터 영속 — 프로필, 일정, 할일, 만다라트, 일기, 공유 | 무료 티어, 보안 규칙으로 본인 데이터만 |
+| **Firebase Security Rules** | 본인 uid 데이터만 read/write 허용 | 백엔드 코드 없이 권한 처리 |
+| **Vercel Edge Functions** | AI API 키 보호용 서버리스 | /api/ai/insight, /parse-event, /mandala, /recap |
+| **Vercel** | 호스팅 + 자동 배포 + 환경변수 | main 푸시 시 자동 |
+| **localStorage / sessionStorage** | 비로그인·오프라인 즉시 동작 + 캐시 | 로그인 시 Firestore와 자동 머지 |
+| **OpenAI Node SDK (openai)** | LLM 호출 | TypeScript 타입 |
+
+### 5.5 개발 환경 도구
+
+| 도구 | 용도 | 비고 |
+|------|------|------|
+| **VS Code** | 코드 에디터 | Source Control 내장 |
+| **Git + GitHub** | 버전 관리, 협업 | halee0426/KDT_webai_team_planner |
+| **GitHub Desktop** (선택) | GUI Git | 명령어 부담될 때 |
+| **ESLint** | 코드 품질 검사 | 협업 일관성 |
+| **Prettier** | 코드 포맷터 | 자동 포맷 |
+| **PostCSS** | Tailwind 프로세서 | Vite 통합 |
+| **Chrome DevTools** | 디버깅, 네트워크, Lighthouse | 모바일 에뮬레이션 |
+| **Lighthouse** | 성능·접근성·PWA 점수 | 배포 전 점검 |
+
+### 5.6 협업 · 운영 도구
+
+| 도구 | 용도 | 비고 |
+|------|------|------|
+| **Notion / 구글 닥스** | 회의록·아이디어 정리 | 팀 커뮤니케이션 |
+| **카카오톡 / Slack** | 실시간 소통 + 작업 잠금 공지 | 충돌 예방 |
+| **Vercel Analytics** | 페이지 뷰·기기 통계 | 무료 |
+| **QR Generator** | 발표 시 라이브 URL → QR | 청중 즉시 접속 |
+| **OBS Studio** (선택) | 시연 영상 녹화 | 백업용 |
+
+### 5.7 외부 CDN · 자원
+
+| 자원 | 용도 |
+|------|------|
+| **jsDelivr** | Pretendard 폰트 호스팅 |
+| **OpenAI API endpoint** | LLM 호출 (Edge Functions 경유) |
+| **Firebase API** | Firestore + Auth |
+
+### 5.8 향후 도입 검토
+
+| 도구 | 도입 시점 | 용도 |
+|------|-----------|------|
+| **Sentry** | 베타 단계 이후 | 프로덕션 에러 모니터링 |
+| **Anthropic SDK** | 사용자 베타 이후 | OpenAI 장애 시 폴백 |
+| **Playwright** | 안정화 단계 | E2E 테스트 자동화 |
+| **i18n (react-i18next)** | 글로벌 확장 시 | 영문 출시 |
+
+---SPLIT---
+
+## 6. 파일 구조
 
 ```
 KDT_webai_team_planner/
@@ -562,7 +844,36 @@ KDT_webai_team_planner/
 
 ---SPLIT---
 
-## 5. 데이터 모델
+## 7. 데이터 모델
+
+> 모든 도메인 데이터는 **사용자 단위(uid)로 격리**되어 Firestore에 저장된다.
+> 비로그인 사용자는 동일한 구조를 localStorage에 보관하다가, 로그인 시 자동으로 Firestore와 머지된다.
+
+### 7.1 사용자 모델 (User)
+
+```
+type User = {
+  uid: string;                       // Firebase Auth UID (PK)
+  provider: 'google' | 'email' | 'kakao';
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  createdAt: number;                 // 가입 일시
+  lastLoginAt: number;               // 마지막 접속
+  preferences: {
+    theme: 'light' | 'dark' | 'system';
+    language: 'ko' | 'en';
+    aiInsightEnabled: boolean;       // 인사이트 인사말 on/off
+    weekStartsOn: 0 | 1;             // 0=일, 1=월
+  };
+  consent: {
+    privacyAcceptedAt: number;
+    aiDataUsageAcceptedAt?: number;
+  };
+};
+```
+
+### 7.2 도메인 데이터 (User 하위)
 
 ```
 type Event = {
@@ -572,6 +883,7 @@ type Event = {
   color: string;
   startTime?: string;
   endTime?: string;
+  createdBy: string;       // uid
 };
 
 type Highlight = {
@@ -607,11 +919,45 @@ type ShareLink = {
 };
 ```
 
-이 7개 타입이 **앱 데이터의 전부**입니다. 새 기능은 이 위에 얹히는 형태로.
+### 7.3 Firestore 컬렉션 구조
+
+```
+firestore/
+├─ users/{uid}                    # User 프로필
+│   ├─ events/{eventId}           # Event[]
+│   ├─ todos/{date}               # Todo[]
+│   ├─ highlights/{highlightId}   # Highlight[]
+│   ├─ mandala/{mandalaId}        # MandalaCell[81]
+│   └─ diaries/{date}             # Diary
+│
+└─ shares/{shareId}               # 공유 스냅샷 (읽기 전용)
+    └─ { ownerUid, scope, payload, expiresAt }
+```
+
+### 7.4 Security Rules (요지)
+
+```
+match /users/{uid}/{collection}/{docId} {
+  allow read, write:
+    if request.auth != null && request.auth.uid == uid;
+}
+
+match /shares/{shareId} {
+  allow read: if true;            // 공유 링크는 누구나 읽기
+  allow write:
+    if request.auth.uid == resource.data.ownerUid;
+}
+```
+
+### 7.5 비로그인 ↔ 로그인 데이터 머지
+
+1. **비로그인 사용자**: 모든 데이터는 localStorage에만
+2. **로그인 시**: localStorage 데이터를 Firestore에 업로드 (충돌 시 로컬 우선)
+3. **로그아웃 시**: 캐시 비움, 새 게스트 세션 시작
 
 ---SPLIT---
 
-## 6. AI 호출 흐름
+## 8. AI 호출 흐름
 
 자연어 입력 → 일정 추가 흐름:
 
@@ -655,7 +1001,7 @@ type ShareLink = {
 
 ---SPLIT---
 
-## 7. 팀원 작업 분담 제안
+## 9. 팀원 작업 분담 제안
 
 > 4명 기준 예시. 인원·강점에 맞춰 조정.
 
@@ -674,7 +1020,7 @@ type ShareLink = {
 
 ---SPLIT---
 
-## 8. 시연 시나리오 (발표용)
+## 10. 시연 시나리오 (발표용)
 
 ### 시나리오 1 — 여행 (일반 사용자 어필)
 1. 앱 실행 → 빈 캘린더
@@ -696,7 +1042,7 @@ type ShareLink = {
 
 ---SPLIT---
 
-## 9. 리스크 & 대응
+## 11. 리스크 & 대응
 
 | 리스크 | 대응 |
 |--------|------|
@@ -709,7 +1055,7 @@ type ShareLink = {
 
 ---SPLIT---
 
-## 10. 참고 자료
+## 12. 참고 자료
 
 - **Anthropic Claude API** — https://docs.claude.com
 - **OpenAI API** — https://platform.openai.com/docs
