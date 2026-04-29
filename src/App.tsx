@@ -201,6 +201,16 @@ export default function App() {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
+  // 모바일 감지 — 768px 이하면 풀스크린 모드
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false,
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const renderScreen = () => {
     switch (screen) {
       case "day": return (
@@ -223,23 +233,36 @@ export default function App() {
 
   return (
     <div
-      className="size-full flex items-center justify-center min-h-screen app-outer"
+      className={isMobile ? "app-outer" : "size-full flex items-center justify-center min-h-screen app-outer"}
       style={{
-        background: isDark ? "#0a0a0a" : "#e5e5ea",
+        background: isMobile ? "var(--bg-canvas)" : (isDark ? "#0a0a0a" : "#e5e5ea"),
         fontFamily: "Pretendard, -apple-system, sans-serif",
+        minHeight: isMobile ? "100vh" : undefined,
       }}
     >
       <div
         className="relative overflow-hidden app-frame"
-        style={{
-          width: 375,
-          height: 812,
-          background: "var(--bg-canvas)",
-          color: "var(--text-primary)",
-          borderRadius: 40,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-          ...cssVars,
-        }}
+        style={
+          isMobile
+            ? {
+                // 모바일: 풀스크린, 박스 없음
+                width: "100vw",
+                height: "100vh",
+                background: "var(--bg-canvas)",
+                color: "var(--text-primary)",
+                ...cssVars,
+              }
+            : {
+                // 데스크톱: 모바일 프레임 박스 시연
+                width: 375,
+                height: 812,
+                background: "var(--bg-canvas)",
+                color: "var(--text-primary)",
+                borderRadius: 40,
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+                ...cssVars,
+              }
+        }
       >
         {/* ─── 메인 앱 셸 (stage === "app"일 때만 렌더) ─────────── */}
         {stage === "app" && (
