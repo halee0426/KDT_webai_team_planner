@@ -4,9 +4,10 @@ html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
+  width: 100%;
   overscroll-behavior: none;
-  /* iOS 풀스크린 PWA에서 흰 배경이 보이지 않도록 */
-  background: #000;
+  /* iOS 풀스크린 PWA에서 옆/위/아래 검은 배경이 우리 캔버스 색이 되도록 */
+  background: var(--bg-canvas, #ffffff);
 }
 
 /* 모바일 (768px 이하) — 앱 프레임을 풀스크린으로 */
@@ -14,8 +15,10 @@ html, body, #root {
   .app-outer {
     background: var(--bg-canvas, #fff) !important;
     align-items: stretch !important;
+    justify-content: stretch !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100vw !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
   }
@@ -23,43 +26,63 @@ html, body, #root {
   .app-frame {
     width: 100vw !important;
     height: 100vh !important;
-    height: 100dvh !important;       /* iOS 동적 뷰포트 (주소창 자동 보정) */
+    height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     max-width: 100vw !important;
     margin: 0 !important;
   }
 
-  /* PWA 풀스크린 모드 — iPhone 노치/홈인디케이터 안전 영역 처리 */
-  /* 자체 상태바(9:41)는 표시하되, 노치 영역만큼 padding-top 추가 */
-  .app-frame > .app-statusbar {
-    padding-top: env(safe-area-inset-top, 0) !important;
-    height: calc(47px + env(safe-area-inset-top, 0)) !important;
+  /* 모바일에서 자체 상태바(9:41)는 숨김 — iOS/Android 자체 상태바와 중복 */
+  .app-statusbar {
+    display: none !important;
   }
 
-  /* 하단 탭바도 홈 인디케이터 안전 영역 보정 */
+  /* 헤더 — iOS 노치 / Android 상태바 안전 영역만큼 padding-top */
+  .app-header {
+    top: 0 !important;
+    padding-top: env(safe-area-inset-top, 0) !important;
+    height: calc(72px + env(safe-area-inset-top, 0)) !important;
+  }
+
+  /* 메인 컨텐츠 — 헤더 높이 + 안전 영역만큼 padding */
+  .app-content {
+    padding-top: calc(72px + env(safe-area-inset-top, 0)) !important;
+  }
+
+  /* 하단 탭바 — 홈 인디케이터 안전 영역 보정 */
   .app-tabbar {
     padding-bottom: env(safe-area-inset-bottom, 0) !important;
     height: calc(84px + env(safe-area-inset-bottom, 0)) !important;
   }
 }
 
-/* iOS PWA standalone 모드 전용 — 자체 상태바 숨김 (이중 표시 방지) */
-@media (display-mode: standalone) {
+/* PWA standalone 모드 — 어떤 디바이스든 풀스크린으로 */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html, body {
+    background: var(--bg-canvas, #fff);
+  }
+  .app-outer {
+    background: var(--bg-canvas, #fff) !important;
+    width: 100vw !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+  }
+  .app-frame {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100vw !important;
+  }
   .app-statusbar {
     display: none !important;
-  }
-  /* 상태바 숨김에 따른 헤더 위치 보정 */
-  .app-header {
-    top: env(safe-area-inset-top, 0) !important;
-  }
-  .app-content {
-    padding-top: calc(72px + env(safe-area-inset-top, 0)) !important;
   }
 }
 
 /* 태블릿 / 데스크톱 — 기존 모바일 프레임 박스 유지 (시연용) */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (display-mode: browser) {
   .app-frame {
     /* 기본 인라인 스타일 유지 (375×812 + radius 40 + shadow) */
   }

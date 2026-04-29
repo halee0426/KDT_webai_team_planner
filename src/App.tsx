@@ -224,7 +224,12 @@ export default function App() {
   return (
     <div
       className="size-full flex items-center justify-center min-h-screen app-outer"
-      style={{ background: isDark ? "#0a0a0a" : "#e5e5ea", fontFamily: "Pretendard, -apple-system, sans-serif" }}
+      style={{
+        // 데스크톱(브라우저)에선 회색 배경 + 모바일 프레임 박스
+        // 모바일/PWA에선 globals.css가 var(--bg-canvas)로 덮어써서 풀스크린
+        background: isDark ? "#0a0a0a" : "#e5e5ea",
+        fontFamily: "Pretendard, -apple-system, sans-serif",
+      }}
     >
       <div
         className="relative overflow-hidden app-frame"
