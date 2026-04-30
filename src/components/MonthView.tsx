@@ -71,8 +71,7 @@ export function MonthView({
 
   const tintOf = (d: number) => {
     if (dragRange && d >= dragRange.start && d <= dragRange.end) return `${accent}33`;
-    const p = plans.find((p) => d >= p.start && d <= p.end);
-    return p?.color;
+    return undefined;
   };
 
   const dotsFor = (d: number) => timedEvents.filter((e) => e.startDay === d).length;
@@ -223,9 +222,10 @@ export function MonthView({
           const tint = d ? tintOf(d) : undefined;
           const row = Math.floor(i / 7);
           const dots = d ? dotsFor(d) : 0;
-          const planStarts = d ? plans.filter((p) => p.start === d) : [];
+          const planStarts: typeof plans = [];
+          const dayPlans = d ? plans.filter((p) => d >= p.start && d <= p.end) : [];
           const timedDayItems = d ? timedEvents.filter((e) => e.startDay === d) : [];
-          const inlineItemCount = planStarts.length + timedDayItems.length;
+          const inlineItemCount = timedDayItems.length;
           return (
             <div
               key={i}
@@ -264,7 +264,8 @@ export function MonthView({
                     </span>
                   </div>
                   {isDesktop ? (
-                    <div className="mt-1.5 space-y-1 min-h-0">
+                    <div className="mt-1.5 flex min-h-0 flex-1 flex-col">
+                      <div className="space-y-1">
                       {planStarts.slice(0, 3).map((plan) => (
                         <div
                           key={`plan-${plan.id}`}
@@ -280,7 +281,7 @@ export function MonthView({
                           {plan.label || "새 플랜"}
                         </div>
                       ))}
-                      {timedDayItems.slice(0, 3 - Math.min(planStarts.length, 3)).map((event) => (
+                      {timedDayItems.slice(0, 3).map((event) => (
                         <div
                           key={`event-${event.id}`}
                           className="truncate rounded-md px-2 py-[3px]"
@@ -298,6 +299,44 @@ export function MonthView({
                       {inlineItemCount > 3 && (
                         <div style={{ fontSize: 10, color: "var(--text-muted)", paddingLeft: 2 }}>
                           +{inlineItemCount - 3}
+                        </div>
+                      )}
+                      </div>
+                      {dayPlans.length > 0 && (
+                        <div className="mt-auto space-y-1 pt-2">
+                          {dayPlans.slice(0, 2).map((plan) => {
+                            const weekStart = Math.max(1, d - dow);
+                            const weekEnd = Math.min(daysInMonth, d + (6 - dow));
+                            const visibleStart = Math.max(plan.start, weekStart);
+                            const visibleEnd = Math.min(plan.end, weekEnd);
+                            const middleDay = Math.floor((visibleStart + visibleEnd) / 2);
+                            const showLabel = d === middleDay;
+                            const isStart = plan.start === d;
+                            const isEnd = plan.end === d;
+                            return (
+                              <div
+                                key={`range-${plan.id}`}
+                                className="flex h-3 items-center justify-center overflow-hidden whitespace-nowrap text-center"
+                                style={{
+                                  background: plan.color,
+                                  borderRadius: `${isStart ? 8 : 0}px ${isEnd ? 8 : 0}px ${isEnd ? 8 : 0}px ${isStart ? 8 : 0}px`,
+                                  marginLeft: isStart ? 0 : -8,
+                                  marginRight: isEnd ? 0 : -8,
+                                  fontSize: 10,
+                                  lineHeight: "12px",
+                                  fontWeight: 600,
+                                  color: "rgba(29,29,31,0.82)",
+                                }}
+                              >
+                                {showLabel ? plan.label || "새 플랜" : ""}
+                              </div>
+                            );
+                          })}
+                          {dayPlans.length > 2 && (
+                            <div style={{ fontSize: 10, color: "var(--text-muted)", paddingLeft: 2 }}>
+                              +{dayPlans.length - 2}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -368,10 +407,10 @@ export function MonthView({
 
       {/* Add plan sheet */}
       {sheet && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setSheet(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSheet(null)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -443,10 +482,10 @@ export function MonthView({
 
       {/* Edit plan sheet */}
       {editingPlan && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingPlan(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingPlan(null)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >

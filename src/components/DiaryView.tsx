@@ -331,13 +331,13 @@ export function DiaryView({
         <div className="fixed inset-0 z-50" onClick={() => setListOpen(false)}>
           <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
           <div
-            className="absolute left-0 right-0 bottom-0 rounded-t-3xl"
+            className="absolute left-1/2 top-1/2 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl shadow-2xl"
             style={{
               background: "var(--bg-elevated)",
-              maxHeight: "72%",
+              maxHeight: "72vh",
               display: "flex",
               flexDirection: "column",
-              borderTop: "0.5px solid var(--hairline)",
+              border: "0.5px solid var(--hairline)",
             }}
             onClick={(e) => e.stopPropagation()}
           >

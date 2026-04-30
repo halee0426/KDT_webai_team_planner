@@ -242,10 +242,10 @@ export function WeekView({ accent, planKind = "my" }: { accent: string; planKind
 
       {/* Add sheet */}
       {sheet && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setSheet(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSheet(null)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -331,10 +331,10 @@ export function WeekView({ accent, planKind = "my" }: { accent: string; planKind
 
       {/* Edit sheet */}
       {editingBlock && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingBlock(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingBlock(null)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >
