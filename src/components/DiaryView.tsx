@@ -335,7 +335,7 @@ export function DiaryView({
               lineHeight: 1.65,
               letterSpacing: "-0.224px",
               color: "var(--text-primary)",
-              minHeight: 180,
+              minHeight: 320,
             }}
           />
         </div>

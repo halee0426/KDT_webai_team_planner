@@ -16,7 +16,6 @@ import type { SharedEvent, Todo } from "@/components/eventStore";
 import { DayView } from "@/components/DayView";
 import { MonthView } from "@/components/MonthView";
 import { YearView } from "@/components/YearView";
-import { WeekView } from "@/components/WeekView";
 import { TenMinPlanner } from "@/components/TenMinPlanner";
 import { MandalaView } from "@/components/MandalaView";
 import { DiaryView } from "@/components/DiaryView";
@@ -42,7 +41,6 @@ const PRIMARY_TABS: Array<{ screen: Screen; label: string; icon: ReactNode }> = 
 const MORE_TABS: Array<{ screen: Screen; label: string; icon: ReactNode }> = [
   { screen: "year", label: "연력", icon: <CalendarDays size={16} /> },
   { screen: "daily", label: "일력", icon: <CalendarDays size={16} /> },
-  { screen: "week", label: "주력", icon: <CalendarDays size={16} /> },
   { screen: "tenmin", label: "10분 플래너", icon: <Clock size={16} /> },
   { screen: "diary", label: "일기", icon: <BookOpen size={16} /> },
 ];
@@ -51,7 +49,6 @@ const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: 
   { screen: "day", label: "오늘", helper: "오늘 일정과 할 일을 집중해서 보기", icon: <Sun size={18} strokeWidth={1.75} /> },
   { screen: "year", label: "연력", helper: "연간 하이라이트와 기간 계획 추적", icon: <Grid3x3 size={18} strokeWidth={1.75} /> },
   { screen: "month", label: "달력", helper: "한 달 단위로 계획과 일정을 관리", icon: <Calendar size={18} strokeWidth={1.75} /> },
-  { screen: "week", label: "주력", helper: "한 주의 흐름을 한눈에 정리", icon: <CalendarDays size={18} strokeWidth={1.75} /> },
   { screen: "daily", label: "일력", helper: "개인과 공동 일정을 넘겨보며 확인", icon: <CalendarDays size={18} strokeWidth={1.75} /> },
   { screen: "tenmin", label: "10분 플래너", helper: "짧은 집중 시간 단위로 계획", icon: <Clock size={18} strokeWidth={1.75} /> },
   { screen: "mandala", label: "만다라트", helper: "목표를 세부 목표로 구조화", icon: <Target size={18} strokeWidth={1.75} /> },
@@ -252,6 +249,12 @@ export default function App() {
     }
   }, [isDesktop]);
 
+  useEffect(() => {
+    if (screen === "week") {
+      setScreen("month");
+    }
+  }, [screen]);
+
   const renderScreen = () => {
     switch (screen) {
       case "day": return (
@@ -264,7 +267,6 @@ export default function App() {
       );
       case "month": return <MonthView accent={accent} planKind={planKind} events={sharedEvents} onEventsChange={setSharedEvents} />;
       case "year": return <YearView accent={accent} events={sharedEvents} onEventsChange={setSharedEvents} />;
-      case "week": return <WeekView accent={accent} planKind={planKind} />;
       case "tenmin": return <TenMinPlanner accent={accent} />;
       case "mandala": return <MandalaView accent={accent} planKind={planKind} />;
       case "diary": return <DiaryView accent={accent} planKind={planKind} />;

@@ -18,6 +18,9 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
   // 제스처 진행 중 임시 상태 (state 업데이트 비용 절감)
   const gestureRef = useRef<{
     mode: "none" | "pinch" | "pan";
@@ -39,6 +42,12 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
+
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // 줌 시 pan을 클램프해서 그리드가 화면 밖으로 너무 벗어나지 않게
   const clampPan = (p: { x: number; y: number }, z: number) => {
@@ -232,8 +241,9 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   }
 
   return (
-    <div className="px-4 pt-4 pb-32">
-      <div className="flex items-start justify-between">
+    <div className="px-4 pt-4 pb-32 lg:px-0 lg:pt-2 lg:pb-10">
+      <div className="mx-auto w-full max-w-[1180px]">
+      <div className="mx-auto flex max-w-[860px] items-start justify-between">
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>만다라트</div>
           <div style={{ fontSize: 13 }} className="text-[var(--text-secondary)] mt-1">
@@ -245,7 +255,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      <div className="mx-auto mt-3 flex max-w-[860px] items-center justify-between gap-2">
         <button
           onClick={aiPropose}
           disabled={isPreviewing}
@@ -284,9 +294,11 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
       <div
         ref={wrapperRef}
         onClick={onDoubleTap}
-        className="mt-4 rounded-lg"
+        className="mx-auto mt-4 rounded-lg"
         style={{
           position: "relative",
+          width: "100%",
+          maxWidth: isDesktop ? 860 : undefined,
           overflow: "hidden",
           touchAction: zoom > 1 ? "none" : "manipulation",
           // 줌 중일 때만 외곽 라인
@@ -384,17 +396,17 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
                   : undefined,
               }}
             >
-              <input
-                value={inputValue}
-                onChange={(e) => update(i, e.target.value)}
-                readOnly={isPreviewing}
-                className="text-center outline-none"
+                <input
+                  value={inputValue}
+                  onChange={(e) => update(i, e.target.value)}
+                  readOnly={isPreviewing}
+                  className="text-center outline-none"
                 style={{
                   width: "100%",
                   height: "100%",
                   background: "transparent",
                   color: isNew ? "transparent" : color,
-                  fontSize: 9,
+                  fontSize: isDesktop ? 13 : 9,
                   fontWeight: fw,
                   padding: 1,
                   border: 0,
@@ -411,7 +423,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
                     alignItems: "center",
                     justifyContent: "center",
                     pointerEvents: "none",
-                    fontSize: 9,
+                    fontSize: isDesktop ? 13 : 9,
                     fontWeight: 700,
                     color: accent,
                     opacity: animOn ? 1 : 0,
@@ -434,8 +446,9 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
       {/* AI 추천 미리보기 — 설정 하시겠습니까? */}
       {isPreviewing && (
         <div
-          className="mt-4 rounded-2xl"
+          className="mx-auto mt-4 rounded-2xl"
           style={{
+            maxWidth: isDesktop ? 860 : undefined,
             background: "var(--bg-elevated)",
             border: `1px solid ${accent}55`,
             boxShadow: `0 8px 24px ${accent}1F`,
@@ -525,6 +538,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
