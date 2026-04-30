@@ -1,0 +1,75 @@
+/* 글로벌 — 모바일에서 풀스크린, 데스크톱은 프레임 박스 */
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   모바일 (≤ 768px) — 인라인 스타일 width:375, height:812 강제 덮어쓰기
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  html, body, #root {
+    background: var(--bg-canvas, #ffffff);
+  }
+
+  /* outer — 가운데 정렬 제거, 풀스크린 */
+  body > #root > .app-outer,
+  div.app-outer {
+    background: var(--bg-canvas, #fff) !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+  }
+
+  /* frame — 인라인 width:375 / height:812 / borderRadius:40 / boxShadow 모두 무력화 */
+  div.app-frame,
+  .app-outer > .app-frame {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 100vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    position: relative !important;
+  }
+
+  /* 자체 상태바 (9:41) 숨김 — iOS/Android 자체 상태바와 중복 방지 */
+  .app-statusbar {
+    display: none !important;
+  }
+
+  /* 헤더 — 노치 안전 영역 보정 */
+  .app-header {
+    top: 0 !important;
+    padding-top: env(safe-area-inset-top, 0) !important;
+    height: calc(72px + env(safe-area-inset-top, 0)) !important;
+  }
+
+  /* 메인 컨텐츠 — 헤더 + 안전 영역만큼 패딩 */
+  .app-content {
+    padding-top: calc(72px + env(safe-area-inset-top, 0)) !important;
+  }
+
+  /* 하단 탭바 — 홈 인디케이터 안전 영역 */
+  .app-tabbar {
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+    height: calc(84px + env(safe-area-inset-bottom, 0)) !important;
+  }
+}

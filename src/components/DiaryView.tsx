@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, List, X } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Entry = {
   id: string;
@@ -39,27 +39,30 @@ export function DiaryView({
 
   const [entries, setEntries] = useState<Entry[]>(seed);
   const [viewYear, setViewYear] = useState(2026);
-  const [viewMonth, setViewMonth] = useState(3); // 0-indexed April
+  const [viewMonth, setViewMonth] = useState(3);
   const [selectedDay, setSelectedDay] = useState(29);
   const [draftMood, setDraftMood] = useState<string>(() => seed.find((e) => e.day === 29)?.mood ?? "😊");
   const [draftText, setDraftText] = useState<string>(() => seed.find((e) => e.day === 29)?.text ?? "");
   const [savedHint, setSavedHint] = useState(true);
-  const [listOpen, setListOpen] = useState(false);
+  const [tab, setTab] = useState<"write" | "list">("write");
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const stripRef = useRef<HTMLDivElement>(null);
   const latestMood = useRef(draftMood);
   const latestText = useRef(draftText);
 
-  useEffect(() => { latestMood.current = draftMood; }, [draftMood]);
-  useEffect(() => { latestText.current = draftText; }, [draftText]);
+  useEffect(() => {
+    latestMood.current = draftMood;
+  }, [draftMood]);
+  useEffect(() => {
+    latestText.current = draftText;
+  }, [draftText]);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
   const getEntry = (y: number, m: number, d: number) =>
     entries.find((e) => e.year === y && e.month === m && e.day === d);
 
-  // Commit current draft to entries
   const commitDraft = (y: number, m: number, d: number, mood: string, text: string) => {
     const id = makeId(y, m, d);
     setEntries((prev) => {
@@ -67,12 +70,11 @@ export function DiaryView({
       if (exists) {
         return prev.map((e) => (e.id === id ? { ...e, mood, text } : e));
       }
-      if (!text.trim()) return prev; // don't create empty entry
+      if (!text.trim()) return prev;
       return [...prev, { id, year: y, month: m, day: d, mood, text }];
     });
   };
 
-  // Select a new day — auto-save current, then load target
   const selectDay = (day: number) => {
     clearTimeout(saveTimer.current);
     commitDraft(viewYear, viewMonth, selectedDay, latestMood.current, latestText.current);
@@ -83,7 +85,6 @@ export function DiaryView({
     setDraftMood(mood);
     setDraftText(text);
     setSavedHint(!!e);
-    // scroll strip to selected
     setTimeout(() => {
       const strip = stripRef.current;
       if (!strip) return;
@@ -92,14 +93,19 @@ export function DiaryView({
     }, 50);
   };
 
-  // Change month
   const changeMonth = (delta: number) => {
     clearTimeout(saveTimer.current);
     commitDraft(viewYear, viewMonth, selectedDay, latestMood.current, latestText.current);
     let nm = viewMonth + delta;
     let ny = viewYear;
-    if (nm < 0) { nm = 11; ny--; }
-    if (nm > 11) { nm = 0; ny++; }
+    if (nm < 0) {
+      nm = 11;
+      ny--;
+    }
+    if (nm > 11) {
+      nm = 0;
+      ny++;
+    }
     const newMax = new Date(ny, nm + 1, 0).getDate();
     const newDay = Math.min(1, newMax);
     setViewYear(ny);
@@ -111,7 +117,6 @@ export function DiaryView({
     setSavedHint(!!e);
   };
 
-  // Text change → debounced auto-save
   const handleTextChange = (text: string) => {
     setDraftText(text);
     setSavedHint(false);
@@ -122,7 +127,6 @@ export function DiaryView({
     }, 700);
   };
 
-  // Mood change → immediate save
   const handleMoodChange = (mood: string) => {
     setDraftMood(mood);
     commitDraft(viewYear, viewMonth, selectedDay, mood, latestText.current);
@@ -136,7 +140,6 @@ export function DiaryView({
     return b.day - a.day;
   });
 
-  // Scroll strip to selected day on mount
   useEffect(() => {
     const strip = stripRef.current;
     if (!strip) return;
@@ -146,37 +149,57 @@ export function DiaryView({
 
   return (
     <div className="px-5 pt-4 pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>일기</div>
-        <button
-          onClick={() => setListOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95"
+        <div
+          className="flex items-center"
           style={{
             background: "var(--bg-tertiary)",
-            fontSize: 13,
-            fontWeight: 500,
-            color: "var(--text-secondary)",
+            borderRadius: 999,
+            padding: 3,
+            gap: 2,
           }}
         >
-          <List size={14} />
-          목록
-        </button>
+          {([
+            { key: "write", label: "쓰기" },
+            { key: "list", label: "목록" },
+          ] as const).map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className="transition-transform active:scale-95"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? "#fff" : "var(--text-secondary)",
+                  background: active ? accent : "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  transition: "background 180ms, color 180ms",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ── Month nav + date strip ── */}
       <div
-        className="rounded-2xl overflow-hidden"
+        className="overflow-hidden rounded-2xl"
         style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" }}
       >
-        {/* Month row */}
         <div
           className="flex items-center justify-between px-4 py-2.5"
           style={{ borderBottom: "0.5px solid var(--hairline)" }}
         >
           <button
             onClick={() => changeMonth(-1)}
-            className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90"
+            className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90"
             style={{ background: "var(--bg-tertiary)" }}
           >
             <ChevronLeft size={14} />
@@ -186,17 +209,16 @@ export function DiaryView({
           </div>
           <button
             onClick={() => changeMonth(1)}
-            className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90"
+            className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90"
             style={{ background: "var(--bg-tertiary)" }}
           >
             <ChevronRight size={14} />
           </button>
         </div>
 
-        {/* Day strip */}
         <div
           ref={stripRef}
-          className="flex overflow-x-auto px-2 py-2 gap-1"
+          className="flex gap-1 overflow-x-auto px-2 py-2"
           style={{ scrollbarWidth: "none" }}
         >
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
@@ -207,7 +229,7 @@ export function DiaryView({
               <button
                 key={d}
                 onClick={() => selectDay(d)}
-                className="flex flex-col items-center shrink-0 rounded-xl pt-1.5 pb-2 active:scale-95"
+                className="flex shrink-0 flex-col items-center rounded-xl pt-1.5 pb-2 active:scale-95"
                 style={{
                   width: 36,
                   background: isSel ? accent : "transparent",
@@ -222,10 +244,10 @@ export function DiaryView({
                     color: isSel
                       ? "rgba(255,255,255,0.75)"
                       : dow === 0
-                      ? "#FF3B30"
-                      : dow === 6
-                      ? "#0066cc"
-                      : "var(--text-muted)",
+                        ? "#FF3B30"
+                        : dow === 6
+                          ? "#0066cc"
+                          : "var(--text-muted)",
                   }}
                 >
                   {WEEKDAYS[dow]}
@@ -245,11 +267,7 @@ export function DiaryView({
                     height: 4,
                     borderRadius: 2,
                     marginTop: 3,
-                    background: hasEntry
-                      ? isSel
-                        ? "rgba(255,255,255,0.65)"
-                        : accent
-                      : "transparent",
+                    background: hasEntry ? (isSel ? "rgba(255,255,255,0.65)" : accent) : "transparent",
                   }}
                 />
               </button>
@@ -258,191 +276,205 @@ export function DiaryView({
         </div>
       </div>
 
-      {/* ── Writing area ── */}
-      <div
-        className="mt-4 rounded-2xl px-4 pt-4 pb-3"
-        style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" }}
-      >
-        {/* Date + save hint */}
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.374px" }}>
-              {viewMonth + 1}월 {selectedDay}일
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{selectedWday}요일</div>
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 4,
-              opacity: savedHint ? 1 : 0,
-              transition: "opacity 300ms",
-            }}
-          >
-            저장됨
-          </div>
-        </div>
-
-        {/* Mood picker */}
+      {tab === "write" && (
         <div
-          className="flex items-center gap-1 mb-3 px-1 py-2 rounded-xl"
-          style={{ background: "var(--bg-tertiary)" }}
+          className="mt-4 rounded-2xl px-4 pt-4 pb-3"
+          style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" }}
         >
-          {MOODS.map((m) => (
-            <button
-              key={m}
-              onClick={() => handleMoodChange(m)}
-              className="flex-1 flex items-center justify-center rounded-lg py-1 active:scale-90"
+          <div className="mb-3 flex items-start justify-between">
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.374px" }}>
+                {viewMonth + 1}월 {selectedDay}일
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{selectedWday}요일</div>
+            </div>
+            <div
               style={{
-                fontSize: 20,
-                background: draftMood === m ? "var(--bg-elevated)" : "transparent",
-                boxShadow: draftMood === m ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                opacity: draftMood === m ? 1 : 0.4,
-                transition: "all 150ms",
+                fontSize: 11,
+                color: "var(--text-muted)",
+                marginTop: 4,
+                opacity: savedHint ? 1 : 0,
+                transition: "opacity 300ms",
               }}
             >
-              {m}
-            </button>
-          ))}
-        </div>
-
-        {/* Separator */}
-        <div style={{ borderTop: "0.5px solid var(--hairline)", marginBottom: 12 }} />
-
-        {/* Textarea */}
-        <textarea
-          value={draftText}
-          onChange={(e) => handleTextChange(e.target.value)}
-          placeholder="오늘을 기록해보세요..."
-          className="w-full bg-transparent outline-none resize-none"
-          style={{
-            fontSize: 15,
-            lineHeight: 1.65,
-            letterSpacing: "-0.224px",
-            color: "var(--text-primary)",
-            minHeight: 180,
-          }}
-        />
-      </div>
-
-      {/* ── List bottom sheet ── */}
-      {listOpen && (
-        <div className="fixed inset-0 z-50" onClick={() => setListOpen(false)}>
-          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
-          <div
-            className="absolute left-1/2 top-1/2 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl shadow-2xl"
-            style={{
-              background: "var(--bg-elevated)",
-              maxHeight: "72vh",
-              display: "flex",
-              flexDirection: "column",
-              border: "0.5px solid var(--hairline)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-9 h-1 rounded-full" style={{ background: "var(--separator)" }} />
-            </div>
-
-            {/* Sheet header */}
-            <div
-              className="flex items-center justify-between px-5 py-3 shrink-0"
-              style={{ borderBottom: "0.5px solid var(--hairline)" }}
-            >
-              <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }}>
-                일기 목록
-                <span
-                  className="ml-2"
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 400,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  {sortedEntries.length}개
-                </span>
-              </div>
-              <button
-                onClick={() => setListOpen(false)}
-                className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90"
-                style={{ background: "var(--bg-tertiary)" }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Entry list */}
-            <div className="overflow-y-auto px-4 py-3 space-y-2">
-              {sortedEntries.length === 0 ? (
-                <div
-                  className="text-center py-10"
-                  style={{ fontSize: 14, color: "var(--text-muted)" }}
-                >
-                  아직 작성한 일기가 없어요
-                </div>
-              ) : (
-                sortedEntries.map((e) => {
-                  const dow = WEEKDAYS[new Date(e.year, e.month, e.day).getDay()];
-                  const isCurrent =
-                    e.year === viewYear && e.month === viewMonth && e.day === selectedDay;
-                  return (
-                    <button
-                      key={e.id}
-                      onClick={() => {
-                        clearTimeout(saveTimer.current);
-                        commitDraft(viewYear, viewMonth, selectedDay, latestMood.current, latestText.current);
-                        setViewYear(e.year);
-                        setViewMonth(e.month);
-                        setSelectedDay(e.day);
-                        setDraftMood(e.mood);
-                        setDraftText(e.text);
-                        setSavedHint(true);
-                        setListOpen(false);
-                      }}
-                      className="w-full text-left rounded-2xl p-4 active:scale-[0.99]"
-                      style={{
-                        background: isCurrent ? `${accent}14` : "var(--bg-secondary)",
-                        border: isCurrent
-                          ? `1px solid ${accent}44`
-                          : "0.5px solid var(--hairline)",
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div
-                            style={{
-                              fontSize: 15,
-                              fontWeight: 600,
-                              letterSpacing: "-0.3px",
-                              color: isCurrent ? accent : "var(--text-primary)",
-                            }}
-                          >
-                            {e.month + 1}월 {e.day}일 {dow}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 20 }}>{e.mood}</div>
-                      </div>
-                      <div
-                        className="mt-1.5 line-clamp-2"
-                        style={{
-                          fontSize: 14,
-                          lineHeight: 1.55,
-                          letterSpacing: "-0.2px",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {e.text || (
-                          <span style={{ color: "var(--text-muted)" }}>내용 없음</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+              저장됨
             </div>
           </div>
+
+          <div
+            className="mb-3 flex items-center gap-1 rounded-xl px-1 py-2"
+            style={{ background: "var(--bg-tertiary)" }}
+          >
+            {MOODS.map((m) => (
+              <button
+                key={m}
+                onClick={() => handleMoodChange(m)}
+                className="flex flex-1 items-center justify-center rounded-lg py-1 active:scale-90"
+                style={{
+                  fontSize: 20,
+                  background: draftMood === m ? "var(--bg-elevated)" : "transparent",
+                  boxShadow: draftMood === m ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  opacity: draftMood === m ? 1 : 0.4,
+                  transition: "all 150ms",
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ borderTop: "0.5px solid var(--hairline)", marginBottom: 12 }} />
+
+          <textarea
+            value={draftText}
+            onChange={(e) => handleTextChange(e.target.value)}
+            placeholder="오늘을 기록해보세요..."
+            className="w-full resize-none bg-transparent outline-none"
+            style={{
+              fontSize: 15,
+              lineHeight: 1.65,
+              letterSpacing: "-0.224px",
+              color: "var(--text-primary)",
+              minHeight: 180,
+            }}
+          />
+        </div>
+      )}
+
+      {tab === "list" && (
+        <div className="mt-4">
+          <div
+            className="mb-2 flex items-center justify-between px-1"
+            style={{ fontSize: 12, color: "var(--text-muted)" }}
+          >
+            <span>
+              {viewYear}년 {viewMonth + 1}월 ·{" "}
+              <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
+                {sortedEntries.filter((e) => e.year === viewYear && e.month === viewMonth).length}
+              </span>
+              개
+            </span>
+            <span>전체 {sortedEntries.length}개</span>
+          </div>
+
+          {sortedEntries.length === 0 ? (
+            <div
+              className="rounded-2xl py-12 text-center"
+              style={{
+                fontSize: 14,
+                color: "var(--text-muted)",
+                background: "var(--bg-elevated)",
+                border: "0.5px solid var(--hairline)",
+              }}
+            >
+              아직 작성한 일기가 없어요
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sortedEntries.map((e) => {
+                const dow = WEEKDAYS[new Date(e.year, e.month, e.day).getDay()];
+                const isCurrent = e.year === viewYear && e.month === viewMonth && e.day === selectedDay;
+                const firstLine = (e.text || "").split("\n")[0].trim();
+                const title = firstLine.length > 0 ? firstLine.slice(0, 28) : "내용 없음";
+                const rest = e.text ? e.text.slice(firstLine.length).trim() : "";
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      clearTimeout(saveTimer.current);
+                      commitDraft(viewYear, viewMonth, selectedDay, latestMood.current, latestText.current);
+                      setViewYear(e.year);
+                      setViewMonth(e.month);
+                      setSelectedDay(e.day);
+                      setDraftMood(e.mood);
+                      setDraftText(e.text);
+                      setSavedHint(true);
+                      setTab("write");
+                    }}
+                    className="w-full rounded-2xl p-3 text-left active:scale-[0.99]"
+                    style={{
+                      background: isCurrent ? `${accent}10` : "var(--bg-elevated)",
+                      border: isCurrent ? `1px solid ${accent}55` : "0.5px solid var(--hairline)",
+                      display: "flex",
+                      alignItems: "stretch",
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 14,
+                        flexShrink: 0,
+                        background: `linear-gradient(135deg, ${accent}22 0%, ${accent}0A 100%)`,
+                        border: `0.5px solid ${accent}33`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 30,
+                      }}
+                    >
+                      {e.mood}
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: isCurrent ? accent : "var(--text-muted)",
+                            fontWeight: 600,
+                            letterSpacing: "-0.1px",
+                          }}
+                        >
+                          {e.year}.{String(e.month + 1).padStart(2, "0")}.{String(e.day).padStart(2, "0")} ({dow})
+                        </div>
+                        <div
+                          className="line-clamp-1"
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            letterSpacing: "-0.3px",
+                            color: "var(--text-primary)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {title}
+                        </div>
+                      </div>
+
+                      <div
+                        className="line-clamp-2"
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          letterSpacing: "-0.15px",
+                          color: "var(--text-secondary)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {rest.length > 0 ? (
+                          rest
+                        ) : firstLine.length > title.length ? (
+                          firstLine.slice(title.length)
+                        ) : (
+                          <span style={{ color: "var(--text-muted)" }}>한 줄로 짧게 남겨놨어요</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
