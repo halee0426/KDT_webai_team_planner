@@ -33,13 +33,13 @@ type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary"
 type Stage = "splash" | "select" | "app";
 
 const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: React.ReactNode }> = [
-  { screen: "day", label: "오늘", helper: "오늘 일정과 할 일을 집중해서 보기", icon: <Sun size={18} strokeWidth={1.75} /> },
-  { screen: "year", label: "연력", helper: "연간 하이라이트와 기간 계획 추적", icon: <Grid3x3 size={18} strokeWidth={1.75} /> },
-  { screen: "month", label: "달력", helper: "한 달 단위로 계획과 일정을 관리", icon: <Calendar size={18} strokeWidth={1.75} /> },
-  { screen: "daily", label: "일력", helper: "개인과 공동 일정을 넘겨보며 확인", icon: <CalendarDays size={18} strokeWidth={1.75} /> },
-  { screen: "tenmin", label: "10분 플래너", helper: "짧은 집중 시간 단위로 계획", icon: <Clock size={18} strokeWidth={1.75} /> },
-  { screen: "mandala", label: "만다라트", helper: "목표를 세부 목표로 구조화", icon: <Target size={18} strokeWidth={1.75} /> },
-  { screen: "diary", label: "일기", helper: "하루 기록과 회고를 정리", icon: <BookOpen size={18} strokeWidth={1.75} /> },
+  { screen: "day", label: "오늘", helper: "오늘의 일정과 할 일을 한눈에 보기", icon: <Sun size={18} strokeWidth={1.75} /> },
+  { screen: "year", label: "연력", helper: "한 해 계획과 주요 일정을 한눈에 보기", icon: <Grid3x3 size={18} strokeWidth={1.75} /> },
+  { screen: "month", label: "달력", helper: "월별 일정과 기간 계획을 한눈에 보기", icon: <Calendar size={18} strokeWidth={1.75} /> },
+  { screen: "daily", label: "일력", helper: "하루의 시간표와 일정을 자세히 보기", icon: <CalendarDays size={18} strokeWidth={1.75} /> },
+  { screen: "tenmin", label: "10분 플래너", helper: "10분 단위로 촘촘하게 하루를 설계하기", icon: <Clock size={18} strokeWidth={1.75} /> },
+  { screen: "mandala", label: "만다라트", helper: "한 해 목표를 구체적인 실천으로 바꾸기", icon: <Target size={18} strokeWidth={1.75} /> },
+  { screen: "diary", label: "일기", helper: "하루의 기록과 감정을 남기기", icon: <BookOpen size={18} strokeWidth={1.75} /> },
 ];
 
 /** PlanSelect에 표시할 통계 계산 — 사용자 실제 데이터 기반 */
@@ -519,7 +519,7 @@ export default function App() {
     ? "#0a0a0a"
     : "#e5e5ea";
   const frameBg = isSplash ? "#000" : "var(--bg-canvas)";
-  const shellStyle = isDesktop && stage === "app"
+  const shellStyle = isDesktop
     ? {
         width: "min(1680px, calc(100vw - 32px))",
         height: "calc(100vh - 32px)",
@@ -536,6 +536,16 @@ export default function App() {
         height: 812,
         borderRadius: 40,
       };
+  const desktopContentMaxWidth =
+    screen === "month"
+      ? 1540
+      : screen === "day"
+        ? 1420
+        : screen === "year"
+          ? 1360
+          : screen === "tenmin" || screen === "mandala"
+            ? 1320
+            : 1240;
 
   return (
     <div
@@ -547,7 +557,7 @@ export default function App() {
       }}
     >
       <div
-        className={`relative overflow-hidden app-frame ${isDesktop && stage === "app" ? "grid grid-cols-[280px_minmax(0,1fr)]" : ""}`}
+        className={`relative overflow-hidden app-frame ${isDesktop && stage === "app" ? "grid grid-cols-[300px_minmax(0,1fr)]" : ""}`}
         style={{
           background: frameBg,
           color: "var(--text-primary)",
@@ -565,12 +575,12 @@ export default function App() {
               borderRight: "0.5px solid var(--hairline)",
             }}
           >
-            <div className="px-6 pt-8 pb-6">
+            <div className="px-7 pt-10 pb-8">
               <div className="flex items-center justify-between">
-                <LogoLockup color="var(--text-primary)" accent={accent} size={20} />
+                <LogoLockup color="var(--text-primary)" accent={accent} size={35} />
                 <button
                   onClick={() => setSettingsOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl"
+                  className="flex h-11 w-11 items-center justify-center rounded-2xl"
                   style={{ background: "var(--bg-tertiary)" }}
                 >
                   <SettingsIcon size={18} strokeWidth={1.75} />
@@ -578,31 +588,41 @@ export default function App() {
               </div>
             </div>
 
-            <div className="px-4">
+            <div className="px-5 pb-7">
               <DesktopPlanToggle accent={accent} planKind={planKind} onChange={setPlanKind} />
             </div>
 
-            <nav className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-6">
-              <div className="space-y-1">
+            <nav className="min-h-0 flex-1 overflow-y-auto px-5 pt-1 pb-8">
+              <div className="space-y-2">
                 {ALL_SCREENS.map((item) => (
                   <button
                     key={item.screen}
                     onClick={() => setScreen(item.screen)}
-                    className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors"
+                    className="flex min-h-[76px] w-full items-center gap-3.5 rounded-[24px] px-4 py-3.5 text-left transition-colors"
                     style={{
                       background: screen === item.screen ? `${accent}18` : "transparent",
                       color: screen === item.screen ? accent : "var(--text-primary)",
                     }}
                   >
                     <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
                       style={{ background: screen === item.screen ? `${accent}18` : "var(--bg-tertiary)" }}
                     >
                       {item.icon}
                     </span>
                     <span className="min-w-0">
                       <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>{item.label}</span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginTop: 3 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 11.5,
+                          color: "var(--text-secondary)",
+                          marginTop: 3,
+                          lineHeight: 1.45,
+                          wordBreak: "keep-all",
+                          overflowWrap: "break-word",
+                        }}
+                      >
                         {item.helper}
                       </span>
                     </span>
@@ -788,14 +808,17 @@ export default function App() {
             <div
               className="absolute inset-0 overflow-y-auto"
               style={{
-                paddingTop: 20,
-                paddingBottom: 20,
+                paddingTop: 34,
+                paddingBottom: 36,
                 scrollbarWidth: "none",
                 msOverflowStyle: "none",
               }}
               key={planKind + screen + "-desktop"}
             >
-              <div className="w-full px-6 2xl:px-8">
+              <div
+                className="mx-auto w-full px-8 xl:px-10 2xl:px-12"
+                style={{ maxWidth: desktopContentMaxWidth }}
+              >
                 <div className={transitionClass} key={screen}>
                   {renderScreen()}
                 </div>
@@ -873,7 +896,7 @@ function DesktopPlanToggle({
   onChange: (value: "my" | "shared") => void;
 }) {
   return (
-    <div className="relative flex w-full rounded-full p-1" style={{ background: "var(--bg-tertiary)" }}>
+    <div className="relative flex w-full rounded-full p-1" style={{ background: "var(--bg-tertiary)", minHeight: 46 }}>
       <div
         className="absolute top-1 bottom-1 rounded-full transition-all duration-300 ease-out"
         style={{
@@ -885,7 +908,7 @@ function DesktopPlanToggle({
       />
       <button
         onClick={() => onChange("my")}
-        className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition-transform active:scale-[0.97]"
+        className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 transition-transform active:scale-[0.97]"
         style={{
           fontSize: 14,
           fontWeight: planKind === "my" ? 600 : 500,
@@ -901,7 +924,7 @@ function DesktopPlanToggle({
       </button>
       <button
         onClick={() => onChange("shared")}
-        className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 transition-transform active:scale-[0.97]"
+        className="relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 transition-transform active:scale-[0.97]"
         style={{
           fontSize: 14,
           fontWeight: planKind === "shared" ? 600 : 500,

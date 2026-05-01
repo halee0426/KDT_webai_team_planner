@@ -88,6 +88,35 @@ export function MonthView({
     [timedEvents, selected],
   );
 
+  const planLanesByRow = useMemo(() => {
+    return Array.from({ length: 6 }, (_, row) => {
+      const rowDays = cells.slice(row * 7, row * 7 + 7).filter((day): day is number => day !== null);
+      const laneMap = new Map<number, number>();
+      if (rowDays.length === 0) return laneMap;
+
+      const weekStart = rowDays[0];
+      const weekEnd = rowDays[rowDays.length - 1];
+      const lanes: Array<Array<{ start: number; end: number }>> = [];
+
+      plans
+        .filter((plan) => plan.start <= weekEnd && plan.end >= weekStart)
+        .sort((a, b) => a.start - b.start || b.end - a.end || a.id - b.id)
+        .forEach((plan) => {
+          const visibleStart = Math.max(plan.start, weekStart);
+          const visibleEnd = Math.min(plan.end, weekEnd);
+          const laneIndex = lanes.findIndex((lane) =>
+            lane.every((placed) => visibleEnd < placed.start || visibleStart > placed.end),
+          );
+          const targetLane = laneIndex === -1 ? lanes.length : laneIndex;
+          if (!lanes[targetLane]) lanes[targetLane] = [];
+          lanes[targetLane].push({ start: visibleStart, end: visibleEnd });
+          laneMap.set(plan.id, targetLane);
+        });
+
+      return laneMap;
+    });
+  }, [cells, plans]);
+
   const dragRange = drag
     ? { start: Math.min(drag.a, drag.b), end: Math.max(drag.a, drag.b) }
     : null;
@@ -328,14 +357,18 @@ export function MonthView({
           const dots = d
             ? timedEvents.filter((e) => e.startDay === d).length
             : 0;
+          const timedDayItems = d ? timedEvents.filter((e) => e.startDay === d) : [];
+          const desktopPlanSlots = isDesktop
+            ? [0, 1].map((lane) => dayPlans.find((plan) => planLanesByRow[row]?.get(plan.id) === lane))
+            : [];
           return (
             <div
               key={i}
               data-day={d ?? undefined}
-              className="relative flex flex-col items-center"
+              className={`relative flex flex-col ${isDesktop ? "items-stretch px-2 py-2" : "items-center"}`}
               style={{
                 aspectRatio: isDesktop ? undefined : "1 / 1.6",
-                paddingTop: 8,
+                paddingTop: isDesktop ? undefined : 8,
                 borderTop: row === 0 ? "none" : "0.5px solid var(--hairline)",
                 minHeight: isDesktop ? 92 : undefined,
               }}
@@ -344,7 +377,7 @@ export function MonthView({
                 <>
                   {/* 날짜 숫자 */}
                   <div
-                    className="flex items-center justify-center"
+                    className="flex items-center justify-center self-center"
                     style={{
                       width: 26,
                       height: 26,
@@ -370,39 +403,96 @@ export function MonthView({
                     </span>
                   </div>
 
-                  {/* 일정 알약 (untimed 플랜 — 셀 하단에 작게) */}
+                  {/* 일력에서 등록된 시간 일정 */}
+                  {isDesktop && timedDayItems.length > 0 && (
+                    <div className="mt-1.5 space-y-1">
+                      {timedDayItems.slice(0, 3).map((event) => (
+                        <div
+                          key={`event-${event.id}`}
+                          className="truncate rounded-md px-2 py-[3px]"
+                          style={{
+                            background: `${event.color || accent}22`,
+                            borderLeft: `2px solid ${event.color || accent}`,
+                            fontSize: 11,
+                            lineHeight: 1.2,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+                      {timedDayItems.length > 3 && (
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", paddingLeft: 2 }}>
+                          +{timedDayItems.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 기간 플랜 — 셀 하단 컬러바 */}
                   {dayPlans.length > 0 && (
                     <div
                       className="w-full"
                       style={{
-                        marginTop: 4,
+                        marginTop: isDesktop ? "auto" : 4,
                         display: "flex",
                         flexDirection: "column",
-                        gap: 2,
-                        paddingLeft: 2,
-                        paddingRight: 2,
+                        gap: isDesktop ? 4 : 2,
+                        paddingTop: isDesktop ? 8 : 0,
+                        paddingLeft: isDesktop ? 0 : 2,
+                        paddingRight: isDesktop ? 0 : 2,
                       }}
                     >
-                      {dayPlans.slice(0, 2).map((p, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 600,
-                            color: pillTextColor(p.color),
-                            background: pillBgColor(p.color),
-                            borderRadius: 4,
-                            padding: "1px 3px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            letterSpacing: "-0.1px",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {p.label || "플랜"}
-                        </div>
-                      ))}
+                      {(isDesktop ? desktopPlanSlots : dayPlans.slice(0, 2)).map((p, idx) => {
+                        if (!p) {
+                          return (
+                            <div
+                              key={`empty-lane-${idx}`}
+                              style={{
+                                height: 13,
+                                visibility: "hidden",
+                              }}
+                            />
+                          );
+                        }
+                        const weekStart = Math.max(1, d - dow);
+                        const weekEnd = Math.min(daysInMonth, d + (6 - dow));
+                        const visibleStart = Math.max(p.start, weekStart);
+                        const visibleEnd = Math.min(p.end, weekEnd);
+                        const middleDay = Math.floor((visibleStart + visibleEnd) / 2);
+                        const showLabel = isDesktop ? d === middleDay : true;
+                        const isStart = p.start === d;
+                        const isEnd = p.end === d;
+
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              height: isDesktop ? 13 : undefined,
+                              fontSize: isDesktop ? 10 : 9,
+                              fontWeight: 700,
+                              color: "rgba(0,0,0,0.78)",
+                              background: isDesktop ? p.color : pillBgColor(p.color),
+                              borderRadius: isDesktop
+                                ? `${isStart ? 8 : 0}px ${isEnd ? 8 : 0}px ${isEnd ? 8 : 0}px ${isStart ? 8 : 0}px`
+                                : 4,
+                              marginLeft: isDesktop && !isStart ? -8 : 0,
+                              marginRight: isDesktop && !isEnd ? -8 : 0,
+                              padding: isDesktop ? "0 4px" : "1px 3px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              letterSpacing: "-0.1px",
+                              lineHeight: isDesktop ? "13px" : 1.3,
+                            }}
+                          >
+                            {showLabel ? p.label || "플랜" : ""}
+                          </div>
+                        );
+                      })}
                       {dayPlans.length > 2 && (
                         <div
                           style={{
