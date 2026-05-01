@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { highlights } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { useHolidays } from "@/hooks/useHolidays";
 
 type Ev = { id: number; startSlot: number; endSlot: number; title: string; color: string };
 type Todo = { id: number; text: string; done: boolean; rolled?: boolean };
@@ -50,6 +51,9 @@ export function DailyFlipView({
   const [editing, setEditing] = useState<Ev | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const holidays = useHolidays(date.getFullYear(), date.getMonth());
+  const holidayName = holidays.get(date.getDate()) ?? null;
 
   const isToday = useMemo(() => {
     const t = new Date();
@@ -279,7 +283,9 @@ export function DailyFlipView({
           >
             {date.getFullYear()}년 {date.getMonth() + 1}월 {date.getDate()}일
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{days[date.getDay()]}요일</div>
+          <div style={{ fontSize: 12, color: holidayName ? "#FF3B30" : "var(--text-muted)" }}>
+            {days[date.getDay()]}요일{holidayName ? ` · ${holidayName}` : ""}
+          </div>
         </div>
         <button
           onClick={() => shift(1)}

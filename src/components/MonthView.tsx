@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { useHolidays } from "@/hooks/useHolidays";
 
 export function MonthView({
   accent,
@@ -24,6 +25,8 @@ export function MonthView({
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [editingPlan, setEditingPlan] = useState<{ id: number; start: number; end: number; color: string; label: string } | null>(null);
+
+  const holidays = useHolidays(year, month);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const first = new Date(year, month, 1).getDay();
@@ -237,7 +240,7 @@ export function MonthView({
                         fontWeight: 500,
                         color: isToday
                           ? "#fff"
-                          : dow === 0
+                          : (dow === 0 || (d !== null && holidays.has(d)))
                           ? "#FF3B30"
                           : dow === 6
                           ? "#0066cc"

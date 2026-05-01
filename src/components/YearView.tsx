@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { useYearHolidays } from "@/hooks/useHolidays";
 
 type LocalHl = { id: number; month: number; start: number; end: number; color: string; label: string };
 
@@ -14,6 +15,7 @@ export function YearView({
   onEventsChange: (e: SharedEvent[]) => void;
 }) {
   const YEAR = 2026;
+  const holidays = useYearHolidays(YEAR);
 
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
@@ -152,7 +154,7 @@ export function YearView({
                           background: inDrag ? `${accent}22` : "transparent",
                         }}
                       >
-                        <div style={{ fontSize: 8, color: "var(--text-muted)", lineHeight: 1 }}>
+                        <div style={{ fontSize: 8, color: holidays.has(`${mi}-${day}`) ? "#FF3B30" : "var(--text-muted)", lineHeight: 1 }}>
                           {day % 5 === 0 || day === 1 ? day : ""}
                         </div>
                         <div className="mt-[2px] w-full flex flex-col gap-[1px]">
@@ -162,7 +164,7 @@ export function YearView({
                             ))
                           ) : (
                             <div
-                              style={{ height: 6, background: "var(--bg-tertiary)", borderRadius: 1, opacity: 0.4 }}
+                              style={{ height: 6, background: holidays.has(`${mi}-${day}`) ? "#FF3B3033" : "var(--bg-tertiary)", borderRadius: 1, opacity: holidays.has(`${mi}-${day}`) ? 1 : 0.4 }}
                             />
                           )}
                         </div>
