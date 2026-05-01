@@ -317,7 +317,7 @@ export function DailyFlipView({
             <span style={{ ...TYPE.titlePage, color: isToday ? accent : "var(--text-primary)" }}>
               {date.getMonth() + 1}월 {date.getDate()}일
             </span>
-            <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+            <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
               {days[date.getDay()]}요일
             </span>
           </div>

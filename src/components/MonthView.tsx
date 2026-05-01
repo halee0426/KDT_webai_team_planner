@@ -174,7 +174,7 @@ export function MonthView({
           <span style={{ ...TYPE.titleMonth, color: "var(--text-primary)" }}>
             {month + 1}월
           </span>
-          <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+          <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
             {year}
           </span>
         </div>

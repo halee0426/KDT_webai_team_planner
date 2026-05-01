@@ -89,7 +89,7 @@ export function DayView({
           <span style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
             4월 29일
           </span>
-          <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+          <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
             수요일
           </span>
         </div>
