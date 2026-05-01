@@ -1,6 +1,6 @@
 // Figma Make 디자인 그대로 — 모바일 앱 프레임 + 7개 뷰 + 탭바
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Settings as SettingsIcon, Calendar, CalendarDays, Target,
   MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
@@ -94,12 +94,60 @@ export default function App() {
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
   const [planKind, setPlanKind] = usePersistedState<"my" | "shared">("planKind", "my");
 
+  // 캘린더 계층 네비게이션 — 연력 → 달력 → 일력 사이 공통 focus (year/month/day)
+  const todayObj = new Date();
+  const [calYear, setCalYear] = useState<number>(todayObj.getFullYear());
+  const [calMonth, setCalMonth] = useState<number>(todayObj.getMonth());
+  const [calDay, setCalDay] = useState<number>(todayObj.getDate());
+
   // 일시적 UI 상태 — 영속화 X
   const [screen, setScreen] = useState<Screen>("day");
+
+  // 화면 전환 애니메이션 — 이전 screen 추적해서 진입 방향 결정
+  const prevScreenRef = useRef<Screen>(screen);
+  const MAIN_TAB_ORDER: Screen[] = ["day", "month", "mandala"];
+  const calDepth = (s: Screen) =>
+    s === "year" ? 0 : s === "month" ? 1 : s === "daily" ? 2 : -1;
+  const transitionClass = useMemo(() => {
+    const prev = prevScreenRef.current;
+    if (prev === screen) return "screen-enter-fade";
+    const prevMain = MAIN_TAB_ORDER.indexOf(prev as any);
+    const curMain = MAIN_TAB_ORDER.indexOf(screen as any);
+    if (prevMain !== -1 && curMain !== -1) {
+      return curMain > prevMain ? "screen-enter-right" : "screen-enter-left";
+    }
+    const prevD = calDepth(prev);
+    const curD = calDepth(screen);
+    if (prevD !== -1 && curD !== -1) {
+      return curD > prevD ? "screen-enter-zoomin" : "screen-enter-zoomout";
+    }
+    return "screen-enter-fade";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+  useEffect(() => {
+    prevScreenRef.current = screen;
+  }, [screen]);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("splash");
+  // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
+  const [splashMounted, setSplashMounted] = useState(true);
   const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+
+  // splash-mode 클래스 — splash가 시각적으로 가리고 있을 때만 검정 강제
+  // splashLeaving (페이드 아웃 중) 시점부터는 클래스를 제거해서 그 아래 PlanSelect가 자연스럽게 드러남
+  useEffect(() => {
+    const root = document.documentElement;
+    if (stage === "splash" && splashMounted) {
+      root.classList.add("splash-mode");
+    } else {
+      root.classList.remove("splash-mode");
+    }
+    return () => {
+      root.classList.remove("splash-mode");
+    };
+  }, [stage, splashMounted]);
 
   // 🔒 todos — 영속화 (나의 플랜 / 공동 플랜 분리)
   const [myTodos, setMyTodos] = usePersistedState<Todo[]>("myTodos", initialMyTodos);
@@ -211,6 +259,163 @@ export default function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // 좌우 스와이프로 탭 전환 — day ↔ month ↔ mandala
+  const SWIPE_TABS: Screen[] = ["day", "month", "mandala"];
+  // 최신 screen 참조용 (이벤트 리스너가 stale closure 안 쓰게)
+  const screenRef = useRef(screen);
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
+  const setScreenRef = useRef(setScreen);
+  const setMoreOpenRef = useRef(setMoreOpen);
+  useEffect(() => {
+    setScreenRef.current = setScreen;
+    setMoreOpenRef.current = setMoreOpen;
+  });
+
+  // ref callback — element가 mount/unmount/remount될 때마다 리스너 재등록
+  // (메인 div는 key={planKind+screen}로 리마운트 되기 때문에 useEffect+useRef 조합으로는 첫 element 이후 놓침)
+  const contentCallbackRef = useMemo(() => {
+    let attached: HTMLDivElement | null = null;
+    let cleanup: (() => void) | null = null;
+
+    return (el: HTMLDivElement | null) => {
+      // 같은 element면 재처리 안 함
+      if (attached === el) return;
+      // 이전 정리
+      if (cleanup) {
+        cleanup();
+        cleanup = null;
+      }
+      attached = el;
+      if (!el) return;
+
+      let startX = 0;
+      let startY = 0;
+      let startT = 0;
+      let lastX = 0;
+      let lastT = 0;
+      let locked: "h" | "v" | null = null;
+      let active = false;
+      let inNoSwipe = false;
+      let multiTouchAborted = false;
+
+      // 화면 너비 기반 동적 임계값 (onEnd 마다 다시 계산 — 회전/리사이즈 대응)
+      const getScreenW = () =>
+        el.clientWidth || window.innerWidth || 375;
+      // 일반: 화면 25% 거리 OR 빠른 플릭(화면 12% + 속도 0.2 px/ms)
+      const NORMAL_DIST_R = 0.25;
+      const NORMAL_FLICK_DIST_R = 0.12;
+      const NORMAL_FLICK_VEL = 0.2;
+      // 보호 영역: 화면 50% + 속도 0.5 px/ms + 가로/세로 비율 2.5배
+      const PROT_DIST_R = 0.5;
+      const PROT_VEL = 0.5;
+      const PROT_RATIO = 2.5;
+
+      const onStart = (e: TouchEvent) => {
+        if (e.touches.length !== 1) {
+          active = false;
+          multiTouchAborted = true;
+          return;
+        }
+        multiTouchAborted = false;
+        const target = e.target as HTMLElement | null;
+        inNoSwipe = !!(
+          target &&
+          target.closest &&
+          target.closest("[data-no-swipe]")
+        );
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startT = e.timeStamp || performance.now();
+        lastX = startX;
+        lastT = startT;
+        locked = null;
+        active = true;
+      };
+
+      const onMove = (e: TouchEvent) => {
+        if (!active) return;
+        if (e.touches.length > 1) {
+          active = false;
+          multiTouchAborted = true;
+          return;
+        }
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        lastX = t.clientX;
+        lastT = e.timeStamp || performance.now();
+        if (locked === null) {
+          if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+            locked = Math.abs(dx) > Math.abs(dy) * 1.2 ? "h" : "v";
+          }
+        }
+        // 보호 영역에선 preventDefault 안 함 (자체 드래그/핀치 그대로 흘려야)
+        if (locked === "h" && !inNoSwipe) {
+          e.preventDefault();
+        }
+      };
+
+      const onEnd = (e: TouchEvent) => {
+        if (!active) return;
+        const wasH = locked === "h";
+        active = false;
+        if (multiTouchAborted) return;
+        if (!wasH) return;
+
+        const endX = e.changedTouches[0]?.clientX ?? lastX;
+        const endY = e.changedTouches[0]?.clientY ?? startY;
+        const endT = e.timeStamp || performance.now();
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const totalDuration = Math.max(1, endT - startT);
+        const totalVel = Math.abs(dx) / totalDuration; // px/ms (전체 평균 속도)
+        const ratio = Math.abs(dx) / Math.max(1, Math.abs(dy));
+
+        const W = getScreenW();
+        let trigger = false;
+        if (inNoSwipe) {
+          // 보호 영역: 화면 50% + 빠른 속도 + 가로 우세
+          trigger =
+            Math.abs(dx) >= W * PROT_DIST_R &&
+            totalVel >= PROT_VEL &&
+            ratio >= PROT_RATIO;
+        } else {
+          // 일반 영역: 화면 25% 거리 OR 빠른 플릭(화면 12% + 속도)
+          trigger =
+            Math.abs(dx) >= W * NORMAL_DIST_R ||
+            (Math.abs(dx) >= W * NORMAL_FLICK_DIST_R &&
+              totalVel >= NORMAL_FLICK_VEL);
+        }
+        if (!trigger) return;
+
+        const cur = screenRef.current;
+        const idx = SWIPE_TABS.indexOf(cur as any);
+        if (idx === -1) return;
+        if (dx < 0 && idx < SWIPE_TABS.length - 1) {
+          setScreenRef.current(SWIPE_TABS[idx + 1]);
+          setMoreOpenRef.current(false);
+        } else if (dx > 0 && idx > 0) {
+          setScreenRef.current(SWIPE_TABS[idx - 1]);
+          setMoreOpenRef.current(false);
+        }
+      };
+
+      el.addEventListener("touchstart", onStart, { passive: true });
+      el.addEventListener("touchmove", onMove, { passive: false });
+      el.addEventListener("touchend", onEnd);
+      el.addEventListener("touchcancel", onEnd);
+
+      cleanup = () => {
+        el.removeEventListener("touchstart", onStart);
+        el.removeEventListener("touchmove", onMove);
+        el.removeEventListener("touchend", onEnd);
+        el.removeEventListener("touchcancel", onEnd);
+      };
+    };
+  }, []);
+
   const renderScreen = () => {
     switch (screen) {
       case "day": return (
@@ -221,23 +426,74 @@ export default function App() {
           onTodosChange={planKind === "shared" ? setSharedTodos : setMyTodos}
         />
       );
-      case "month": return <MonthView accent={accent} planKind={planKind} events={sharedEvents} onEventsChange={setSharedEvents} />;
-      case "year": return <YearView accent={accent} events={sharedEvents} onEventsChange={setSharedEvents} />;
+      case "month": return (
+        <MonthView
+          accent={accent}
+          planKind={planKind}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          month={calMonth}
+          onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
+          onBack={() => { setScreen("year"); setMoreOpen(false); }}
+          onOpenDay={(y, m, d) => {
+            setCalYear(y); setCalMonth(m); setCalDay(d);
+            setScreen("daily");
+            setMoreOpen(false);
+          }}
+        />
+      );
+      case "year": return (
+        <YearView
+          accent={accent}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          onOpenMonth={(y, m) => {
+            setCalYear(y); setCalMonth(m);
+            setScreen("month");
+            setMoreOpen(false);
+          }}
+        />
+      );
       case "week": return <WeekView accent={accent} planKind={planKind} />;
       case "tenmin": return <TenMinPlanner accent={accent} />;
       case "mandala": return <MandalaView accent={accent} planKind={planKind} />;
       case "diary": return <DiaryView accent={accent} planKind={planKind} />;
-      case "daily": return <DailyFlipView accent={accent} events={sharedEvents} onEventsChange={setSharedEvents} />;
+      case "daily": return (
+        <DailyFlipView
+          accent={accent}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          month={calMonth}
+          day={calDay}
+          onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
+          onBack={() => { setScreen("month"); setMoreOpen(false); }}
+        />
+      );
     }
   };
+
+  // splash 단계에서는 outer/frame 배경도 검은색으로 시작 — 첫 로드 시 흰 깜빡임 방지
+  const isSplash = stage === "splash";
+  const outerBg = isSplash
+    ? "#000"
+    : isMobile
+    ? "var(--bg-canvas)"
+    : isDark
+    ? "#0a0a0a"
+    : "#e5e5ea";
+  const frameBg = isSplash ? "#000" : "var(--bg-canvas)";
 
   return (
     <div
       className={isMobile ? "app-outer" : "size-full flex items-center justify-center min-h-screen app-outer"}
       style={{
-        background: isMobile ? "var(--bg-canvas)" : (isDark ? "#0a0a0a" : "#e5e5ea"),
+        background: outerBg,
         fontFamily: "Pretendard, -apple-system, sans-serif",
         minHeight: isMobile ? "100vh" : undefined,
+        transition: "background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1)",
       }}
     >
       <div
@@ -248,18 +504,20 @@ export default function App() {
                 // 모바일: 풀스크린, 박스 없음
                 width: "100vw",
                 height: "100vh",
-                background: "var(--bg-canvas)",
+                background: frameBg,
                 color: "var(--text-primary)",
+                transition: "background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1)",
                 ...cssVars,
               }
             : {
                 // 데스크톱: 모바일 프레임 박스 시연
                 width: 375,
                 height: 812,
-                background: "var(--bg-canvas)",
+                background: frameBg,
                 color: "var(--text-primary)",
                 borderRadius: 40,
                 boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+                transition: "background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1)",
                 ...cssVars,
               }
         }
@@ -269,12 +527,14 @@ export default function App() {
         <>
         {/* (자체 상태바 제거 — 폰 시연 시 iOS/Android 자체 상태바 그대로 사용) */}
 
-        {/* 헤더 — 투명 배경 + 큰 로고 + 우측 플랜 토글 + 설정 */}
+        {/* 헤더 — 투명 배경 + 큰 로고 + 우측 플랜 토글 + 설정 (iOS notch / 배터리 영역 침범 안 함) */}
         <div
           className="app-header absolute left-0 right-0 z-20 flex items-center justify-between gap-3 px-5"
           style={{
             top: 0,
             height: 72,
+            paddingTop: "env(safe-area-inset-top, 0)",
+            boxSizing: "content-box",
             background: "var(--bg-canvas)",
             borderBottom: "0.5px solid var(--hairline)",
           }}
@@ -350,9 +610,21 @@ export default function App() {
           </div>
         </div>
 
-        {/* 메인 스크롤 영역 */}
-        <div className="app-content absolute inset-0 overflow-y-auto" style={{ paddingTop: 72 }} key={planKind + screen}>
-          {renderScreen()}
+        {/* 메인 스크롤 영역 — 헤더 72px + iOS safe-area 만큼 위에서 떨어지게 + 좌우 스와이프 탭 전환 */}
+        <div
+          ref={contentCallbackRef}
+          className="app-content absolute inset-0 overflow-y-auto"
+          style={{
+            paddingTop: "calc(72px + env(safe-area-inset-top, 0px))",
+            // 가로 스와이프가 브라우저 기본 제스처와 충돌 안 하게
+            touchAction: "pan-y",
+          }}
+          key={planKind + screen}
+        >
+          {/* 화면 전환 애니메이션 wrapper — 진입 방향에 따라 슬라이드/페이드/줌 */}
+          <div className={transitionClass} key={screen}>
+            {renderScreen()}
+          </div>
         </div>
 
         {/* 하단 탭바 */}
@@ -401,28 +673,28 @@ export default function App() {
         {/* 더보기 메뉴 */}
         {moreOpen && (
           <div
-            className="absolute z-40 right-3 rounded-2xl overflow-hidden"
+            className="absolute z-40 right-3 rounded-2xl overflow-hidden more-menu-enter"
             style={{
               bottom: 96,
               background: "var(--bg-elevated)",
               border: "0.5px solid var(--hairline)",
               boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
               backdropFilter: "blur(20px)",
+              transformOrigin: "bottom right",
             }}
           >
-            <MoreItem icon={<CalendarDays size={16} />} label="연력" onClick={() => { setScreen("year"); setMoreOpen(false); }} />
-            <MoreItem icon={<CalendarDays size={16} />} label="일력" onClick={() => { setScreen("daily"); setMoreOpen(false); }} />
+            {/* 캘린더 — 연력/달력/일력은 계층 구조로 통합. 메인 진입은 월(달력) 뷰 */}
+            <MoreItem icon={<CalendarDays size={16} />} label="캘린더" onClick={() => { setScreen("month"); setMoreOpen(false); }} />
             <MoreItem icon={<Clock size={16} />} label="10분 플래너" onClick={() => { setScreen("tenmin"); setMoreOpen(false); }} />
-            <MoreItem icon={<BookOpen size={16} />} label="일기" onClick={() => { setScreen("diary"); setMoreOpen(false); }} />
-            <MoreItem icon={<Grid3x3 size={16} />} label="달력" onClick={() => { setScreen("month"); setMoreOpen(false); }} last />
+            <MoreItem icon={<BookOpen size={16} />} label="일기" onClick={() => { setScreen("diary"); setMoreOpen(false); }} last />
           </div>
         )}
         </>
         )}
         {/* ─── 메인 앱 셸 끝 ──────────────────────────────────── */}
 
-        {/* 스플래시 / 플랜 선택 */}
-        {stage === "select" && (
+        {/* 플랜 선택 — splash 단계에서도 미리 렌더 (splash 가 위에서 페이드 아웃되며 자연스럽게 드러남) */}
+        {(stage === "select" || stage === "splash") && (
           <PlanSelect
             accent={accent}
             stats={computePlanStats({ sharedEvents, myTodos, sharedTodos })}
@@ -434,7 +706,17 @@ export default function App() {
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
-        {stage === "splash" && <Splash accent={accent} onDone={() => setStage("select")} />}
+        {/* 스플래시 — 페이드 아웃 중에도 마운트 유지, opacity 0 되면 unmount */}
+        {splashMounted && (
+          <Splash
+            accent={accent}
+            onLeaveStart={() => {
+              // 사용자가 페이드 중에 이미 카드를 눌렀다면 stage가 "app"일 수 있음 → 그 경우 덮어쓰지 않음
+              setStage((prev) => (prev === "splash" ? "select" : prev));
+            }}
+            onDone={() => setSplashMounted(false)}
+          />
+        )}
 
         {/* 설정 */}
         <Settings

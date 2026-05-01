@@ -56,5 +56,10 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    host: true, // 0.0.0.0 — LAN/터널 외부 접근 허용
+    // 모든 외부 호스트 허용 (Cloudflare Tunnel / localtunnel / ngrok 등)
+    allowedHosts: true,
+  },
 });

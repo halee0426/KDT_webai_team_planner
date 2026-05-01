@@ -8,12 +8,18 @@ export function YearView({
   accent,
   events,
   onEventsChange,
+  year,
+  onOpenMonth,
 }: {
   accent: string;
   events: SharedEvent[];
   onEventsChange: (e: SharedEvent[]) => void;
+  /** 외부에서 전달되는 표시 연도 (없으면 2026 fallback) */
+  year?: number;
+  /** 월 라벨 클릭 시 → 달력(MonthView)로 진입 */
+  onOpenMonth?: (year: number, month: number) => void;
 }) {
-  const YEAR = 2026;
+  const YEAR = year ?? 2026;
 
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
@@ -69,12 +75,43 @@ export function YearView({
   };
 
   return (
-    <div className="px-5 pt-5 pb-32">
-      <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.5px" }}>{YEAR}</div>
-      <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-secondary)] mt-1">
-        119일 / 365일 · 33%
+    <div className="px-5 pt-4 pb-32">
+      {/* 애플 캘린더 스타일 헤더 */}
+      <div style={{ marginBottom: 8 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: accent,
+            letterSpacing: "-0.1px",
+            marginBottom: 2,
+          }}
+        >
+          연력
+        </div>
+        <div
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            letterSpacing: "-0.8px",
+            lineHeight: 1.05,
+            color: "var(--text-primary)",
+          }}
+        >
+          {YEAR}
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            letterSpacing: "-0.2px",
+            marginTop: 6,
+          }}
+        >
+          119일 / 365일 · 33%
+        </div>
       </div>
-      <div className="h-1 rounded-full mt-3 overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
+      <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
         <div className="h-full rounded-full" style={{ width: "33%", background: accent }} />
       </div>
 
@@ -84,12 +121,24 @@ export function YearView({
           const monthHls = hls.filter((h) => h.month === mi);
           return (
             <div key={mi} className="flex items-start gap-2">
-              <div
-                className="sticky w-9 pt-1"
-                style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.224px" }}
+              <button
+                onClick={() => onOpenMonth?.(YEAR, mi)}
+                className="sticky w-9 pt-1 text-left active:scale-95"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "-0.224px",
+                  background: "transparent",
+                  border: 0,
+                  cursor: onOpenMonth ? "pointer" : "default",
+                  color: "var(--text-primary)",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+                aria-label={`${mn} 달력 열기`}
               >
                 {mn}
-              </div>
+              </button>
               <div className="flex-1 overflow-x-auto">
                 <div
                   className="flex min-w-max"
@@ -199,9 +248,9 @@ export function YearView({
       {/* Add sheet */}
       {sheet && (
         <div className="fixed inset-0 z-50 flex items-end" onClick={() => setSheet(null)}>
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/30 backdrop-fade" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8 sheet-slide-up"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -274,9 +323,9 @@ export function YearView({
       {/* Edit sheet */}
       {editingHl && (
         <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingHl(null)}>
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/30 backdrop-fade" />
           <div
-            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8"
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8 sheet-slide-up"
             style={{ background: "var(--bg-elevated)" }}
             onClick={(e) => e.stopPropagation()}
           >

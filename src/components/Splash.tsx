@@ -1,16 +1,28 @@
 import { useEffect, useState } from "react";
 
-export function Splash({ onDone, accent = "#0066cc" }: { onDone: () => void; accent?: string }) {
+export function Splash({
+  onDone,
+  onLeaveStart,
+  accent = "#0066cc",
+}: {
+  onDone: () => void;
+  /** 페이드아웃 시작 시점 — 호출되면 부모가 PlanSelect를 미리 마운트해 크로스페이드 */
+  onLeaveStart?: () => void;
+  accent?: string;
+}) {
   const [phase, setPhase] = useState<"draw" | "out">("draw");
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("out"), 2200);  // 2.2s 머무른 후 퇴장 시작
-    const t2 = setTimeout(onDone, 3100);                 // 0.9s fade out (충분히 부드럽게)
+    const t1 = setTimeout(() => {
+      setPhase("out");
+      onLeaveStart?.();
+    }, 2200);
+    const t2 = setTimeout(onDone, 3100);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [onDone]);
+  }, [onDone, onLeaveStart]);
 
   const isOut = phase === "out";
 
@@ -19,8 +31,9 @@ export function Splash({ onDone, accent = "#0066cc" }: { onDone: () => void; acc
       className="absolute inset-0 z-[80] flex items-center justify-center"
       style={{
         background: "#000",
+        // 컨테이너 전체가 페이드 아웃 → 그 아래 PlanSelect 가 자연스럽게 드러남 (크로스페이드)
         opacity: isOut ? 0 : 1,
-        // 더 길고 부드러운 ease-out — 끝부분에서 천천히 사라짐
+        pointerEvents: isOut ? "none" : "auto",
         transition: "opacity 0.9s cubic-bezier(0.22, 0.61, 0.36, 1)",
         willChange: "opacity",
       }}
@@ -54,14 +67,16 @@ export function Splash({ onDone, accent = "#0066cc" }: { onDone: () => void; acc
       <div
         className="flex flex-col items-center"
         style={{
-          // 살짝 위로 올라가며 사라짐 — 더 영화적인 느낌
+          // 살짝 위로 올라가며 사라짐 + 글자/로고도 페이드아웃
           transform: isOut ? "translateY(-10px)" : "translateY(0)",
-          transition: "transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1)",
-          willChange: "transform",
+          opacity: isOut ? 0 : 1,
+          transition:
+            "transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1)",
+          willChange: "transform, opacity",
         }}
       >
         {/* SVG 로고 마크 — 드로잉 애니메이션 */}
-        <div style={{ marginBottom: -1 }}>
+        <div style={{ marginBottom: 6 }}>
           <svg width={100} height={100} viewBox="0 0 32 32" fill="none">
             {/* 둥근 박스 — 페이드 인만 (변형 없음, 안전) */}
             <rect

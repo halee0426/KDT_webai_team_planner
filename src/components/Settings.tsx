@@ -27,9 +27,13 @@ export function Settings({
 
   return (
     <div className="absolute inset-0 z-[60] flex">
-      <div className="flex-1" onClick={onClose} style={{ background: "rgba(0,0,0,0.3)" }} />
       <div
-        className="w-[320px] flex flex-col"
+        className="flex-1 backdrop-fade"
+        onClick={onClose}
+        style={{ background: "rgba(0,0,0,0.3)" }}
+      />
+      <div
+        className="w-[320px] flex flex-col panel-slide-right"
         style={{ background: "var(--bg-elevated)", borderLeft: "0.5px solid var(--hairline)" }}
       >
         <div className="flex items-center justify-between px-5 pt-12 pb-4">

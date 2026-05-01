@@ -11,6 +11,174 @@ body {
   overscroll-behavior: none;
 }
 
+/* Splash 단계 — 모든 레이어를 검은색으로 강제 (흰 배경 깜빡임 차단) */
+html.splash-mode,
+html.splash-mode body,
+html.splash-mode #root,
+html.splash-mode .app-outer,
+html.splash-mode .app-frame {
+  background: #000 !important;
+}
+
+/* Splash 끝나면 부드럽게 원래 배경으로 전환 */
+html, body, #root, .app-outer, .app-frame {
+  transition: background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ════════════════════════════════════════════════════════════
+   화면 전환 애니메이션 — App.tsx의 .app-content 자식에 클래스로 적용
+   ════════════════════════════════════════════════════════════ */
+@keyframes screenSlideInRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes screenSlideInLeft {
+  from { opacity: 0; transform: translateX(-28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes screenZoomIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes screenZoomOut {
+  from { opacity: 0; transform: scale(1.04); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* 진입 방향별 클래스 */
+.screen-enter-left {
+  animation: screenSlideInLeft 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+.screen-enter-right {
+  animation: screenSlideInRight 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+.screen-enter-fade {
+  animation: screenFadeIn 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+/* 캘린더 계층 — 깊이 진입(상위→하위, 줌 인) / 복귀(하위→상위, 줌 아웃) */
+.screen-enter-zoomin {
+  animation: screenZoomIn 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+.screen-enter-zoomout {
+  animation: screenZoomOut 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+/* 모달/시트 등에서 사용할 일반 fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 200ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* 더보기 메뉴 팝업 — 우측 하단에서 살짝 솟아오르며 페이드 인 */
+@keyframes moreMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.more-menu-enter {
+  animation: moreMenuIn 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+/* 하단에서 올라오는 시트 (일정 추가, 편집 등) */
+@keyframes sheetSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-slide-up {
+  animation: sheetSlideUp 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform;
+}
+
+/* 모달 백드롭 페이드 */
+@keyframes backdropFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.backdrop-fade {
+  animation: backdropFade 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* 모달 (가운데 카드) 줌+페이드 */
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.modal-in {
+  animation: modalIn 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+/* 일정 카드/리스트 항목이 차례로 올라오는 stagger 효과용 */
+@keyframes itemRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.item-rise-in {
+  animation: itemRiseIn 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* 버튼 활성화 피드백 — Tailwind active:scale 보완용 */
+.tap-feedback {
+  transition: transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.tap-feedback:active {
+  transform: scale(0.96);
+}
+
+/* 우측에서 슬라이드 인 (Settings 패널 등) */
+@keyframes panelSlideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.panel-slide-right {
+  animation: panelSlideInRight 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform;
+}
+
+/* 좌측에서 슬라이드 인 */
+@keyframes panelSlideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.panel-slide-left {
+  animation: panelSlideInLeft 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform;
+}
+
 /* ════════════════════════════════════════════════════════════
    모바일 (≤ 768px) — 인라인 스타일 width:375, height:812 강제 덮어쓰기
    ════════════════════════════════════════════════════════════ */

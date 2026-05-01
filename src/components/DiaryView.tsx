@@ -384,7 +384,7 @@ export function DiaryView({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sortedEntries.map((e) => {
+              {sortedEntries.map((e, idx) => {
                 const dow = WEEKDAYS[new Date(e.year, e.month, e.day).getDay()];
                 const isCurrent =
                   e.year === viewYear && e.month === viewMonth && e.day === selectedDay;
@@ -412,7 +412,7 @@ export function DiaryView({
                       setSavedHint(true);
                       setTab("write");
                     }}
-                    className="w-full text-left rounded-2xl p-3 active:scale-[0.99]"
+                    className="w-full text-left rounded-2xl p-3 active:scale-[0.99] item-rise-in"
                     style={{
                       background: isCurrent ? `${accent}10` : "var(--bg-elevated)",
                       border: isCurrent
@@ -421,6 +421,7 @@ export function DiaryView({
                       display: "flex",
                       alignItems: "stretch",
                       gap: 12,
+                      animationDelay: `${Math.min(idx * 35, 280)}ms`,
                     }}
                   >
                     {/* 썸네일 — mood emoji + 그라데이션 배경 */}
