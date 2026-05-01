@@ -31,6 +31,8 @@ import { LogoLockup, LogoMark } from "@/components/Logo";
 import { InsightGreeting, shouldShowInsightToday } from "@/components/shared/InsightGreeting";
 import { AIChatModal, type AIEvent } from "@/components/ai/AIChatModal";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useSharedEventsSync } from "@/hooks/useSharedEventsSync";
+import { useAuthSubscription } from "@/hooks/useAuth";
 
 type Theme = "light" | "dark" | "system";
 type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary" | "daily";
@@ -91,6 +93,9 @@ function computePlanStats({
 }
 
 export default function App() {
+  // Firebase 인증 상태 구독 — 게스트(더미 키)일 때는 즉시 게스트 모드로 끝남
+  useAuthSubscription();
+
   // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
   const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "mint");
@@ -143,7 +148,8 @@ export default function App() {
   const [stage, setStage] = useState<Stage>("splash");
   // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
   const [splashMounted, setSplashMounted] = useState(true);
-  const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+  // sharedEvents — localStorage(게스트) + Firestore(로그인) 자동 동기화
+  const [sharedEvents, setSharedEvents] = useSharedEventsSync(initialSharedEvents);
   const [editingEvent, setEditingEvent] = useState<SharedEvent | null>(null);
   const openEditEvent = (e: SharedEvent) => {
     setEditingEvent(e);
