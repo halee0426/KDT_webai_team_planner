@@ -8,8 +8,23 @@
     <!-- 일반 favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- 테마 색 (브라우저 상단바) -->
-    <meta name="theme-color" content="#0066cc" />
+    <!-- 테마 색 (브라우저 상단바) — 첫 로드 시 splash 검은 배경에 맞춤 -->
+    <meta name="theme-color" content="#000000" />
+
+    <!-- 첫 로드 시 흰 깜빡임 방지 — splash-mode 클래스가 있을 때만 검정 -->
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+      }
+      html.splash-mode, html.splash-mode body, html.splash-mode #root {
+        background: #000 !important;
+      }
+    </style>
+    <script>
+      // React 마운트 전부터 검은 배경 보장 (splash 단계에서만)
+      document.documentElement.classList.add("splash-mode");
+    </script>
 
     <!-- ──── iOS PWA 풀스크린 설정 ──── -->
     <meta name="apple-mobile-web-app-capable" content="yes" />

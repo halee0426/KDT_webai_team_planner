@@ -20,12 +20,45 @@ export function DailyFlipView({
   accent,
   events,
   onEventsChange,
+  year,
+  month,
+  day,
+  onDateChange,
+  onBack,
 }: {
   accent: string;
   events: SharedEvent[];
   onEventsChange: (e: SharedEvent[]) => void;
+  /** 외부에서 전달되는 표시 날짜 — 있으면 그 값 사용 (controlled) */
+  year?: number;
+  month?: number;
+  day?: number;
+  /** 날짜 변경 시 부모에 알림 (계층 동기화) */
+  onDateChange?: (year: number, month: number, day: number) => void;
+  /** 좌상단 ← 뒤로가기 — 달력으로 */
+  onBack?: () => void;
 }) {
-  const [date, setDate] = useState(new Date());
+  // 외부에서 props 가 오면 controlled, 아니면 내부 today 로 fallback
+  const initialDate =
+    year !== undefined && month !== undefined && day !== undefined
+      ? new Date(year, month, day)
+      : new Date();
+  const [date, setDateInner] = useState(initialDate);
+  // props 변경 동기화 — controlled 모드일 때
+  useEffect(() => {
+    if (year !== undefined && month !== undefined && day !== undefined) {
+      const next = new Date(year, month, day);
+      if (next.getTime() !== date.getTime()) {
+        setDateInner(next);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, month, day]);
+  const setDate = (d: Date | ((p: Date) => Date)) => {
+    const next = typeof d === "function" ? (d as (p: Date) => Date)(date) : d;
+    setDateInner(next);
+    onDateChange?.(next.getFullYear(), next.getMonth(), next.getDate());
+  };
   const [todos, setTodos] = useState<Todo[]>([
     { id: 1, text: "디자인 리뷰 준비", done: false },
     { id: 2, text: "주간 회고 작성", done: true },
@@ -250,59 +283,126 @@ export function DailyFlipView({
 
   return (
     <div className="relative" style={{ height: "calc(100% - 0px)" }}>
-      {/* Day nav bar */}
+      {/* 애플 캘린더 스타일 일력 헤더 — 알약 ← 4월 + 우상단 액션 + 요일/날짜 행 */}
       <div
-        className="px-5 flex items-center gap-2"
+        className="px-4"
         style={{
-          height: 56,
+          paddingTop: 12,
+          paddingBottom: 10,
           background: "var(--bg-glass)",
           backdropFilter: "blur(20px)",
           borderBottom: "0.5px solid var(--hairline)",
         }}
       >
-        <button
-          onClick={() => shift(-1)}
-          className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
-          style={{ background: "var(--bg-tertiary)" }}
+        {/* 1행 — 알약 ← 월 + 우상단 알약 액션 */}
+        <div
+          className="flex items-center justify-between"
+          style={{ marginBottom: 12 }}
         >
-          <ChevronLeft size={16} strokeWidth={1.8} />
-        </button>
-        <div className="flex-1 text-center">
+          {onBack ? (
+            <button
+              onClick={onBack}
+              className="active:scale-95"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "8px 16px 8px 12px",
+                borderRadius: 999,
+                background: "var(--bg-elevated)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                color: "var(--text-primary)",
+                fontSize: 15,
+                fontWeight: 500,
+                letterSpacing: "-0.3px",
+                border: 0,
+                cursor: "pointer",
+              }}
+              aria-label="달력으로"
+            >
+              <ChevronLeft size={18} strokeWidth={2.2} />
+              {date.getMonth() + 1}월
+            </button>
+          ) : (
+            <div style={{ width: 1 }} />
+          )}
+
+          {/* 우측: 알약 그룹 (이전/오늘/다음) */}
           <div
+            className="flex items-center"
             style={{
-              fontSize: 19,
-              fontWeight: 700,
-              letterSpacing: "-0.3px",
-              color: isToday ? accent : "var(--text-primary)",
-              lineHeight: 1.1,
+              background: "var(--bg-elevated)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              borderRadius: 999,
+              padding: 4,
+              gap: 4,
             }}
           >
-            {date.getFullYear()}년 {date.getMonth() + 1}월 {date.getDate()}일
+            <button
+              onClick={() => shift(-1)}
+              className="active:scale-90"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+                color: "var(--text-primary)",
+              }}
+              aria-label="이전 날"
+            >
+              <ChevronLeft size={18} strokeWidth={2.2} />
+            </button>
+            <button
+              onClick={() => setDate(new Date())}
+              disabled={isToday}
+              className="active:scale-95"
+              style={{
+                padding: "0 10px",
+                height: 30,
+                borderRadius: 999,
+                background: "transparent",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--text-primary)",
+                opacity: isToday ? 0.4 : 1,
+                border: 0,
+                cursor: isToday ? "default" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              오늘
+            </button>
+            <button
+              onClick={() => shift(1)}
+              className="active:scale-90"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+                color: "var(--text-primary)",
+              }}
+              aria-label="다음 날"
+            >
+              <ChevronRight size={18} strokeWidth={2.2} />
+            </button>
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{days[date.getDay()]}요일</div>
         </div>
-        <button
-          onClick={() => shift(1)}
-          className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
-          style={{ background: "var(--bg-tertiary)" }}
-        >
-          <ChevronRight size={16} strokeWidth={1.8} />
-        </button>
-        <button
-          onClick={() => setDate(new Date())}
-          disabled={isToday}
-          className="px-3 rounded-full active:scale-95"
-          style={{
-            height: 28,
-            background: "var(--bg-tertiary)",
-            fontSize: 13,
-            fontWeight: 500,
-            opacity: isToday ? 0.4 : 1,
-            color: "var(--text-secondary)",
-          }}
-        >
-          오늘
-        </button>
+
+        {/* 2행 — 주간 요일 + 날짜 (선택된 날짜는 액센트 캡슐) */}
+        <WeekDayStrip
+          date={date}
+          accent={accent}
+          onPickDay={(d) => setDate(d)}
+        />
       </div>
 
       {/* All-day strip – shows untimed plan events that cover this date */}
@@ -793,9 +893,13 @@ function ColorRow({
 function SheetShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="absolute inset-0 z-50">
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.4)" }} onClick={onClose} />
       <div
-        className="absolute left-0 right-0 bottom-0 rounded-t-3xl px-5 pt-3 pb-6"
+        className="absolute inset-0 backdrop-fade"
+        style={{ background: "rgba(0,0,0,0.4)" }}
+        onClick={onClose}
+      />
+      <div
+        className="absolute left-0 right-0 bottom-0 rounded-t-3xl px-5 pt-3 pb-6 sheet-slide-up"
         style={{
           background: "var(--bg-elevated)",
           borderTop: "0.5px solid var(--hairline)",
@@ -808,6 +912,83 @@ function SheetShell({ children, onClose }: { children: React.ReactNode; onClose:
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+/** 주간 요일 + 날짜 스트립 — 애플 캘린더 day view 상단 행 */
+function WeekDayStrip({
+  date,
+  accent,
+  onPickDay,
+}: {
+  date: Date;
+  accent: string;
+  onPickDay: (d: Date) => void;
+}) {
+  // date 가 속한 주의 일요일 ~ 토요일
+  const start = new Date(date);
+  start.setDate(date.getDate() - date.getDay());
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+  const dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+  return (
+    <div className="grid grid-cols-7" style={{ gap: 0 }}>
+      {week.map((d, i) => {
+        const isSelected =
+          d.getFullYear() === date.getFullYear() &&
+          d.getMonth() === date.getMonth() &&
+          d.getDate() === date.getDate();
+        return (
+          <button
+            key={i}
+            onClick={() => onPickDay(d)}
+            className="active:scale-95"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              padding: "4px 0 6px",
+              background: isSelected ? `${accent}1A` : "transparent",
+              borderRadius: 999,
+              border: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "background 180ms",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "var(--text-muted)",
+                letterSpacing: "0.2px",
+              }}
+            >
+              {dayLabels[i]}
+            </span>
+            <span
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: isSelected ? "var(--text-primary)" : "transparent",
+                color: isSelected ? "var(--bg-canvas)" : "var(--text-primary)",
+                fontSize: 14,
+                fontWeight: isSelected ? 700 : 500,
+              }}
+            >
+              {d.getDate()}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

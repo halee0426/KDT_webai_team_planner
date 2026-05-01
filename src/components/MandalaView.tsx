@@ -290,11 +290,12 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         )}
       </div>
 
-      {/* 만다라트 9×9 그리드 — 핀치 줌 + 드래그 팬 */}
+      {/* 만다라트 9×9 그리드 — 핀치 줌 + 드래그 팬 (외부 좌우 스와이프 차단) */}
       <div
         ref={wrapperRef}
         onClick={onDoubleTap}
         className="mx-auto mt-4 rounded-lg"
+        data-no-swipe="true"
         style={{
           position: "relative",
           width: "100%",

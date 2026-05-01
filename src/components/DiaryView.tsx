@@ -371,7 +371,7 @@ export function DiaryView({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sortedEntries.map((e) => {
+              {sortedEntries.map((e, idx) => {
                 const dow = WEEKDAYS[new Date(e.year, e.month, e.day).getDay()];
                 const isCurrent = e.year === viewYear && e.month === viewMonth && e.day === selectedDay;
                 const firstLine = (e.text || "").split("\n")[0].trim();
@@ -391,13 +391,14 @@ export function DiaryView({
                       setSavedHint(true);
                       setTab("write");
                     }}
-                    className="w-full rounded-2xl p-3 text-left active:scale-[0.99]"
+                    className="w-full text-left rounded-2xl p-3 active:scale-[0.99] item-rise-in"
                     style={{
                       background: isCurrent ? `${accent}10` : "var(--bg-elevated)",
                       border: isCurrent ? `1px solid ${accent}55` : "0.5px solid var(--hairline)",
                       display: "flex",
                       alignItems: "stretch",
                       gap: 12,
+                      animationDelay: `${Math.min(idx * 35, 280)}ms`,
                     }}
                   >
                     <div

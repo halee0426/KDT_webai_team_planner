@@ -15,12 +15,16 @@ export function YearView({
   accent,
   events,
   onEventsChange,
+  year: activeYear,
+  onOpenMonth,
 }: {
   accent: string;
   events: SharedEvent[];
   onEventsChange: (next: SharedEvent[]) => void;
+  year?: number;
+  onOpenMonth?: (year: number, month: number) => void;
 }) {
-  const year = 2026;
+  const year = activeYear ?? 2026;
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
@@ -141,17 +145,26 @@ export function YearView({
               className={`flex items-start ${isDesktop ? "gap-3 rounded-[28px] px-4 py-2" : "gap-2"}`}
               style={isDesktop ? { background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" } : undefined}
             >
-              <div
-                className="sticky shrink-0"
+              <button
+                type="button"
+                onClick={() => onOpenMonth?.(year, monthIndex)}
+                className="sticky shrink-0 text-left active:scale-95"
                 style={{
                   width: monthLabelWidth,
                   fontSize: isDesktop ? 14 : 13,
                   fontWeight: 600,
                   letterSpacing: "-0.224px",
+                  background: "transparent",
+                  border: 0,
+                  color: "var(--text-primary)",
+                  cursor: onOpenMonth ? "pointer" : "default",
+                  fontFamily: "inherit",
+                  padding: 0,
                 }}
+                aria-label={`${monthName} 달력 열기`}
               >
                 {monthName}
-              </div>
+              </button>
 
               <div className={`min-w-0 flex-1 ${isDesktop ? "overflow-x-hidden" : "overflow-x-auto"}`}>
                 <div

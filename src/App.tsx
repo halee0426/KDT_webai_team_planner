@@ -1,6 +1,6 @@
-﻿// Figma Make 디자인 그대로 ? 모바일 앱 프레임 + 7개 뷰 + 탭바
+// Figma Make 디자인 그대로 — 모바일 앱 프레임 + 7개 뷰 + 탭바
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Settings as SettingsIcon, Calendar, CalendarDays, Target,
   MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
@@ -32,20 +32,7 @@ type Theme = "light" | "dark" | "system";
 type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary" | "daily";
 type Stage = "splash" | "select" | "app";
 
-const PRIMARY_TABS: Array<{ screen: Screen; label: string; icon: ReactNode }> = [
-  { screen: "day", label: "오늘", icon: <Sun size={22} strokeWidth={1.5} /> },
-  { screen: "month", label: "달력", icon: <Calendar size={22} strokeWidth={1.5} /> },
-  { screen: "mandala", label: "목표", icon: <Target size={22} strokeWidth={1.5} /> },
-];
-
-const MORE_TABS: Array<{ screen: Screen; label: string; icon: ReactNode }> = [
-  { screen: "year", label: "연력", icon: <CalendarDays size={16} /> },
-  { screen: "daily", label: "일력", icon: <CalendarDays size={16} /> },
-  { screen: "tenmin", label: "10분 플래너", icon: <Clock size={16} /> },
-  { screen: "diary", label: "일기", icon: <BookOpen size={16} /> },
-];
-
-const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: ReactNode }> = [
+const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: React.ReactNode }> = [
   { screen: "day", label: "오늘", helper: "오늘 일정과 할 일을 집중해서 보기", icon: <Sun size={18} strokeWidth={1.75} /> },
   { screen: "year", label: "연력", helper: "연간 하이라이트와 기간 계획 추적", icon: <Grid3x3 size={18} strokeWidth={1.75} /> },
   { screen: "month", label: "달력", helper: "한 달 단위로 계획과 일정을 관리", icon: <Calendar size={18} strokeWidth={1.75} /> },
@@ -55,7 +42,7 @@ const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: 
   { screen: "diary", label: "일기", helper: "하루 기록과 회고를 정리", icon: <BookOpen size={18} strokeWidth={1.75} /> },
 ];
 
-/** PlanSelect에 표시할 통계 계산 ? 사용자 실제 데이터 기반 */
+/** PlanSelect에 표시할 통계 계산 — 사용자 실제 데이터 기반 */
 function computePlanStats({
   sharedEvents,
   myTodos,
@@ -110,20 +97,68 @@ function computePlanStats({
 }
 
 export default function App() {
-  // ?? 사용자별 설정 ? localStorage에 영속화
+  // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
   const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "blue");
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
   const [planKind, setPlanKind] = usePersistedState<"my" | "shared">("planKind", "my");
 
-  // 일시적 UI 상태 ? 영속화 X
+  // 캘린더 계층 네비게이션 — 연력 → 달력 → 일력 사이 공통 focus (year/month/day)
+  const todayObj = new Date();
+  const [calYear, setCalYear] = useState<number>(todayObj.getFullYear());
+  const [calMonth, setCalMonth] = useState<number>(todayObj.getMonth());
+  const [calDay, setCalDay] = useState<number>(todayObj.getDate());
+
+  // 일시적 UI 상태 — 영속화 X
   const [screen, setScreen] = useState<Screen>("day");
+
+  // 화면 전환 애니메이션 — 이전 screen 추적해서 진입 방향 결정
+  const prevScreenRef = useRef<Screen>(screen);
+  const MAIN_TAB_ORDER: Screen[] = ["day", "month", "mandala"];
+  const calDepth = (s: Screen) =>
+    s === "year" ? 0 : s === "month" ? 1 : s === "daily" ? 2 : -1;
+  const transitionClass = useMemo(() => {
+    const prev = prevScreenRef.current;
+    if (prev === screen) return "screen-enter-fade";
+    const prevMain = MAIN_TAB_ORDER.indexOf(prev as any);
+    const curMain = MAIN_TAB_ORDER.indexOf(screen as any);
+    if (prevMain !== -1 && curMain !== -1) {
+      return curMain > prevMain ? "screen-enter-right" : "screen-enter-left";
+    }
+    const prevD = calDepth(prev);
+    const curD = calDepth(screen);
+    if (prevD !== -1 && curD !== -1) {
+      return curD > prevD ? "screen-enter-zoomin" : "screen-enter-zoomout";
+    }
+    return "screen-enter-fade";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+  useEffect(() => {
+    prevScreenRef.current = screen;
+  }, [screen]);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("splash");
+  // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
+  const [splashMounted, setSplashMounted] = useState(true);
   const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
 
-  // ?? todos ? 영속화 (나의 플랜 / 공동 플랜 분리)
+  // splash-mode 클래스 — splash가 시각적으로 가리고 있을 때만 검정 강제
+  // splashLeaving (페이드 아웃 중) 시점부터는 클래스를 제거해서 그 아래 PlanSelect가 자연스럽게 드러남
+  useEffect(() => {
+    const root = document.documentElement;
+    if (stage === "splash" && splashMounted) {
+      root.classList.add("splash-mode");
+    } else {
+      root.classList.remove("splash-mode");
+    }
+    return () => {
+      root.classList.remove("splash-mode");
+    };
+  }, [stage, splashMounted]);
+
+  // 🔒 todos — 영속화 (나의 플랜 / 공동 플랜 분리)
   const [myTodos, setMyTodos] = usePersistedState<Todo[]>("myTodos", initialMyTodos);
   const [sharedTodos, setSharedTodos] = usePersistedState<Todo[]>("sharedTodos", initialSharedTodos);
 
@@ -223,22 +258,21 @@ export default function App() {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  const [isDesktop, setIsDesktop] = useState(
-    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
-  );
-
-  useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // 모바일 감지 ? 768px 이하면 풀스크린 모드
+  // 모바일 감지 — 768px 이하면 풀스크린 모드
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= 768 : false,
   );
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -255,6 +289,163 @@ export default function App() {
     }
   }, [screen]);
 
+  // 좌우 스와이프로 탭 전환 — day ↔ month ↔ mandala
+  const SWIPE_TABS: Screen[] = ["day", "month", "mandala"];
+  // 최신 screen 참조용 (이벤트 리스너가 stale closure 안 쓰게)
+  const screenRef = useRef(screen);
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
+  const setScreenRef = useRef(setScreen);
+  const setMoreOpenRef = useRef(setMoreOpen);
+  useEffect(() => {
+    setScreenRef.current = setScreen;
+    setMoreOpenRef.current = setMoreOpen;
+  });
+
+  // ref callback — element가 mount/unmount/remount될 때마다 리스너 재등록
+  // (메인 div는 key={planKind+screen}로 리마운트 되기 때문에 useEffect+useRef 조합으로는 첫 element 이후 놓침)
+  const contentCallbackRef = useMemo(() => {
+    let attached: HTMLDivElement | null = null;
+    let cleanup: (() => void) | null = null;
+
+    return (el: HTMLDivElement | null) => {
+      // 같은 element면 재처리 안 함
+      if (attached === el) return;
+      // 이전 정리
+      if (cleanup) {
+        cleanup();
+        cleanup = null;
+      }
+      attached = el;
+      if (!el) return;
+
+      let startX = 0;
+      let startY = 0;
+      let startT = 0;
+      let lastX = 0;
+      let lastT = 0;
+      let locked: "h" | "v" | null = null;
+      let active = false;
+      let inNoSwipe = false;
+      let multiTouchAborted = false;
+
+      // 화면 너비 기반 동적 임계값 (onEnd 마다 다시 계산 — 회전/리사이즈 대응)
+      const getScreenW = () =>
+        el.clientWidth || window.innerWidth || 375;
+      // 일반: 화면 25% 거리 OR 빠른 플릭(화면 12% + 속도 0.2 px/ms)
+      const NORMAL_DIST_R = 0.25;
+      const NORMAL_FLICK_DIST_R = 0.12;
+      const NORMAL_FLICK_VEL = 0.2;
+      // 보호 영역: 화면 50% + 속도 0.5 px/ms + 가로/세로 비율 2.5배
+      const PROT_DIST_R = 0.5;
+      const PROT_VEL = 0.5;
+      const PROT_RATIO = 2.5;
+
+      const onStart = (e: TouchEvent) => {
+        if (e.touches.length !== 1) {
+          active = false;
+          multiTouchAborted = true;
+          return;
+        }
+        multiTouchAborted = false;
+        const target = e.target as HTMLElement | null;
+        inNoSwipe = !!(
+          target &&
+          target.closest &&
+          target.closest("[data-no-swipe]")
+        );
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startT = e.timeStamp || performance.now();
+        lastX = startX;
+        lastT = startT;
+        locked = null;
+        active = true;
+      };
+
+      const onMove = (e: TouchEvent) => {
+        if (!active) return;
+        if (e.touches.length > 1) {
+          active = false;
+          multiTouchAborted = true;
+          return;
+        }
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        lastX = t.clientX;
+        lastT = e.timeStamp || performance.now();
+        if (locked === null) {
+          if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+            locked = Math.abs(dx) > Math.abs(dy) * 1.2 ? "h" : "v";
+          }
+        }
+        // 보호 영역에선 preventDefault 안 함 (자체 드래그/핀치 그대로 흘려야)
+        if (locked === "h" && !inNoSwipe) {
+          e.preventDefault();
+        }
+      };
+
+      const onEnd = (e: TouchEvent) => {
+        if (!active) return;
+        const wasH = locked === "h";
+        active = false;
+        if (multiTouchAborted) return;
+        if (!wasH) return;
+
+        const endX = e.changedTouches[0]?.clientX ?? lastX;
+        const endY = e.changedTouches[0]?.clientY ?? startY;
+        const endT = e.timeStamp || performance.now();
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const totalDuration = Math.max(1, endT - startT);
+        const totalVel = Math.abs(dx) / totalDuration; // px/ms (전체 평균 속도)
+        const ratio = Math.abs(dx) / Math.max(1, Math.abs(dy));
+
+        const W = getScreenW();
+        let trigger = false;
+        if (inNoSwipe) {
+          // 보호 영역: 화면 50% + 빠른 속도 + 가로 우세
+          trigger =
+            Math.abs(dx) >= W * PROT_DIST_R &&
+            totalVel >= PROT_VEL &&
+            ratio >= PROT_RATIO;
+        } else {
+          // 일반 영역: 화면 25% 거리 OR 빠른 플릭(화면 12% + 속도)
+          trigger =
+            Math.abs(dx) >= W * NORMAL_DIST_R ||
+            (Math.abs(dx) >= W * NORMAL_FLICK_DIST_R &&
+              totalVel >= NORMAL_FLICK_VEL);
+        }
+        if (!trigger) return;
+
+        const cur = screenRef.current;
+        const idx = SWIPE_TABS.indexOf(cur as any);
+        if (idx === -1) return;
+        if (dx < 0 && idx < SWIPE_TABS.length - 1) {
+          setScreenRef.current(SWIPE_TABS[idx + 1]);
+          setMoreOpenRef.current(false);
+        } else if (dx > 0 && idx > 0) {
+          setScreenRef.current(SWIPE_TABS[idx - 1]);
+          setMoreOpenRef.current(false);
+        }
+      };
+
+      el.addEventListener("touchstart", onStart, { passive: true });
+      el.addEventListener("touchmove", onMove, { passive: false });
+      el.addEventListener("touchend", onEnd);
+      el.addEventListener("touchcancel", onEnd);
+
+      cleanup = () => {
+        el.removeEventListener("touchstart", onStart);
+        el.removeEventListener("touchmove", onMove);
+        el.removeEventListener("touchend", onEnd);
+        el.removeEventListener("touchcancel", onEnd);
+      };
+    };
+  }, []);
+
   const renderScreen = () => {
     switch (screen) {
       case "day": return (
@@ -265,55 +456,103 @@ export default function App() {
           onTodosChange={planKind === "shared" ? setSharedTodos : setMyTodos}
         />
       );
-      case "month": return <MonthView accent={accent} planKind={planKind} events={sharedEvents} onEventsChange={setSharedEvents} />;
-      case "year": return <YearView accent={accent} events={sharedEvents} onEventsChange={setSharedEvents} />;
+      case "month": return (
+        <MonthView
+          accent={accent}
+          planKind={planKind}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          month={calMonth}
+          onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
+          onBack={() => { setScreen("year"); setMoreOpen(false); }}
+          onOpenDay={(y, m, d) => {
+            setCalYear(y); setCalMonth(m); setCalDay(d);
+            setScreen("daily");
+            setMoreOpen(false);
+          }}
+        />
+      );
+      case "year": return (
+        <YearView
+          accent={accent}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          onOpenMonth={(y, m) => {
+            setCalYear(y); setCalMonth(m);
+            setScreen("month");
+            setMoreOpen(false);
+          }}
+        />
+      );
+      case "week": return null;
       case "tenmin": return <TenMinPlanner accent={accent} />;
       case "mandala": return <MandalaView accent={accent} planKind={planKind} />;
       case "diary": return <DiaryView accent={accent} planKind={planKind} />;
-      case "daily": return <DailyFlipView accent={accent} events={sharedEvents} onEventsChange={setSharedEvents} />;
+      case "daily": return (
+        <DailyFlipView
+          accent={accent}
+          events={sharedEvents}
+          onEventsChange={setSharedEvents}
+          year={calYear}
+          month={calMonth}
+          day={calDay}
+          onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
+          onBack={() => { setScreen("month"); setMoreOpen(false); }}
+        />
+      );
     }
   };
 
-  const shellStyle = isDesktop
+  // splash 단계에서는 outer/frame 배경도 검은색으로 시작 — 첫 로드 시 흰 깜빡임 방지
+  const isSplash = stage === "splash";
+  const outerBg = isSplash
+    ? "#000"
+    : isDesktop
+    ? isDark
+      ? "radial-gradient(circle at top, #151515 0%, #0a0a0a 48%, #000 100%)"
+      : "linear-gradient(180deg, #eff2f6 0%, #d9dbe1 100%)"
+    : isMobile
+    ? "var(--bg-canvas)"
+    : isDark
+    ? "#0a0a0a"
+    : "#e5e5ea";
+  const frameBg = isSplash ? "#000" : "var(--bg-canvas)";
+  const shellStyle = isDesktop && stage === "app"
     ? {
         width: "min(1680px, calc(100vw - 32px))",
         height: "calc(100vh - 32px)",
         borderRadius: 32,
       }
     : isMobile
-      ? {
-          width: "100vw",
-          height: "100vh",
-          borderRadius: 0,
-        }
-      : {
-          width: 375,
-          height: 812,
-          borderRadius: 40,
-        };
+    ? {
+        width: "100vw",
+        height: "100vh",
+        borderRadius: 0,
+      }
+    : {
+        width: 375,
+        height: 812,
+        borderRadius: 40,
+      };
 
   return (
     <div
       className="app-outer flex min-h-screen justify-center overflow-y-auto p-3 md:p-6 lg:items-start"
       style={{
-        background: isDesktop
-          ? (isDark
-              ? "radial-gradient(circle at top, #151515 0%, #0a0a0a 48%, #000 100%)"
-              : "linear-gradient(180deg, #eff2f6 0%, #d9dbe1 100%)")
-          : isMobile
-            ? "var(--bg-canvas)"
-            : isDark
-              ? "#0a0a0a"
-              : "#e5e5ea",
+        background: outerBg,
         fontFamily: "Pretendard, -apple-system, sans-serif",
+        transition: "background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1)",
       }}
     >
       <div
-        className={`app-frame relative overflow-hidden ${isDesktop && stage === "app" ? "grid grid-cols-[280px_minmax(0,1fr)]" : ""}`}
+        className={`relative overflow-hidden app-frame ${isDesktop && stage === "app" ? "grid grid-cols-[280px_minmax(0,1fr)]" : ""}`}
         style={{
-          background: "var(--bg-canvas)",
+          background: frameBg,
           color: "var(--text-primary)",
-          boxShadow: isDesktop || !isMobile ? "0 20px 60px rgba(0,0,0,0.2)" : "none",
+          boxShadow: isMobile ? "none" : "0 20px 60px rgba(0,0,0,0.2)",
+          transition: "background 0.6s cubic-bezier(0.22, 0.61, 0.36, 1)",
           ...cssVars,
           ...shellStyle,
         }}
@@ -374,180 +613,178 @@ export default function App() {
           </aside>
         )}
 
-        <section className="relative min-h-0 min-w-0">
-          {stage === "app" && !isDesktop && (
-            <>
+        {/* ─── 메인 앱 셸 (stage === "app"일 때만 렌더) ─────────── */}
+        {stage === "app" && !isDesktop && (
+        <>
+        {/* (자체 상태바 제거 — 폰 시연 시 iOS/Android 자체 상태바 그대로 사용) */}
+
+        {/* 헤더 — 투명 배경 + 큰 로고 + 우측 플랜 토글 + 설정 (iOS notch / 배터리 영역 침범 안 함) */}
+        <div
+          className="app-header absolute left-0 right-0 z-20 flex items-center justify-between gap-3 px-5"
+          style={{
+            top: 0,
+            height: 72,
+            paddingTop: "env(safe-area-inset-top, 0)",
+            boxSizing: "content-box",
+            background: "var(--bg-canvas)",
+            borderBottom: "0.5px solid var(--hairline)",
+          }}
+        >
+          {/* 좌측: 로고 (커진 사이즈) */}
+          <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
+
+          {/* 우측: 플랜 토글 + 설정 */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* 플랜 토글 (컴팩트 버전) */}
+            <div
+              className="relative flex p-0.5 rounded-full"
+              style={{ background: "var(--bg-tertiary)", height: 32 }}
+            >
               <div
-                className="app-header absolute left-0 right-0 z-20 flex items-center justify-between gap-3 px-5"
+                className="absolute top-0.5 bottom-0.5 rounded-full transition-all duration-300 ease-out"
                 style={{
-                  top: 0,
-                  height: 72,
-                  background: "var(--bg-canvas)",
-                  borderBottom: "0.5px solid var(--hairline)",
+                  width: "calc(50% - 2px)",
+                  left: planKind === "my" ? 2 : "calc(50%)",
+                  background: "var(--bg-elevated)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                }}
+              />
+              <button
+                onClick={() => setPlanKind("my")}
+                aria-label="나의 플랜"
+                className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
+                style={{
+                  fontSize: 12,
+                  fontWeight: planKind === "my" ? 600 : 500,
+                  color: planKind === "my" ? accent : "var(--text-secondary)",
+                  letterSpacing: "-0.2px",
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
                 }}
               >
-                <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
-
-                <div className="flex shrink-0 items-center gap-2">
-                  <div
-                    className="relative flex rounded-full p-0.5"
-                    style={{ background: "var(--bg-tertiary)", height: 32 }}
-                  >
-                    <div
-                      className="absolute top-0.5 bottom-0.5 rounded-full transition-all duration-300 ease-out"
-                      style={{
-                        width: "calc(50% - 2px)",
-                        left: planKind === "my" ? 2 : "calc(50%)",
-                        background: "var(--bg-elevated)",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                      }}
-                    />
-                    <button
-                      onClick={() => setPlanKind("my")}
-                      aria-label="나의 플랜"
-                      className="relative flex items-center justify-center gap-1 rounded-full px-2.5 transition-transform active:scale-[0.97]"
-                      style={{
-                        fontSize: 12,
-                        fontWeight: planKind === "my" ? 600 : 500,
-                        color: planKind === "my" ? accent : "var(--text-secondary)",
-                        letterSpacing: "-0.2px",
-                        border: 0,
-                        background: "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <UserIcon size={12} strokeWidth={2} />
-                      나의
-                    </button>
-                    <button
-                      onClick={() => setPlanKind("shared")}
-                      aria-label="공동 플랜"
-                      className="relative flex items-center justify-center gap-1 rounded-full px-2.5 transition-transform active:scale-[0.97]"
-                      style={{
-                        fontSize: 12,
-                        fontWeight: planKind === "shared" ? 600 : 500,
-                        color: planKind === "shared" ? accent : "var(--text-secondary)",
-                        letterSpacing: "-0.2px",
-                        border: 0,
-                        background: "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <UsersIcon size={12} strokeWidth={2} />
-                      공동
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => setSettingsOpen(true)}
-                    aria-label="설정"
-                    style={{
-                      width: 32,
-                      height: 32,
-                      display: "grid",
-                      placeItems: "center",
-                      background: "transparent",
-                      border: 0,
-                      cursor: "pointer",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <SettingsIcon size={20} strokeWidth={1.5} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="app-content absolute inset-0 overflow-y-auto" style={{ paddingTop: 72 }} key={planKind + screen}>
-                {renderScreen()}
-              </div>
-
-              <div
-                className="app-tabbar absolute left-0 right-0 bottom-0 z-30"
+                <UserIcon size={12} strokeWidth={2} />
+                나의
+              </button>
+              <button
+                onClick={() => setPlanKind("shared")}
+                aria-label="공동 플랜"
+                className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
                 style={{
-                  height: 84,
-                  background: "var(--bg-glass)",
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  borderTop: "0.5px solid var(--hairline)",
+                  fontSize: 12,
+                  fontWeight: planKind === "shared" ? 600 : 500,
+                  color: planKind === "shared" ? accent : "var(--text-secondary)",
+                  letterSpacing: "-0.2px",
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
                 }}
               >
-                <div className="relative flex h-full items-end justify-around px-2 pt-2 pb-7">
-                  {PRIMARY_TABS.map((tab) => (
-                    <TabBtn
-                      key={tab.screen}
-                      icon={tab.icon}
-                      label={tab.label}
-                      active={screen === tab.screen}
-                      accent={accent}
-                      onClick={() => {
-                        setScreen(tab.screen);
-                        setMoreOpen(false);
-                      }}
-                    />
-                  ))}
-                  <div style={{ width: 56 }} />
-                  <TabBtn
-                    icon={<MoreHorizontal size={22} strokeWidth={1.5} />}
-                    label="더보기"
-                    active={moreOpen || MORE_TABS.some((tab) => tab.screen === screen)}
-                    accent={accent}
-                    onClick={() => setMoreOpen((v) => !v)}
-                  />
-                </div>
+                <UsersIcon size={12} strokeWidth={2} />
+                공동
+              </button>
+            </div>
 
-                <button
-                  onClick={() => setAiChatOpen(true)}
-                  aria-label="하루온봇 열기"
-                  className="absolute left-1/2 transition-transform active:scale-95"
-                  style={{
-                    top: -8,
-                    transform: "translateX(-50%)",
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    background: accent,
-                    boxShadow: `0 6px 20px ${accent}66`,
-                    padding: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: 0,
-                    cursor: "pointer",
-                  }}
-                >
-                  <LogoMark size={32} accent={accent} rounded={10} />
-                </button>
-              </div>
+            {/* 설정 */}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              aria-label="설정"
+              style={{
+                width: 32, height: 32,
+                display: "grid", placeItems: "center",
+                background: "transparent", border: 0, cursor: "pointer",
+                color: "var(--text-primary)",
+              }}
+            >
+              <SettingsIcon size={20} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
 
-              {moreOpen && (
-                <div
-                  className="absolute right-3 z-40 overflow-hidden rounded-2xl"
-                  style={{
-                    bottom: 96,
-                    background: "var(--bg-elevated)",
-                    border: "0.5px solid var(--hairline)",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-                    backdropFilter: "blur(20px)",
-                  }}
-                >
-                  {MORE_TABS.map((tab, index) => (
-                    <MoreItem
-                      key={tab.screen}
-                      icon={tab.icon}
-                      label={tab.label}
-                      onClick={() => {
-                        setScreen(tab.screen);
-                        setMoreOpen(false);
-                      }}
-                      last={index === MORE_TABS.length - 1}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+        {/* 메인 스크롤 영역 — 헤더 72px + iOS safe-area 만큼 위에서 떨어지게 + 좌우 스와이프 탭 전환 */}
+        <div
+          ref={contentCallbackRef}
+          className="app-content absolute inset-0 overflow-y-auto"
+          style={{
+            paddingTop: "calc(72px + env(safe-area-inset-top, 0px))",
+            // 가로 스와이프가 브라우저 기본 제스처와 충돌 안 하게
+            touchAction: "pan-y",
+          }}
+          key={planKind + screen}
+        >
+          {/* 화면 전환 애니메이션 wrapper — 진입 방향에 따라 슬라이드/페이드/줌 */}
+          <div className={transitionClass} key={screen}>
+            {renderScreen()}
+          </div>
+        </div>
 
-          {stage === "app" && isDesktop && (
+        {/* 하단 탭바 */}
+        <div
+          className="app-tabbar absolute left-0 right-0 bottom-0 z-30"
+          style={{
+            height: 84,
+            background: "var(--bg-glass)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderTop: "0.5px solid var(--hairline)",
+          }}
+        >
+          <div className="flex items-end justify-around px-2 pt-2 pb-7 h-full relative">
+            <TabBtn icon={<Sun size={22} strokeWidth={1.5} />} label="오늘" active={screen === "day"} accent={accent} onClick={() => { setScreen("day"); setMoreOpen(false); }} />
+            <TabBtn icon={<Calendar size={22} strokeWidth={1.5} />} label="캘린더" active={screen === "month" || screen === "week"} accent={accent} onClick={() => { setScreen("month"); setMoreOpen(false); }} />
+            <div style={{ width: 56 }} />
+            <TabBtn icon={<Target size={22} strokeWidth={1.5} />} label="목표" active={screen === "mandala"} accent={accent} onClick={() => { setScreen("mandala"); setMoreOpen(false); }} />
+            <TabBtn icon={<MoreHorizontal size={22} strokeWidth={1.5} />} label="더보기" active={moreOpen || screen === "year" || screen === "tenmin" || screen === "diary" || screen === "daily" || screen === "week"} accent={accent} onClick={() => setMoreOpen((v) => !v)} />
+          </div>
+
+          <button
+            onClick={() => setAiChatOpen(true)}
+            aria-label="하루온봇 열기"
+            className="absolute left-1/2 active:scale-95 transition-transform"
+            style={{
+              top: -8,
+              transform: "translateX(-50%)",
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              background: accent,
+              boxShadow: `0 6px 20px ${accent}66`,
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: 0,
+              cursor: "pointer",
+            }}
+          >
+            <LogoMark size={32} accent={accent} rounded={10} />
+          </button>
+        </div>
+
+        {/* 더보기 메뉴 */}
+        {moreOpen && (
+          <div
+            className="absolute z-40 right-3 rounded-2xl overflow-hidden more-menu-enter"
+            style={{
+              bottom: 96,
+              background: "var(--bg-elevated)",
+              border: "0.5px solid var(--hairline)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+              backdropFilter: "blur(20px)",
+              transformOrigin: "bottom right",
+            }}
+          >
+            {/* 캘린더 — 연력/달력/일력은 계층 구조로 통합. 메인 진입은 월(달력) 뷰 */}
+            <MoreItem icon={<CalendarDays size={16} />} label="캘린더" onClick={() => { setScreen("month"); setMoreOpen(false); }} />
+            <MoreItem icon={<Clock size={16} />} label="10분 플래너" onClick={() => { setScreen("tenmin"); setMoreOpen(false); }} />
+            <MoreItem icon={<BookOpen size={16} />} label="일기" onClick={() => { setScreen("diary"); setMoreOpen(false); }} last />
+          </div>
+        )}
+        </>
+        )}
+
+        {stage === "app" && isDesktop && (
+          <section className="relative min-h-0 min-w-0">
             <div
               className="absolute inset-0 overflow-y-auto"
               style={{
@@ -558,14 +795,18 @@ export default function App() {
               }}
               key={planKind + screen + "-desktop"}
             >
-              <div className="w-full px-6 2xl:px-8">{renderScreen()}</div>
+              <div className="w-full px-6 2xl:px-8">
+                <div className={transitionClass} key={screen}>
+                  {renderScreen()}
+                </div>
+              </div>
             </div>
-          )}
-        </section>
+          </section>
+        )}
         {/* ─── 메인 앱 셸 끝 ──────────────────────────────────── */}
 
-        {/* 스플래시 / 플랜 선택 */}
-        {stage === "select" && (
+        {/* 플랜 선택 — splash 단계에서도 미리 렌더 (splash 가 위에서 페이드 아웃되며 자연스럽게 드러남) */}
+        {(stage === "select" || stage === "splash") && (
           <PlanSelect
             accent={accent}
             stats={computePlanStats({ sharedEvents, myTodos, sharedTodos })}
@@ -577,7 +818,17 @@ export default function App() {
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
-        {stage === "splash" && <Splash accent={accent} onDone={() => setStage("select")} />}
+        {/* 스플래시 — 페이드 아웃 중에도 마운트 유지, opacity 0 되면 unmount */}
+        {splashMounted && (
+          <Splash
+            accent={accent}
+            onLeaveStart={() => {
+              // 사용자가 페이드 중에 이미 카드를 눌렀다면 stage가 "app"일 수 있음 → 그 경우 덮어쓰지 않음
+              setStage((prev) => (prev === "splash" ? "select" : prev));
+            }}
+            onDone={() => setSplashMounted(false)}
+          />
+        )}
 
         {/* 설정 */}
         <Settings
@@ -599,7 +850,7 @@ export default function App() {
           />
         )}
 
-        {/* AI 자연어 입력 채팅 모달 (FAB ? 클릭) */}
+        {/* AI 자연어 입력 채팅 모달 (FAB ✨ 클릭) */}
         <AIChatModal
           open={aiChatOpen}
           onClose={() => setAiChatOpen(false)}
@@ -693,4 +944,3 @@ function MoreItem({ icon, label, onClick, last }: { icon: React.ReactNode; label
     </button>
   );
 }
-
