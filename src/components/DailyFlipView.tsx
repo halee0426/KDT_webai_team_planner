@@ -588,14 +588,6 @@ export function DailyFlipView({
             </div>
           )}
 
-          {displayEvents.length === 0 && (
-            <div
-              className="absolute left-0 right-0 text-center pointer-events-none"
-              style={{ top: 12 * HOUR, fontSize: 13, color: "var(--text-muted)" }}
-            >
-              빈 시간을 눌러 드래그해 일정을 추가해보세요
-            </div>
-          )}
         </div>
       </div>
 
