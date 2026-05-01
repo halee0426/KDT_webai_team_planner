@@ -27,6 +27,7 @@ export function DailyFlipView({
   onDateChange,
   onBack,
   onAdd,
+  onOpenEdit,
 }: {
   accent: string;
   events: SharedEvent[];
@@ -41,6 +42,8 @@ export function DailyFlipView({
   onBack?: () => void;
   /** 우상단 + 버튼 */
   onAdd?: () => void;
+  /** 일정 카드 탭 시 — 외부 통합 편집 모달 */
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
   // 외부에서 props 가 오면 controlled, 아니면 내부 today 로 fallback
   const initialDate =
@@ -206,7 +209,14 @@ export function DailyFlipView({
         );
       } else if (!wasMoved) {
         const ev = timedEventsForDay.find((x) => x.id === id);
-        if (ev) setEditing({ ...ev });
+        if (ev) {
+          if (onOpenEdit) {
+            const full = events.find((x) => x.id === ev.id);
+            if (full) onOpenEdit(full);
+          } else {
+            setEditing({ ...ev });
+          }
+        }
       }
       return;
     }

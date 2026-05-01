@@ -295,13 +295,68 @@ export function MonthView({
           touchAction: "none",
           userSelect: "none",
           position: "relative",
+          gridAutoRows: "1fr", // 행 height 통일 — 셀 라인 정확히 맞춤
         }}
         onPointerDown={onGridDown}
         onPointerMove={onGridMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        {cells.map((d, i) => {
+        {(() => {
+          // 행별 멀티데이 트랙 개수 미리 계산 — 셀 padding-bottom 결정용
+          const rowTrackCount: number[] = [0, 0, 0, 0, 0, 0];
+          const multiAll = plans.filter((p) => p.start !== p.end);
+          const dayToCell2 = (day: number) => first + day - 1;
+          type S = { row: number; startCol: number; endCol: number; color: string; label: string; isStart: boolean };
+          const segs2: S[] = [];
+          for (const p of multiAll) {
+            const sc = dayToCell2(p.start);
+            const ec = dayToCell2(Math.min(p.end, daysInMonth));
+            let cur = sc;
+            while (cur <= ec) {
+              const r = Math.floor(cur / 7);
+              const lastInRow = r * 7 + 6;
+              const segEnd = Math.min(ec, lastInRow);
+              segs2.push({
+                row: r,
+                startCol: cur % 7,
+                endCol: segEnd - r * 7,
+                color: p.color,
+                label: p.label,
+                isStart: cur === sc,
+              });
+              cur = segEnd + 1;
+            }
+          }
+          const rowTracksTmp = new Map<number, number[]>();
+          // cellTrackCount[cellIndex] = 그 셀을 통과하는 멀티데이 트랙 개수
+          const cellTrackCount: number[] = new Array(42).fill(0);
+          type Placed2 = S & { track: number };
+          const placed2: Placed2[] = [];
+          for (const s of segs2.sort((a, b) => (a.row !== b.row ? a.row - b.row : a.startCol - b.startCol))) {
+            const tr = rowTracksTmp.get(s.row) ?? [];
+            let t = -1;
+            for (let i = 0; i < tr.length; i++) {
+              if (tr[i] < s.startCol) { t = i; break; }
+            }
+            if (t === -1) {
+              t = tr.length;
+              tr.push(s.endCol);
+            } else {
+              tr[t] = s.endCol;
+            }
+            rowTracksTmp.set(s.row, tr);
+            placed2.push({ ...s, track: t });
+          }
+          rowTracksTmp.forEach((tr, r) => { rowTrackCount[r] = tr.length; });
+          // 각 셀별 통과하는 막대 개수 계산
+          for (const p of placed2) {
+            for (let col = p.startCol; col <= p.endCol; col++) {
+              const cellIdx = p.row * 7 + col;
+              cellTrackCount[cellIdx] = Math.max(cellTrackCount[cellIdx], p.track + 1);
+            }
+          }
+          return cells.map((d, i) => {
           const dow = i % 7;
           const isToday = d === today;
           const isSelected = d === selected;
@@ -318,11 +373,15 @@ export function MonthView({
               data-day={d ?? undefined}
               className="relative flex flex-col items-center"
               style={{
-                aspectRatio: "1 / 1.6",
+                aspectRatio: "1 / 1.85",
                 paddingTop: 8,
                 paddingLeft: 2,
                 paddingRight: 2,
+                paddingBottom: 4,
                 borderTop: row === 0 ? "none" : "0.5px solid var(--hairline)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
               }}
             >
               {d && (
@@ -355,104 +414,321 @@ export function MonthView({
                     </span>
                   </div>
 
-                  {/* 일정 알약 (untimed 플랜 — 셀 하단에 작게) */}
-                  {dayPlans.length > 0 && (
-                    <div
-                      className="w-full"
-                      style={{
-                        marginTop: 4,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      {dayPlans.slice(0, 2).map((p, idx) => {
-                        const isStart = p.start === d;
-                        const isEnd = p.end === d;
-                        const isMulti = p.start !== p.end;
-                        // 라벨은 멀티데이 범위의 가운데 셀에서만 표시
-                        const midDay = Math.floor((p.start + p.end) / 2);
-                        const showLabel = !isMulti || d === midDay;
-                        return (
+                  {/* 일정 표시 — 점+텍스트 위 / 멀티데이 막대 아래 (셀 안 자연 흐름) */}
+                  {d && (() => {
+                    const dayTimed = timedEvents.filter((e) => e.startDay === d);
+                    const daySingle = dayPlans.filter((p) => p.start === p.end);
+                    const dayMulti = dayPlans.filter((p) => p.start !== p.end);
+                    const totalCount = dayTimed.length + daySingle.length + dayMulti.length;
+                    if (totalCount === 0) return null;
+                    const MAX = 3;
+                    const timedSlots = Math.min(dayTimed.length, MAX);
+                    const singleSlots = Math.min(daySingle.length, MAX - timedSlots);
+                    const hiddenCount = dayTimed.length + daySingle.length - (timedSlots + singleSlots);
+                    // 이 셀이 속한 행에서 통과하는 막대 개수 (행 통일을 위해 빈 슬롯 포함)
+                    const myTrackTotal = rowTrackCount[row];
+                    return (
+                      <>
+                      {/* 1행 — 점+텍스트 (셀 안에만) */}
+                      <div
+                        className="w-full"
+                        style={{
+                          marginTop: 4,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                        }}
+                      >
+                        {/* 시간 일정 — 좌측 색 점 + 텍스트 */}
+                        {dayTimed.slice(0, timedSlots).map((ev) => (
                           <div
-                            key={idx}
+                            key={`ev-${ev.id}`}
                             style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              color: "var(--text-primary)",
-                              background: pillBgColor(p.color),
-                              borderTopLeftRadius: !isMulti || isStart ? 4 : 0,
-                              borderBottomLeftRadius: !isMulti || isStart ? 4 : 0,
-                              borderTopRightRadius: !isMulti || isEnd ? 4 : 0,
-                              borderBottomRightRadius: !isMulti || isEnd ? 4 : 0,
-                              padding: "1px 3px",
-                              marginLeft: !isMulti || isStart ? 0 : -2,
-                              marginRight: !isMulti || isEnd ? 0 : -2,
-                              overflow: "visible",
-                              whiteSpace: "nowrap",
-                              letterSpacing: "-0.1px",
-                              lineHeight: 1.3,
-                              textAlign: "center",
-                              minHeight: 13,
-                              position: "relative",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3,
+                              minHeight: 11,
+                              paddingLeft: 1,
                             }}
                           >
-                            {isMulti ? (
-                              isStart ? (
-                                <span
-                                  style={{
-                                    position: "absolute",
-                                    // 멀티데이 전체 너비의 정중앙으로 강제 이동
-                                    // 시작 셀에서 (전체일수 - 1) / 2 만큼 우측으로
-                                    left: `${50 + ((p.end - p.start) / 2) * 100}%`,
-                                    top: "50%",
-                                    transform: "translate(-50%, -50%)",
-                                    pointerEvents: "none",
-                                    whiteSpace: "nowrap",
-                                    zIndex: 2,
-                                  }}
-                                >
-                                  {p.label || "플랜"}
-                                </span>
-                              ) : null
-                            ) : (
-                              <span>{p.label || "."}</span>
-                            )}
+                            <div
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: 999,
+                                background: ev.color,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 500,
+                                color: "var(--text-primary)",
+                                letterSpacing: "-0.1px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "clip",
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {ev.title}
+                            </span>
                           </div>
-                        );
-                      })}
-                      {dayPlans.length > 2 && (
+                        ))}
+
+                        {/* 단일일 플랜 — 점+텍스트 (시간 일정과 동일 형태) */}
+                        {daySingle.slice(0, singleSlots).map((p, idx) => (
+                          <div
+                            key={`single-${idx}`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3,
+                              minHeight: 11,
+                              paddingLeft: 1,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: 999,
+                                background: p.color,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 500,
+                                color: "var(--text-primary)",
+                                letterSpacing: "-0.1px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "clip",
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {p.label || "플랜"}
+                            </span>
+                          </div>
+                        ))}
+
+                        {/* 초과 카운트 */}
+                        {hiddenCount > 0 && (
+                          <div
+                            style={{
+                              fontSize: 9,
+                              color: "var(--text-muted)",
+                              paddingLeft: 3,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            +{hiddenCount}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 셀 안 막대 비활성 — 오버레이가 그림 */}
+                      {false && myTrackTotal > 0 && (
                         <div
+                          className="w-full"
                           style={{
-                            fontSize: 9,
-                            color: "var(--text-muted)",
-                            paddingLeft: 3,
-                            lineHeight: 1.3,
+                            marginTop: "auto",
+                            paddingTop: 4,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
                           }}
                         >
-                          +{dayPlans.length - 2}
+                          {Array.from({ length: myTrackTotal }).map((_, trackIdx) => {
+                            const seg = placed2.find(
+                              (s) =>
+                                s.row === row &&
+                                s.track === trackIdx &&
+                                dow >= s.startCol &&
+                                dow <= s.endCol,
+                            );
+                            if (!seg) {
+                              return <div key={trackIdx} style={{ height: 11 }} />;
+                            }
+                            const isStart = dow === seg.startCol;
+                            const isEnd = dow === seg.endCol;
+                            return (
+                              <div
+                                key={trackIdx}
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  color: "var(--text-primary)",
+                                  background: pillBgColor(seg.color),
+                                  borderTopLeftRadius: isStart ? 4 : 0,
+                                  borderBottomLeftRadius: isStart ? 4 : 0,
+                                  borderTopRightRadius: isEnd ? 4 : 0,
+                                  borderBottomRightRadius: isEnd ? 4 : 0,
+                                  marginLeft: isStart ? 0 : -2,
+                                  marginRight: isEnd ? 0 : -2,
+                                  padding: 0,
+                                  height: 11,
+                                  lineHeight: "11px",
+                                  textAlign: "center",
+                                  whiteSpace: "nowrap",
+                                  overflow: "visible",
+                                  position: "relative",
+                                  letterSpacing: "-0.1px",
+                                }}
+                              >
+                                {isStart && (
+                                  <span
+                                    style={{
+                                      position: "absolute",
+                                      left: `${50 + ((seg.endCol - seg.startCol) / 2) * 100}%`,
+                                      top: "50%",
+                                      transform: "translate(-50%, -50%)",
+                                      pointerEvents: "none",
+                                      whiteSpace: "nowrap",
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    {seg.label || "플랜"}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* 시간 일정 점 */}
-                  {dots > 0 && dayPlans.length === 0 && (
-                    <div className="flex gap-[2px] mt-1">
-                      {Array.from({ length: Math.min(dots, 3) }).map((_, j) => (
-                        <div
-                          key={j}
-                          className="w-1 h-1 rounded-full"
-                          style={{ background: accent }}
-                        />
-                      ))}
-                    </div>
-                  )}
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
           );
-        })}
+        });
+        })()}
+
+        {/* 멀티데이 막대 오버레이 — 그리드 위 absolute, 행 단위로 라인 맞춤 */}
+        {(() => {
+          const multi = plans.filter((p) => p.start !== p.end);
+          if (multi.length === 0) return null;
+          const dayToCell = (day: number) => first + day - 1;
+          type Seg = { id: number; row: number; startCol: number; endCol: number; color: string; label: string; isStart: boolean };
+          const segs: Seg[] = [];
+          for (const p of multi) {
+            const startCell = dayToCell(p.start);
+            const endCell = dayToCell(Math.min(p.end, daysInMonth));
+            let cur = startCell;
+            while (cur <= endCell) {
+              const r = Math.floor(cur / 7);
+              const lastInRow = r * 7 + 6;
+              const segEnd = Math.min(endCell, lastInRow);
+              segs.push({
+                id: p.id,
+                row: r,
+                startCol: cur % 7,
+                endCol: segEnd - r * 7,
+                color: p.color,
+                label: p.label,
+                isStart: cur === startCell,
+              });
+              cur = segEnd + 1;
+            }
+          }
+          // 트랙 알고리즘 (각 row 안에서 겹치면 위/아래)
+          type Placed = Seg & { track: number };
+          const placed: Placed[] = [];
+          const rowTracks = new Map<number, number[]>();
+          for (const s of segs.sort((a, b) => (a.row !== b.row ? a.row - b.row : a.startCol - b.startCol))) {
+            const tracks = rowTracks.get(s.row) ?? [];
+            let t = -1;
+            for (let i = 0; i < tracks.length; i++) {
+              if (tracks[i] < s.startCol) { t = i; break; }
+            }
+            if (t === -1) {
+              t = tracks.length;
+              tracks.push(s.endCol);
+            } else {
+              tracks[t] = s.endCol;
+            }
+            rowTracks.set(s.row, tracks);
+            placed.push({ ...s, track: t });
+          }
+          const TOTAL_ROWS = 6;
+          const BAR_H = 11;
+          const BAR_GAP = 3;
+          // 셀별 점+텍스트 개수 — 각 막대가 통과하는 셀들의 max 기준으로 위치 결정
+          const cellItems: number[] = new Array(42).fill(0);
+          for (let cellIdx = 0; cellIdx < 42; cellIdx++) {
+            const day = cellIdx - first + 1;
+            if (day < 1 || day > daysInMonth) continue;
+            const tCount = timedEvents.filter((e) => e.startDay === day).length;
+            const sCount = plans.filter((p) => p.start === day && p.end === day).length;
+            cellItems[cellIdx] = Math.min(tCount + sCount, 3);
+          }
+          // 셀 상단 ~ 콘텐츠 영역 시작점 픽셀 계산
+          // 셀 paddingTop(8) + 날짜원(26) + 여백(8) = 42px 최소 — 막대는 절대 이 아래에 위치
+          const MIN_BAR_TOP = 42;
+          const ITEM_H = 16; // 점+텍스트 한 줄 실제 높이
+          const BAR_TOP_GAP = 14; // 점+텍스트 끝과 첫 막대 사이 여백
+          const BOTTOM_OFFSET = 6;
+          // 같은 plan(id)이 여러 행에 걸쳐 있을 때, 모든 segment가 같은 시각적 흐름으로 보이도록
+          // plan id별로 통과하는 모든 셀의 max content를 미리 계산
+          const planMaxItems = new Map<string, number>();
+          for (const s of placed) {
+            let m = planMaxItems.get(s.id) ?? 0;
+            for (let col = s.startCol; col <= s.endCol; col++) {
+              const cellIdx = s.row * 7 + col;
+              if (cellItems[cellIdx] > m) m = cellItems[cellIdx];
+            }
+            planMaxItems.set(s.id, m);
+          }
+          return (
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1 }}>
+              {placed.map((s, i) => {
+                const left = (s.startCol / 7) * 100;
+                const width = ((s.endCol - s.startCol + 1) / 7) * 100;
+                const rowHeightPct = 100 / TOTAL_ROWS;
+                // 같은 plan의 모든 segment가 공유하는 max content 사용 (행 통일)
+                const segMaxItems = planMaxItems.get(s.id) ?? 0;
+                // 콘텐츠 기반 top — 같은 plan이면 segMaxItems 동일 → 모든 행에서 같은 위치
+                const contentBasedTop = MIN_BAR_TOP + segMaxItems * ITEM_H + (segMaxItems > 0 ? BAR_TOP_GAP : 0) + s.track * (BAR_H + BAR_GAP);
+                // bottom 기준 — 셀 하단에서 트랙 위치
+                const bottomBasedTop = `calc(${(s.row + 1) * rowHeightPct}% - ${BOTTOM_OFFSET + BAR_H + s.track * (BAR_H + BAR_GAP)}px)`;
+                // contentBasedTop 이 셀 height 안에 들어가면 그걸 사용, 아니면 bottom 기준
+                const finalTop = `min(calc(${s.row * rowHeightPct}% + ${contentBasedTop}px), ${bottomBasedTop})`;
+                return (
+                  <div
+                    key={`${s.id}-${i}`}
+                    style={{
+                      position: "absolute",
+                      left: `calc(${left}% + 3px)`,
+                      width: `calc(${width}% - 6px)`,
+                      top: finalTop,
+                      height: BAR_H,
+                      background: pillBgColor(s.color),
+                      borderRadius: 4,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                      lineHeight: `${BAR_H}px`,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "clip",
+                      letterSpacing: "-0.1px",
+                      textAlign: "center",
+                      boxSizing: "border-box",
+                      padding: "0 4px",
+                    }}
+                  >
+                    {s.isStart ? s.label || "플랜" : ""}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Add plan sheet */}

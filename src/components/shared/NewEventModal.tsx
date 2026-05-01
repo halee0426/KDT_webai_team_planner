@@ -8,16 +8,10 @@
 
 import { useEffect, useState } from "react";
 import type { SharedEvent } from "../eventStore";
-import { TYPE } from "@/styles/typography";
+import { highlights } from "../tokens";
 
-const EVENT_COLORS = [
-  { key: "blue", color: "#0066CC", label: "집" },
-  { key: "purple", color: "#AF52DE", label: "업무" },
-  { key: "pink", color: "#FF2D55", label: "중요" },
-  { key: "orange", color: "#FF9500", label: "여행" },
-  { key: "green", color: "#34C759", label: "건강" },
-  { key: "mint", color: "#1ec4b3", label: "기타" },
-];
+// 일정 색상 — 파스텔 형광펜 톤 (tokens.ts 의 highlights 그대로 사용)
+const EVENT_COLORS = highlights.map((h) => ({ key: h.key, color: h.color }));
 
 export type NewEventInitial = {
   year?: number;
@@ -36,12 +30,18 @@ export function NewEventModal({
   onSave,
   initial,
   accent,
+  editing,
+  onDelete,
 }: {
   open: boolean;
   onClose: () => void;
   onSave: (e: Omit<SharedEvent, "id">) => void;
   initial?: NewEventInitial;
   accent: string;
+  /** 편집 모드 — 기존 일정 데이터 받아 미리 채움 */
+  editing?: SharedEvent | null;
+  /** 편집 모드에서 삭제 버튼 활성화 */
+  onDelete?: (id: number) => void;
 }) {
   // 폼 상태
   const today = new Date();
@@ -59,31 +59,49 @@ export function NewEventModal({
   const [endDay, setEndDay] = useState(initial?.day ?? today.getDate());
   const [colorKey, setColorKey] = useState(EVENT_COLORS[0].key);
 
-  // 모달 열 때마다 initial 로 리셋
+  // 모달 열 때마다 initial / editing 로 리셋
   useEffect(() => {
     if (open) {
-      setTitle("");
-      setLocation("");
-      setAllDay(initial?.allDay ?? false);
-      const t = new Date();
-      const y = initial?.year ?? t.getFullYear();
-      const m = initial?.month ?? t.getMonth();
-      const d = initial?.day ?? t.getDate();
-      setYear(y);
-      setMonth(m);
-      setDay(d);
-      setEndYear(y);
-      setEndMonth(m);
-      setEndDay(d);
-      setStartSlot(initial?.startSlot ?? 16 * 2);
-      setEndSlot(initial?.endSlot ?? 17 * 2);
-      setColorKey(EVENT_COLORS[0].key);
+      if (editing) {
+        // 편집 모드 — 기존 일정 데이터로 채움
+        setTitle(editing.title);
+        setLocation("");
+        setAllDay(editing.startSlot === undefined);
+        setYear(editing.year);
+        setMonth(editing.month);
+        setDay(editing.startDay);
+        setEndYear(editing.year);
+        setEndMonth(editing.month);
+        setEndDay(editing.endDay);
+        setStartSlot(editing.startSlot ?? 16 * 2);
+        setEndSlot(editing.endSlot ?? 17 * 2);
+        // 색상 매칭 — 동일 색이 있으면 그 키, 없으면 첫 키
+        const matched = EVENT_COLORS.find((c) => c.color === editing.color);
+        setColorKey(matched?.key ?? EVENT_COLORS[0].key);
+      } else {
+        setTitle("");
+        setLocation("");
+        setAllDay(initial?.allDay ?? false);
+        const t = new Date();
+        const y = initial?.year ?? t.getFullYear();
+        const m = initial?.month ?? t.getMonth();
+        const d = initial?.day ?? t.getDate();
+        setYear(y);
+        setMonth(m);
+        setDay(d);
+        setEndYear(y);
+        setEndMonth(m);
+        setEndDay(d);
+        setStartSlot(initial?.startSlot ?? 16 * 2);
+        setEndSlot(initial?.endSlot ?? 17 * 2);
+        setColorKey(EVENT_COLORS[0].key);
+      }
     }
-  }, [open, initial]);
+  }, [open, initial, editing]);
 
   if (!open) return null;
 
-  const colorObj = EVENT_COLORS.find((c) => c.key === colorKey)!;
+  const selectedColor = EVENT_COLORS.find((c) => c.key === colorKey)?.color ?? accent;
 
   const handleSave = () => {
     const finalTitle = title.trim() || "새 일정";
@@ -98,7 +116,7 @@ export function NewEventModal({
         endDay:
           year === endYear && month === endMonth ? Math.max(endDay, day) : day,
         title: finalTitle,
-        color: colorObj.color,
+        color: selectedColor,
       });
     } else {
       // 시간 일정 — 같은 날 기준 (멀티데이 시간 일정은 미지원)
@@ -110,7 +128,7 @@ export function NewEventModal({
         startSlot,
         endSlot: Math.max(endSlot, startSlot + 1),
         title: finalTitle,
-        color: colorObj.color,
+        color: selectedColor,
       });
     }
     onClose();
@@ -120,29 +138,33 @@ export function NewEventModal({
     <div
       className="fixed inset-0 z-[70] flex items-end"
       onClick={onClose}
-      style={{ background: "rgba(0,0,0,0.4)", animation: "none" }}
     >
       <div
         className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0)" }}
+        style={{ background: "rgba(0,0,0,0.3)" }}
       />
       <div
-        className="relative w-full sheet-slide-up"
+        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
         style={{
-          background: "var(--bg-secondary)",
+          background: "var(--bg-elevated)",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          paddingTop: "env(safe-area-inset-top, 0)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* 핸들 바 */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div
+            className="w-9 h-1 rounded-full"
+            style={{ background: "var(--separator)" }}
+          />
+        </div>
+
         {/* 헤더 — 취소 / 신규 / 추가 */}
         <div
           style={{
-            height: 52,
+            height: 44,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -159,7 +181,7 @@ export function NewEventModal({
               fontFamily: "inherit",
               fontSize: 15,
               fontWeight: 500,
-              color: accent,
+              color: "var(--text-secondary)",
               padding: 0,
             }}
           >
@@ -167,12 +189,13 @@ export function NewEventModal({
           </button>
           <div
             style={{
-              ...TYPE.titleSection,
               fontSize: 17,
+              fontWeight: 700,
               color: "var(--text-primary)",
+              letterSpacing: "-0.3px",
             }}
           >
-            신규
+            {editing ? "일정 편집" : "새 일정"}
           </div>
           <button
             onClick={handleSave}
@@ -182,21 +205,21 @@ export function NewEventModal({
               cursor: "pointer",
               fontFamily: "inherit",
               fontSize: 15,
-              fontWeight: 600,
+              fontWeight: 700,
               color: accent,
               padding: 0,
             }}
           >
-            추가
+            {editing ? "저장" : "추가"}
           </button>
         </div>
 
-        {/* 본문 — 그룹별 카드 */}
+        {/* 본문 — 단일 카드 안에서 섹션으로 구분 */}
         <div
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "8px 16px 24px",
+            padding: "8px 20px 24px",
           }}
         >
           {/* 그룹 1 — 제목 + 위치 */}
@@ -281,74 +304,86 @@ export function NewEventModal({
             </Field>
           </Card>
 
-          {/* 그룹 3 — 색상 (캘린더) */}
+          {/* 그룹 3 — 색상 선택 (파스텔 형광펜 톤) */}
           <Card>
             <Field>
-              <Label>캘린더</Label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 999,
-                    background: colorObj.color,
-                  }}
-                />
-                <span style={{ fontSize: 14, color: "var(--text-primary)" }}>
-                  {colorObj.label}
-                </span>
+              <Label>색상</Label>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                  flex: 1,
+                }}
+              >
+                {EVENT_COLORS.map((c) => {
+                  const sel = c.key === colorKey;
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => setColorKey(c.key)}
+                      className="active:scale-95"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 999,
+                        background: c.color,
+                        border: sel
+                          ? `2px solid var(--text-primary)`
+                          : "0.5px solid var(--hairline)",
+                        cursor: "pointer",
+                        display: "grid",
+                        placeItems: "center",
+                      }}
+                      aria-label={c.key}
+                    >
+                      {sel && (
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="var(--text-primary)"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </Field>
-            <Divider />
-            <div
+          </Card>
+
+          {/* 편집 모드 — 삭제 버튼 */}
+          {editing && onDelete && (
+            <button
+              onClick={() => {
+                onDelete(editing.id);
+                onClose();
+              }}
+              className="active:scale-[0.98]"
               style={{
-                padding: "12px 16px",
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
+                marginTop: 16,
+                width: "100%",
+                padding: "14px 16px",
+                background: "var(--bg-secondary)",
+                border: 0,
+                cursor: "pointer",
+                borderRadius: 14,
+                color: "#FF3B30",
+                fontSize: 15,
+                fontWeight: 600,
+                fontFamily: "inherit",
               }}
             >
-              {EVENT_COLORS.map((c) => {
-                const sel = c.key === colorKey;
-                return (
-                  <button
-                    key={c.key}
-                    onClick={() => setColorKey(c.key)}
-                    className="active:scale-95"
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 999,
-                      background: c.color,
-                      border: 0,
-                      cursor: "pointer",
-                      display: "grid",
-                      placeItems: "center",
-                      boxShadow: sel
-                        ? `0 0 0 2px var(--bg-secondary), 0 0 0 4px ${c.color}`
-                        : "none",
-                    }}
-                    aria-label={c.label}
-                  >
-                    {sel && (
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#fff"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+              일정 삭제
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -373,9 +408,9 @@ function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        background: "var(--bg-elevated)",
-        borderRadius: 12,
-        marginTop: 12,
+        background: "var(--bg-secondary)",
+        borderRadius: 14,
+        marginTop: 10,
         overflow: "hidden",
       }}
     >

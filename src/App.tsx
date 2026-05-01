@@ -144,8 +144,25 @@ export default function App() {
   // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
   const [splashMounted, setSplashMounted] = useState(true);
   const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+  const [editingEvent, setEditingEvent] = useState<SharedEvent | null>(null);
+  const openEditEvent = (e: SharedEvent) => {
+    setEditingEvent(e);
+    setNewEventOpen(true);
+  };
   const handleAddEvent = (e: Omit<SharedEvent, "id">) => {
-    setSharedEvents((prev) => [...prev, { ...e, id: Date.now() }]);
+    if (editingEvent) {
+      // 편집 모드 — 같은 id 유지하고 교체
+      setSharedEvents((prev) =>
+        prev.map((x) => (x.id === editingEvent.id ? { ...e, id: editingEvent.id } : x)),
+      );
+    } else {
+      setSharedEvents((prev) => [...prev, { ...e, id: Date.now() }]);
+    }
+    setEditingEvent(null);
+  };
+  const handleDeleteEvent = (id: number) => {
+    setSharedEvents((prev) => prev.filter((x) => x.id !== id));
+    setEditingEvent(null);
   };
 
   // splash-mode 클래스 — splash가 시각적으로 가리고 있을 때만 검정 강제
@@ -469,6 +486,7 @@ export default function App() {
             setMoreOpen(false);
           }}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: 1, allDay: true })}
+          onOpenEdit={openEditEvent}
         />
       );
       case "week": return <WeekView accent={accent} planKind={planKind} />;
@@ -486,6 +504,7 @@ export default function App() {
           onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
           onBack={() => { setScreen("month"); setMoreOpen(false); }}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: false })}
+          onOpenEdit={openEditEvent}
         />
       );
     }
@@ -748,12 +767,17 @@ export default function App() {
           />
         )}
 
-        {/* 신규 일정 모달 */}
+        {/* 신규/편집 통합 일정 모달 */}
         <NewEventModal
           open={newEventOpen}
-          onClose={() => setNewEventOpen(false)}
+          onClose={() => {
+            setNewEventOpen(false);
+            setEditingEvent(null);
+          }}
           onSave={handleAddEvent}
           initial={newEventInitial}
+          editing={editingEvent}
+          onDelete={handleDeleteEvent}
           accent={accent}
         />
 

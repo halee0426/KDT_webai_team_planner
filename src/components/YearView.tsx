@@ -12,6 +12,7 @@ export function YearView({
   year,
   onOpenMonth,
   onAdd,
+  onOpenEdit,
 }: {
   accent: string;
   events: SharedEvent[];
@@ -22,6 +23,8 @@ export function YearView({
   onOpenMonth?: (year: number, month: number) => void;
   /** 우상단 + 버튼 */
   onAdd?: () => void;
+  /** 라벨 클릭 시 — 외부 통합 편집 모달 */
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
   const YEAR = year ?? 2026;
 
@@ -128,8 +131,10 @@ export function YearView({
           marginTop: 24,
           paddingTop: 16,
           borderTop: "0.5px solid var(--hairline)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
         }}
-        className="space-y-2"
       >
         {monthNames.map((mn, mi) => {
           const days = daysIn(mi);
@@ -137,6 +142,26 @@ export function YearView({
           const today = new Date();
           const isCurrentMonth =
             today.getFullYear() === YEAR && today.getMonth() === mi;
+          // 트랙 알고리즘 — 겹치는 플랜은 다단으로
+          const TRACK_H = 14;
+          const TRACK_GAP = 2;
+          type Placed = { id: number; start: number; end: number; color: string; label: string; track: number };
+          const placedBars: Placed[] = [];
+          const trackEnds: number[] = [];
+          for (const h of [...monthHls].sort((a, b) => a.start - b.start)) {
+            let t = -1;
+            for (let i = 0; i < trackEnds.length; i++) {
+              if (trackEnds[i] < h.start) { t = i; break; }
+            }
+            if (t === -1) {
+              t = trackEnds.length;
+              trackEnds.push(h.end);
+            } else {
+              trackEnds[t] = h.end;
+            }
+            placedBars.push({ id: h.id, start: h.start, end: h.end, color: h.color, label: h.label, track: t });
+          }
+          const monthTrackCount = Math.max(trackEnds.length, 1);
           return (
             <div
               key={mi}
@@ -172,44 +197,7 @@ export function YearView({
               <div className="flex-1 min-w-0">
                 <div
                   className="flex w-full relative"
-                  style={{ touchAction: "none", userSelect: "none" }}
-                  onPointerDown={(ev) => {
-                    const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
-                    const cell = el?.closest("[data-yday]") as HTMLElement | null;
-                    if (!cell) return;
-                    const day = Number(cell.getAttribute("data-yday"));
-                    (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
-                    setDrag({ month: mi, a: day, b: day });
-                  }}
-                  onPointerMove={(ev) => {
-                    if (!drag || drag.month !== mi) return;
-                    const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
-                    const cell = el?.closest("[data-yday]") as HTMLElement | null;
-                    if (!cell) return;
-                    const day = Number(cell.getAttribute("data-yday"));
-                    if (day !== drag.b) setDrag({ ...drag, b: day });
-                  }}
-                  onPointerUp={() => {
-                    if (!drag || drag.month !== mi) return;
-                    const s = Math.min(drag.a, drag.b);
-                    const e = Math.max(drag.a, drag.b);
-                    const reverse = drag.a > drag.b;
-                    setDrag(null);
-                    const overlapping = monthHls.filter((h) => !(h.end < s || h.start > e));
-                    if (reverse && overlapping.length > 0) {
-                      const ids = overlapping.map((h) => h.id);
-                      onEventsChange(events.filter((ev) => !ids.includes(ev.id)));
-                      return;
-                    }
-                    if (s === e) {
-                      // single tap: open edit if on a highlight, else do nothing
-                      const hit = monthHls.find((h) => s >= h.start && s <= h.end);
-                      if (hit) setEditingHl({ ...hit });
-                      return;
-                    }
-                    setSheet({ month: mi, start: s, end: e });
-                  }}
-                  onPointerCancel={() => setDrag(null)}
+                  style={{ userSelect: "none" }}
                 >
                   {Array.from({ length: days }).map((_, di) => {
                     const day = di + 1;
@@ -255,55 +243,128 @@ export function YearView({
                           className="mt-[2px] w-full flex flex-col"
                           style={{ gap: 2, paddingLeft: 1, paddingRight: 1 }}
                         >
-                          {dayHls.length > 0 ? (
-                            dayHls.map((h) => (
+                          {(() => {
+                            const dayHls = monthHls.filter((h) => day >= h.start && day <= h.end);
+                            return dayHls.length > 0 ? (
+                              dayHls.map((h) => (
+                                <div
+                                  key={h.id}
+                                  style={{
+                                    height: 8,
+                                    background: h.color,
+                                    borderTopLeftRadius: day === h.start ? 3 : 0,
+                                    borderBottomLeftRadius: day === h.start ? 3 : 0,
+                                    borderTopRightRadius: day === h.end ? 3 : 0,
+                                    borderBottomRightRadius: day === h.end ? 3 : 0,
+                                  }}
+                                />
+                              ))
+                            ) : (
                               <div
-                                key={h.id}
                                 style={{
                                   height: 8,
-                                  background: h.color,
-                                  borderTopLeftRadius: day === h.start ? 3 : 0,
-                                  borderBottomLeftRadius: day === h.start ? 3 : 0,
-                                  borderTopRightRadius: day === h.end ? 3 : 0,
-                                  borderBottomRightRadius: day === h.end ? 3 : 0,
+                                  background: "var(--bg-tertiary)",
+                                  borderRadius: 2,
+                                  opacity: 0.35,
                                 }}
                               />
-                            ))
-                          ) : (
-                            <div
-                              style={{
-                                height: 8,
-                                background: "var(--bg-tertiary)",
-                                borderRadius: 2,
-                                opacity: 0.35,
-                              }}
-                            />
-                          )}
+                            );
+                          })()}
                         </div>
                       </div>
                     );
                   })}
+
                 </div>
-                {monthHls.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {monthHls.slice(0, 3).map((h) => (
-                      <button
-                        key={h.id}
-                        onClick={() => setEditingHl({ ...h })}
-                        className="active:scale-95"
-                        style={{
-                          fontSize: 11,
-                          padding: "1px 6px",
-                          borderRadius: 4,
-                          background: h.color,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {h.label || "플랜"}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  // 라벨 박스용 트랙 알고리즘 — 글자 길이 기반 너비 추정해서 겹침 판정
+                  type LabelPlaced = {
+                    id: number; start: number; end: number; color: string; label: string;
+                    estDays: number; track: number;
+                  };
+                  const CH_PX = 7; // 글자 1개당 약 7px
+                  const PAD_PX = 14;
+                  // estDays = 라벨이 차지하는 가로 (일 단위 환산) — 막대 너비보다 라벨이 길면 라벨이 우선
+                  const placedLabels: LabelPlaced[] = [];
+                  const ends: number[] = [];
+                  for (const p of [...placedBars].sort((a, b) => a.start - b.start)) {
+                    const text = p.label || "플랜";
+                    const estPx = text.length * CH_PX + PAD_PX;
+                    // px → days 환산 (스트립 = 31일 분량)
+                    // 화면 너비 모르니 31일 기준 비율로 처리
+                    const stripPxApprox = 280; // 대략적인 가로 (화면 폭 - 월 라벨 - 패딩)
+                    const labelDays = Math.ceil((estPx / stripPxApprox) * 31);
+                    const barDays = p.end - p.start + 1;
+                    const estDays = Math.max(labelDays, barDays);
+                    let t = -1;
+                    for (let i = 0; i < ends.length; i++) {
+                      if (ends[i] < p.start) { t = i; break; }
+                    }
+                    if (t === -1) {
+                      t = ends.length;
+                      ends.push(p.start + estDays - 1);
+                    } else {
+                      ends[t] = p.start + estDays - 1;
+                    }
+                    placedLabels.push({ ...p, estDays, track: t });
+                  }
+                  const labelTrackCount = Math.max(ends.length, 1);
+                  if (placedLabels.length === 0) return null;
+                  return (
+                    <div
+                      style={{
+                        position: "relative",
+                        marginTop: 4,
+                        height: labelTrackCount * (TRACK_H + TRACK_GAP),
+                      }}
+                    >
+                      {placedLabels.map((p) => {
+                        const left = ((p.start - 1) / 31) * 100;
+                        // 우측 끝(31일)까지 남은 공간으로 max-width 제한
+                        const maxWidthPct = ((31 - p.start + 1) / 31) * 100;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              if (onOpenEdit) {
+                                const ev = events.find((e) => e.id === p.id);
+                                if (ev) onOpenEdit(ev);
+                              } else {
+                                setEditingHl({ id: p.id, month: mi, start: p.start, end: p.end, color: p.color, label: p.label });
+                              }
+                            }}
+                            className="active:scale-95"
+                            style={{
+                              position: "absolute",
+                              left: `${left}%`,
+                              maxWidth: `${maxWidthPct}%`,
+                              top: p.track * (TRACK_H + TRACK_GAP),
+                              height: TRACK_H,
+                              background: p.color,
+                              borderRadius: 4,
+                              padding: "0 7px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "var(--text-primary)",
+                              lineHeight: `${TRACK_H}px`,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              letterSpacing: "-0.1px",
+                              border: 0,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              textAlign: "left",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            {p.label || "플랜"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
