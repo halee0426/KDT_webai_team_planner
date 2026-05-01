@@ -45,83 +45,81 @@ export function PlanSelect({
 
   return (
     <div
-      className="absolute inset-0 z-[70] overflow-y-auto"
+      className="absolute inset-0 z-[70] flex flex-col"
       style={{
         background: "var(--bg-secondary)",
-        paddingTop: "env(safe-area-inset-top, 0px)",
+        // 메인 앱 헤더와 동일하게: 위는 safe-area + 헤더 영역만큼, 좌우 20px
+        paddingTop: "env(safe-area-inset-top, 0)",
+        paddingLeft: 20,
+        paddingRight: 20,
+        paddingBottom: "max(env(safe-area-inset-bottom), 24px)",
         boxSizing: "border-box",
       }}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col px-5 pb-8 md:px-7 lg:px-10">
-        {/* 상단 미니 헤더 — 메인 앱과 동일한 72px 높이, 동일한 LogoLockup */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            height: 72,
-            flexShrink: 0,
-          }}
-        >
-          <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
-          <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
-            {dateLabel}
-          </div>
-        </div>
-
-        {/* 인사 헤딩 */}
-        <div className="mx-auto pt-22 lg:pt-32" style={{ maxWidth: 560, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "-0.2px" }}>
-            {userName ? `안녕하세요, ${userName}님 👋` : "안녕하세요 👋"}
-          </div>
-          <div
-            style={{
-              fontSize: 26,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.8px",
-              marginTop: 8,
-              lineHeight: 1.3,
-            }}
-          >
-            오늘은 어떤 하루를
-            <br />
-            계획해볼까요?
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 10, lineHeight: 1.5 }}>
-            플랜을 선택해 일정을 시작하세요.
-          </div>
-        </div>
-
-        {/* 카드 배치 */}
-        <div className="mt-8 flex flex-1 items-start justify-center lg:items-start">
-          <div className="grid w-full max-w-[980px] grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
-          <BigPlanCard
-            kind="my"
-            accent={accent}
-            accentSoft={accentSoft}
-            accentSofter={accentSofter}
-            highlight={recentPlanKind === "my"}
-            stats={stats}
-            onClick={() => onSelect("my")}
-          />
-          <BigPlanCard
-            kind="shared"
-            accent={accent}
-            accentSoft={accentSoft}
-            accentSofter={accentSofter}
-            highlight={recentPlanKind === "shared"}
-            stats={stats}
-            onClick={() => onSelect("shared")}
-          />
-
-          {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
-          <div className="lg:col-span-2">
-            <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
-          </div>
-          </div>
+      {/* 상단 미니 헤더 — 메인 앱과 동일한 72px 높이, 동일한 LogoLockup */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 72,
+          flexShrink: 0,
+        }}
+      >
+        <LogoLockup color="#444444" accent={accent} size={32} />
+        <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
+          {dateLabel}
         </div>
       </div>
+
+      {/* 인사 헤딩 */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "-0.2px" }}>
+          {userName ? `안녕하세요, ${userName}님 👋` : "안녕하세요 👋"}
+        </div>
+        <div
+          style={{
+            fontSize: 26,
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.8px",
+            marginTop: 8,
+            lineHeight: 1.3,
+          }}
+        >
+          오늘은 어떤 하루를<br />
+          계획해볼까요?
+        </div>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 10, lineHeight: 1.5 }}>
+          플랜을 선택해 일정을 시작하세요.
+        </div>
+      </div>
+
+      {/* 카드 두 장 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 28 }}>
+        <BigPlanCard
+          kind="my"
+          accent={accent}
+          accentSoft={accentSoft}
+          accentSofter={accentSofter}
+          highlight={recentPlanKind === "my"}
+          stats={stats}
+          onClick={() => onSelect("my")}
+        />
+        <BigPlanCard
+          kind="shared"
+          accent={accent}
+          accentSoft={accentSoft}
+          accentSofter={accentSofter}
+          highlight={recentPlanKind === "shared"}
+          stats={stats}
+          onClick={() => onSelect("shared")}
+        />
+
+        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
+        <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+      </div>
+
     </div>
   );
 }
@@ -150,7 +148,6 @@ function BigPlanCard({
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 0,
         padding: "20px",
         borderRadius: 20,
         background: "var(--bg-elevated)",
@@ -177,11 +174,11 @@ function BigPlanCard({
       >
         {isMy ? <PersonIcon size={26} color={accent} /> : <PeopleIcon size={26} color={accent} />}
       </div>
-      <div style={{ flex: 1, minWidth: 0, width: "100%" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
-              fontSize: 17,
+              fontSize: 16,
               fontWeight: 700,
               color: "var(--text-primary)",
               letterSpacing: "-0.4px",
@@ -207,7 +204,7 @@ function BigPlanCard({
         </div>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 12,
             color: "var(--text-secondary)",
             marginTop: 3,
             letterSpacing: "-0.2px",
@@ -221,10 +218,9 @@ function BigPlanCard({
             alignItems: "center",
             gap: 10,
             marginTop: 10,
-            fontSize: 12,
+            fontSize: 11,
             color: "var(--text-muted)",
             fontWeight: 500,
-            flexWrap: "wrap",
           }}
         >
           {isMy ? (
@@ -262,6 +258,7 @@ function HarubotRecommendCard({
   stats?: PlanSelectProps["stats"];
   onClick: () => void;
 }) {
+  // todos 기반 메시지 (어제 못 끝낸 할일 N개 → 메시지)
   const todayCount = stats?.todayCount ?? 0;
   const message =
     todayCount > 0
@@ -273,7 +270,6 @@ function HarubotRecommendCard({
       onClick={onClick}
       style={{
         width: "100%",
-        minHeight: 0,
         padding: "20px",
         borderRadius: 20,
         background: `linear-gradient(135deg, ${accent} 0%, ${accent}E0 100%)`,
@@ -299,12 +295,13 @@ function HarubotRecommendCard({
           flexShrink: 0,
         }}
       >
+        {/* 우리 LogoMark의 작은 흰색 버전 */}
         <SunIconWhite size={28} />
       </div>
-      <div style={{ flex: 1, minWidth: 0, width: "100%" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 600,
             letterSpacing: "-0.1px",
             opacity: 0.9,
@@ -315,7 +312,7 @@ function HarubotRecommendCard({
         </div>
         <div
           style={{
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: 700,
             letterSpacing: "-0.3px",
             lineHeight: 1.4,
@@ -330,6 +327,7 @@ function HarubotRecommendCard({
   );
 }
 
+/** 흰색 해 아이콘 (HarubotRecommendCard 전용) */
 function SunIconWhite({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">

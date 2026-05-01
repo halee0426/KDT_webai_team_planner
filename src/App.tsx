@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Settings as SettingsIcon, Calendar, CalendarDays, Target,
+  Settings as SettingsIcon, Menu as MenuIcon, Calendar, CalendarDays, Target,
   MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
   User as UserIcon, Users as UsersIcon,
 } from "lucide-react";
@@ -16,11 +16,15 @@ import type { SharedEvent, Todo } from "@/components/eventStore";
 import { DayView } from "@/components/DayView";
 import { MonthView } from "@/components/MonthView";
 import { YearView } from "@/components/YearView";
+import { WeekView } from "@/components/WeekView";
 import { TenMinPlanner } from "@/components/TenMinPlanner";
 import { MandalaView } from "@/components/MandalaView";
 import { DiaryView } from "@/components/DiaryView";
 import { DailyFlipView } from "@/components/DailyFlipView";
 import { Settings } from "@/components/Settings";
+import { AppMenuSheet } from "@/components/shared/AppMenuSheet";
+import { NewEventModal, type NewEventInitial } from "@/components/shared/NewEventModal";
+import { CalendarScopeTabs, type ScopeKey } from "@/components/shared/CalendarScopeTabs";
 import { Splash } from "@/components/Splash";
 import { PlanSelect } from "@/components/PlanSelect";
 import { LogoLockup, LogoMark } from "@/components/Logo";
@@ -99,7 +103,7 @@ function computePlanStats({
 export default function App() {
   // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
-  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "blue");
+  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "mint");
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
   const [planKind, setPlanKind] = usePersistedState<"my" | "shared">("planKind", "my");
 
@@ -139,10 +143,37 @@ export default function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [newEventOpen, setNewEventOpen] = useState(false);
+  const [newEventInitial, setNewEventInitial] = useState<NewEventInitial | undefined>(undefined);
+  const openNewEvent = (init?: NewEventInitial) => {
+    setNewEventInitial(init);
+    setNewEventOpen(true);
+  };
   const [stage, setStage] = useState<Stage>("splash");
   // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
   const [splashMounted, setSplashMounted] = useState(true);
   const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+  const [editingEvent, setEditingEvent] = useState<SharedEvent | null>(null);
+  const openEditEvent = (e: SharedEvent) => {
+    setEditingEvent(e);
+    setNewEventOpen(true);
+  };
+  const handleAddEvent = (e: Omit<SharedEvent, "id">) => {
+    if (editingEvent) {
+      // 편집 모드 — 같은 id 유지하고 교체
+      setSharedEvents((prev) =>
+        prev.map((x) => (x.id === editingEvent.id ? { ...e, id: editingEvent.id } : x)),
+      );
+    } else {
+      setSharedEvents((prev) => [...prev, { ...e, id: Date.now() }]);
+    }
+    setEditingEvent(null);
+  };
+  const handleDeleteEvent = (id: number) => {
+    setSharedEvents((prev) => prev.filter((x) => x.id !== id));
+    setEditingEvent(null);
+  };
 
   // splash-mode 클래스 — splash가 시각적으로 가리고 있을 때만 검정 강제
   // splashLeaving (페이드 아웃 중) 시점부터는 클래스를 제거해서 그 아래 PlanSelect가 자연스럽게 드러남
@@ -220,7 +251,7 @@ export default function App() {
     return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   }, [theme]);
 
-  const accent = accents[accentKey];
+  const accent = accents[accentKey] ?? accents.mint;
 
   const cssVars: Record<string, string> = isDark
     ? {
@@ -282,12 +313,6 @@ export default function App() {
       setMoreOpen(false);
     }
   }, [isDesktop]);
-
-  useEffect(() => {
-    if (screen === "week") {
-      setScreen("month");
-    }
-  }, [screen]);
 
   // 좌우 스와이프로 탭 전환 — day ↔ month ↔ mandala
   const SWIPE_TABS: Screen[] = ["day", "month", "mandala"];
@@ -471,6 +496,7 @@ export default function App() {
             setScreen("daily");
             setMoreOpen(false);
           }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: true })}
         />
       );
       case "year": return (
@@ -484,9 +510,11 @@ export default function App() {
             setScreen("month");
             setMoreOpen(false);
           }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: 1, allDay: true })}
+          onOpenEdit={openEditEvent}
         />
       );
-      case "week": return null;
+      case "week": return <WeekView accent={accent} planKind={planKind} />;
       case "tenmin": return <TenMinPlanner accent={accent} />;
       case "mandala": return <MandalaView accent={accent} planKind={planKind} />;
       case "diary": return <DiaryView accent={accent} planKind={planKind} />;
@@ -500,6 +528,8 @@ export default function App() {
           day={calDay}
           onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
           onBack={() => { setScreen("month"); setMoreOpen(false); }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: false })}
+          onOpenEdit={openEditEvent}
         />
       );
     }
@@ -577,13 +607,14 @@ export default function App() {
           >
             <div className="px-7 pt-10 pb-8">
               <div className="flex items-center justify-between">
-                <LogoLockup color="var(--text-primary)" accent={accent} size={35} />
+                <LogoLockup color="#444444" accent={accent} size={35} />
                 <button
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => setMenuOpen(true)}
                   className="flex h-11 w-11 items-center justify-center rounded-2xl"
                   style={{ background: "var(--bg-tertiary)" }}
+                  aria-label="메뉴"
                 >
-                  <SettingsIcon size={18} strokeWidth={1.75} />
+                  <MenuIcon size={20} strokeWidth={1.9} />
                 </button>
               </div>
             </div>
@@ -651,7 +682,7 @@ export default function App() {
           }}
         >
           {/* 좌측: 로고 (커진 사이즈) */}
-          <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
+          <LogoLockup color="#444444" accent={accent} size={32} />
 
           {/* 우측: 플랜 토글 + 설정 */}
           <div className="flex items-center gap-2 shrink-0">
@@ -705,10 +736,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* 설정 */}
+            {/* 햄버거 메뉴 */}
             <button
-              onClick={() => setSettingsOpen(true)}
-              aria-label="설정"
+              onClick={() => setMenuOpen(true)}
+              aria-label="메뉴"
               style={{
                 width: 32, height: 32,
                 display: "grid", placeItems: "center",
@@ -716,7 +747,7 @@ export default function App() {
                 color: "var(--text-primary)",
               }}
             >
-              <SettingsIcon size={20} strokeWidth={1.5} />
+              <MenuIcon size={22} strokeWidth={1.8} />
             </button>
           </div>
         </div>
@@ -732,6 +763,20 @@ export default function App() {
           }}
           key={planKind + screen}
         >
+          {/* 캘린더 계층 + 10분 플래너 — 상단 스코프 탭 (연/월/일/10분) */}
+          {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
+            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
+              <CalendarScopeTabs
+                accent={accent}
+                active={screen as ScopeKey}
+                onChange={(k) => {
+                  setScreen(k as Screen);
+                  setMoreOpen(false);
+                }}
+              />
+            </div>
+          )}
+
           {/* 화면 전환 애니메이션 wrapper — 진입 방향에 따라 슬라이드/페이드/줌 */}
           <div className={transitionClass} key={screen}>
             {renderScreen()}
@@ -819,6 +864,18 @@ export default function App() {
                 className="mx-auto w-full px-8 xl:px-10 2xl:px-12"
                 style={{ maxWidth: desktopContentMaxWidth }}
               >
+                {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
+                  <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
+                    <CalendarScopeTabs
+                      accent={accent}
+                      active={screen as ScopeKey}
+                      onChange={(k) => {
+                        setScreen(k as Screen);
+                        setMoreOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
                 <div className={transitionClass} key={screen}>
                   {renderScreen()}
                 </div>
@@ -853,6 +910,35 @@ export default function App() {
           />
         )}
 
+        {/* 신규/편집 통합 일정 모달 */}
+        <NewEventModal
+          open={newEventOpen}
+          onClose={() => {
+            setNewEventOpen(false);
+            setEditingEvent(null);
+          }}
+          onSave={handleAddEvent}
+          initial={newEventInitial}
+          editing={editingEvent}
+          onDelete={handleDeleteEvent}
+          accent={accent}
+        />
+
+        {/* 햄버거 메뉴 시트 */}
+        <AppMenuSheet
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          accent={accent}
+          onNavigate={(s) => {
+            setScreen(s as Screen);
+            setMoreOpen(false);
+          }}
+          onOpenSettings={() => {
+            setMenuOpen(false);
+            setSettingsOpen(true);
+          }}
+        />
+
         {/* 설정 */}
         <Settings
           open={settingsOpen}
@@ -883,6 +969,32 @@ export default function App() {
         />
       </div>
     </div>
+  );
+}
+
+function TabBtn({ icon, label, active, accent, onClick }: { icon: React.ReactNode; label: string; active: boolean; accent: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex flex-col items-center gap-0.5 active:scale-95"
+      style={{ color: active ? accent : "var(--text-muted)" }}
+    >
+      {icon}
+      <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, letterSpacing: "-0.12px" }}>{label}</span>
+    </button>
+  );
+}
+
+function MoreItem({ icon, label, onClick, last }: { icon: React.ReactNode; label: string; onClick: () => void; last?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 px-4 py-3 w-44 active:opacity-60"
+      style={{ borderBottom: last ? "none" : "0.5px solid var(--hairline)", fontSize: 15 }}
+    >
+      <span className="text-[var(--text-secondary)]">{icon}</span>
+      {label}
+    </button>
   );
 }
 
@@ -939,31 +1051,5 @@ function DesktopPlanToggle({
         공동 플랜
       </button>
     </div>
-  );
-}
-
-function TabBtn({ icon, label, active, accent, onClick }: { icon: React.ReactNode; label: string; active: boolean; accent: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-0.5 active:scale-95"
-      style={{ color: active ? accent : "var(--text-muted)" }}
-    >
-      {icon}
-      <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, letterSpacing: "-0.12px" }}>{label}</span>
-    </button>
-  );
-}
-
-function MoreItem({ icon, label, onClick, last }: { icon: React.ReactNode; label: string; onClick: () => void; last?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-3 px-4 py-3 w-44 active:opacity-60"
-      style={{ borderBottom: last ? "none" : "0.5px solid var(--hairline)", fontSize: 15 }}
-    >
-      <span className="text-[var(--text-secondary)]">{icon}</span>
-      {label}
-    </button>
   );
 }

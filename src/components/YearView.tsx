@@ -1,388 +1,384 @@
-import { useEffect, useMemo, useState } from "react";
-import { SharedEvent } from "./eventStore";
+import { useMemo, useState } from "react";
 import { highlights, HighlightKey } from "./tokens";
+import { SharedEvent } from "./eventStore";
+import { TYPE } from "@/styles/typography";
 
-type LocalHighlight = {
-  id: number;
-  month: number;
-  start: number;
-  end: number;
-  color: string;
-  label: string;
-};
+type LocalHl = { id: number; month: number; start: number; end: number; color: string; label: string };
 
 export function YearView({
   accent,
   events,
   onEventsChange,
-  year: activeYear,
+  year,
   onOpenMonth,
+  onAdd,
+  onOpenEdit,
 }: {
   accent: string;
   events: SharedEvent[];
-  onEventsChange: (next: SharedEvent[]) => void;
+  onEventsChange: (e: SharedEvent[]) => void;
+  /** 외부에서 전달되는 표시 연도 (없으면 2026 fallback) */
   year?: number;
+  /** 월 라벨 클릭 시 → 달력(MonthView)로 진입 */
   onOpenMonth?: (year: number, month: number) => void;
+  /** 우상단 + 버튼 */
+  onAdd?: () => void;
+  /** 라벨 클릭 시 — 외부 통합 편집 모달 */
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
-  const year = activeYear ?? 2026;
+  const YEAR = year ?? 2026;
+
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [drag, setDrag] = useState<{ month: number; a: number; b: number } | null>(null);
-  const [editingHighlight, setEditingHighlight] = useState<LocalHighlight | null>(null);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
-  );
+  const [editingHl, setEditingHl] = useState<LocalHl | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const mobileDayCellWidth = 9;
-  const barHeight = isDesktop ? 8 : 6;
-  const monthLabelWidth = isDesktop ? 64 : 36;
-  const monthNames = Array.from({ length: 12 }, (_, index) => `${index + 1}월`);
-
-  const daysInMonth = (month: number) => new Date(year, month + 1, 0).getDate();
-  const getDayFromPointer = (element: HTMLElement, clientX: number, totalDays: number) => {
-    const rect = element.getBoundingClientRect();
-    const scrollWidth = element.scrollWidth || rect.width;
-    const offsetX = clientX - rect.left + element.scrollLeft;
-    const clampedX = Math.max(0, Math.min(offsetX, scrollWidth - 1));
-    return Math.max(1, Math.min(totalDays, Math.floor((clampedX / scrollWidth) * totalDays) + 1));
-  };
-
-  const highlightsInYear: LocalHighlight[] = useMemo(
+  // Only untimed (plan) events for this year – shown in year view
+  const hls: LocalHl[] = useMemo(
     () =>
       events
-        .filter((event) => event.startSlot === undefined && event.year === year)
-        .map((event) => ({
-          id: event.id,
-          month: event.month,
-          start: event.startDay,
-          end: event.endDay,
-          color: event.color,
-          label: event.title,
-        })),
+        .filter((e) => e.startSlot === undefined && e.year === YEAR)
+        .map((e) => ({ id: e.id, month: e.month, start: e.startDay, end: e.endDay, color: e.color, label: e.title })),
     [events],
   );
 
-  const saveHighlight = () => {
-    if (!sheet) return;
+  const monthNames = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
+  const daysIn = (m: number) => new Date(YEAR, m + 1, 0).getDate();
 
-    const color = highlights.find((item) => item.key === pickedColor)?.color ?? highlights[0].color;
-    const nextEvent: SharedEvent = {
+  const save = () => {
+    if (!sheet) return;
+    const c = highlights.find((h) => h.key === pickedColor)!.color;
+    const newEvent: SharedEvent = {
       id: Date.now(),
-      year,
+      year: YEAR,
       month: sheet.month,
       startDay: sheet.start,
       endDay: sheet.end,
-      title: label.trim() || "새 플랜",
-      color,
+      title: label.trim() || "플랜",
+      color: c,
     };
-
-    onEventsChange([...events, nextEvent]);
+    onEventsChange([...events, newEvent]);
     setSheet(null);
     setLabel("");
   };
 
-  const saveEditedHighlight = () => {
-    if (!editingHighlight) return;
-
+  const saveEdit = () => {
+    if (!editingHl) return;
     onEventsChange(
-      events.map((event) =>
-        event.id === editingHighlight.id
-          ? {
-              ...event,
-              month: editingHighlight.month,
-              startDay: editingHighlight.start,
-              endDay: editingHighlight.end,
-              color: editingHighlight.color,
-              title: editingHighlight.label,
-            }
-          : event,
+      events.map((e) =>
+        e.id === editingHl.id
+          ? { ...e, month: editingHl.month, startDay: editingHl.start, endDay: editingHl.end, color: editingHl.color, title: editingHl.label }
+          : e,
       ),
     );
-    setEditingHighlight(null);
+    setEditingHl(null);
   };
 
-  const deleteEditedHighlight = () => {
-    if (!editingHighlight) return;
-    onEventsChange(events.filter((event) => event.id !== editingHighlight.id));
-    setEditingHighlight(null);
+  const deleteEdit = () => {
+    if (!editingHl) return;
+    onEventsChange(events.filter((e) => e.id !== editingHl.id));
+    setEditingHl(null);
   };
 
   return (
-    <div className="px-5 pt-5 pb-32 lg:px-4 lg:pt-7 xl:px-2">
-      <div style={{ fontSize: isDesktop ? 36 : 28, fontWeight: 700, letterSpacing: "-0.5px" }}>{year}</div>
-      <div style={{ fontSize: isDesktop ? 14 : 13, letterSpacing: "-0.224px" }} className="text-[var(--text-secondary)] mt-1">
-        119일 / 365일, 33%
+    <div className="px-5 pb-32" style={{ paddingTop: 24 }}>
+      {/* 헤더 섹션 — 한 묶음 */}
+      <div
+        className="flex items-end justify-between"
+        style={{ marginBottom: 12 }}
+      >
+        <div>
+          <div style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600, marginBottom: 2 }}>
+            {YEAR}
+          </div>
+          <div style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+            나의 1년 플랜
+          </div>
+          <div style={{ ...TYPE.bodySmall, color: "var(--text-secondary)", marginTop: 6 }}>
+            119일 / 365일 · 33%
+          </div>
+        </div>
+        {onAdd && (
+          <button
+            onClick={onAdd}
+            className="active:scale-90"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              background: accent,
+              color: "#fff",
+              border: 0,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: `0 4px 12px ${accent}55`,
+              flexShrink: 0,
+            }}
+            aria-label="일정 추가"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        )}
       </div>
-      <div className="h-1.5 rounded-full mt-3 overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)", marginTop: 4 }}>
         <div className="h-full rounded-full" style={{ width: "33%", background: accent }} />
       </div>
 
-      <div className={`mt-5 ${isDesktop ? "space-y-4" : "space-y-3"}`}>
-        {monthNames.map((monthName, monthIndex) => {
-          const days = daysInMonth(monthIndex);
-          const monthHighlights = highlightsInYear.filter((item) => item.month === monthIndex);
-          const desktopDayWidthPercent = 100 / days;
-          const lanes = monthHighlights.reduce<LocalHighlight[][]>((acc, item) => {
-            const laneIndex = acc.findIndex((lane) => lane.every((placed) => item.end < placed.start || item.start > placed.end));
-            if (laneIndex === -1) acc.push([item]);
-            else acc[laneIndex].push(item);
-            return acc;
-          }, []);
-          const desktopLaneHeight = lanes.length > 0 ? lanes.length * 18 : 0;
-
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: "0.5px solid var(--hairline)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        {monthNames.map((mn, mi) => {
+          const days = daysIn(mi);
+          const monthHls = hls.filter((h) => h.month === mi);
+          const today = new Date();
+          const isCurrentMonth =
+            today.getFullYear() === YEAR && today.getMonth() === mi;
+          // 트랙 알고리즘 — 겹치는 플랜은 다단으로
+          const TRACK_H = 14;
+          const TRACK_GAP = 2;
+          type Placed = { id: number; start: number; end: number; color: string; label: string; track: number };
+          const placedBars: Placed[] = [];
+          const trackEnds: number[] = [];
+          for (const h of [...monthHls].sort((a, b) => a.start - b.start)) {
+            let t = -1;
+            for (let i = 0; i < trackEnds.length; i++) {
+              if (trackEnds[i] < h.start) { t = i; break; }
+            }
+            if (t === -1) {
+              t = trackEnds.length;
+              trackEnds.push(h.end);
+            } else {
+              trackEnds[t] = h.end;
+            }
+            placedBars.push({ id: h.id, start: h.start, end: h.end, color: h.color, label: h.label, track: t });
+          }
+          const monthTrackCount = Math.max(trackEnds.length, 1);
           return (
             <div
-              key={monthIndex}
-              className={`flex items-start ${isDesktop ? "gap-3 rounded-[28px] px-4 py-2" : "gap-2"}`}
-              style={isDesktop ? { background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" } : undefined}
+              key={mi}
+              className="flex items-start gap-2"
+              style={{
+                padding: "4px 0",
+                background: isCurrentMonth ? `${accent}0F` : "transparent",
+                borderRadius: 6,
+                marginLeft: -4,
+                marginRight: -4,
+                paddingLeft: 4,
+                paddingRight: 4,
+              }}
             >
               <button
-                type="button"
-                onClick={() => onOpenMonth?.(year, monthIndex)}
-                className="sticky shrink-0 text-left active:scale-95"
+                onClick={() => onOpenMonth?.(YEAR, mi)}
+                className="sticky w-9 pt-1 text-left active:scale-95"
                 style={{
-                  width: monthLabelWidth,
-                  fontSize: isDesktop ? 14 : 13,
-                  fontWeight: 600,
+                  fontSize: 13,
+                  fontWeight: isCurrentMonth ? 800 : 600,
                   letterSpacing: "-0.224px",
                   background: "transparent",
                   border: 0,
-                  color: "var(--text-primary)",
                   cursor: onOpenMonth ? "pointer" : "default",
+                  color: isCurrentMonth ? accent : "var(--text-primary)",
                   fontFamily: "inherit",
                   padding: 0,
                 }}
-                aria-label={`${monthName} 달력 열기`}
+                aria-label={`${mn} 달력 열기`}
               >
-                {monthName}
+                {mn}
               </button>
-
-              <div className={`min-w-0 flex-1 ${isDesktop ? "overflow-x-hidden" : "overflow-x-auto"}`}>
+              <div className="flex-1 min-w-0">
                 <div
-                  className={isDesktop ? "w-full" : "flex min-w-max"}
-                  style={{
-                    touchAction: "none",
-                    userSelect: "none",
-                    position: isDesktop ? "relative" : undefined,
-                    paddingBottom: isDesktop && desktopLaneHeight > 0 ? desktopLaneHeight : 0,
-                  }}
-                  onPointerDown={(event) => {
-                    const currentTarget = event.currentTarget as HTMLElement;
-                    const day = getDayFromPointer(currentTarget, event.clientX, days);
-                    currentTarget.setPointerCapture(event.pointerId);
-                    setDrag({ month: monthIndex, a: day, b: day });
-                  }}
-                  onPointerMove={(event) => {
-                    if (!drag || drag.month !== monthIndex) return;
-                    const currentTarget = event.currentTarget as HTMLElement;
-                    const day = getDayFromPointer(currentTarget, event.clientX, days);
-                    if (day !== drag.b) setDrag({ ...drag, b: day });
-                  }}
-                  onPointerUp={() => {
-                    if (!drag || drag.month !== monthIndex) return;
-
-                    const start = Math.min(drag.a, drag.b);
-                    const end = Math.max(drag.a, drag.b);
-                    const reversed = drag.a > drag.b;
-                    setDrag(null);
-
-                    const overlapping = monthHighlights.filter((item) => !(item.end < start || item.start > end));
-
-                    if (reversed && overlapping.length > 0) {
-                      const ids = overlapping.map((item) => item.id);
-                      onEventsChange(events.filter((entry) => !ids.includes(entry.id)));
-                      return;
-                    }
-
-                    if (start === end) {
-                      const hit = monthHighlights.find((item) => start >= item.start && start <= item.end);
-                      if (hit) setEditingHighlight({ ...hit });
-                      return;
-                    }
-
-                    setSheet({ month: monthIndex, start, end });
-                  }}
-                  onPointerCancel={() => setDrag(null)}
+                  className="flex w-full relative"
+                  style={{ userSelect: "none" }}
                 >
-                  {isDesktop ? (
-                    <>
-                      <div className="flex w-full">
-                        {Array.from({ length: days }).map((_, index) => {
-                          const day = index + 1;
-                          const shouldShowDayLabel = day % 5 === 0 || day === 1;
-                          const inDrag =
-                            drag &&
-                            drag.month === monthIndex &&
-                            day >= Math.min(drag.a, drag.b) &&
-                            day <= Math.max(drag.a, drag.b);
-
-                          return (
-                            <div
-                              key={index}
-                              data-yday={day}
-                              className="flex flex-col items-center justify-start"
-                              style={{
-                                width: `${desktopDayWidthPercent}%`,
-                                paddingRight: 2,
-                                borderRight: day < days ? "0.5px solid var(--hairline)" : "none",
-                                background: inDrag ? `${accent}22` : "transparent",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  height: 10,
-                                  minHeight: 10,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 9,
-                                  color: "var(--text-muted)",
-                                  lineHeight: 1,
-                                  marginBottom: 0,
-                                }}
-                              >
-                                <span style={{ visibility: shouldShowDayLabel ? "visible" : "hidden" }}>
-                                  {shouldShowDayLabel ? day : "0"}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {lanes.length > 0 && (
-                        <div
-                          className="absolute left-0 right-0"
-                          style={{ top: 10, height: desktopLaneHeight, pointerEvents: "none" }}
-                        >
-                          {lanes.map((lane, laneIndex) =>
-                            lane.map((item) => {
-                              const left = `${((item.start - 1) / days) * 100}%`;
-                              const width = `calc(${((item.end - item.start + 1) / days) * 100}% - 4px)`;
-                              return (
-                                <button
-                                  key={item.id}
-                                  onClick={() => setEditingHighlight({ ...item })}
-                                  className="absolute flex items-center justify-center overflow-hidden whitespace-nowrap rounded-full px-2 text-center active:scale-95"
-                                  style={{
-                                    left,
-                                    top: laneIndex * 18,
-                                    width,
-                                    minWidth: 44,
-                                    height: 16,
-                                    background: item.color,
-                                    color: "rgba(29,29,31,0.86)",
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    letterSpacing: "-0.18px",
-                                    pointerEvents: "auto",
-                                  }}
-                                >
-                                  <span className="truncate w-full text-center">{item.label || "새 플랜"}</span>
-                                </button>
-                              );
-                            }),
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {Array.from({ length: days }).map((_, index) => {
-                        const day = index + 1;
-                        const dayHighlights = monthHighlights.filter((item) => day >= item.start && day <= item.end);
-                        const inDrag =
-                          drag &&
-                          drag.month === monthIndex &&
-                          day >= Math.min(drag.a, drag.b) &&
-                          day <= Math.max(drag.a, drag.b);
-
-                        return (
-                          <div
-                            key={index}
-                            data-yday={day}
-                            className="flex flex-col items-center justify-start"
-                            style={{
-                              width: mobileDayCellWidth,
-                              paddingRight: 1,
-                              borderRight: day < days ? "0.5px solid var(--hairline)" : "none",
-                              background: inDrag ? `${accent}22` : "transparent",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 8,
-                                color: "var(--text-muted)",
-                                lineHeight: 1,
-                              }}
-                            >
-                              {day % 5 === 0 || day === 1 ? day : ""}
-                            </div>
-                            <div className="mt-[2px] w-full flex flex-col gap-[1px]">
-                              {dayHighlights.length > 0 ? (
-                                dayHighlights.map((item) => (
-                                  <div key={item.id} style={{ height: barHeight, background: item.color, borderRadius: 1 }} />
-                                ))
-                              ) : (
-                                <div
-                                  style={{
-                                    height: barHeight,
-                                    background: "var(--bg-tertiary)",
-                                    borderRadius: 1,
-                                    opacity: 0.4,
-                                  }}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-
-                {!isDesktop && monthHighlights.length > 0 && (
-                  <div className={`mt-2 flex flex-wrap gap-2 ${isDesktop ? "pr-4" : ""}`}>
-                    {monthHighlights.slice(0, isDesktop ? 5 : 3).map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setEditingHighlight({ ...item })}
-                        className="active:scale-95"
+                  {Array.from({ length: days }).map((_, di) => {
+                    const day = di + 1;
+                    const dayHls = monthHls.filter((h) => day >= h.start && day <= h.end);
+                    const inDrag =
+                      drag &&
+                      drag.month === mi &&
+                      day >= Math.min(drag.a, drag.b) &&
+                      day <= Math.max(drag.a, drag.b);
+                    // 가이드 라인 (5/10/15/20/25, 진하기 차등)
+                    const isMidGuide = day === 15;
+                    const isMinorGuide = day % 5 === 0 && !isMidGuide;
+                    return (
+                      <div
+                        key={di}
+                        data-yday={day}
+                        className="flex flex-col items-center justify-start"
                         style={{
-                          fontSize: isDesktop ? 12 : 11,
-                          padding: isDesktop ? "3px 10px" : "1px 6px",
-                          borderRadius: 999,
-                          background: item.color,
-                          color: "var(--text-primary)",
+                          width: `${100 / 31}%`,
+                          minWidth: 0,
+                          boxSizing: "border-box",
+                          borderRight: isMidGuide
+                            ? "0.5px dashed rgba(0,0,0,0.12)"
+                            : isMinorGuide
+                            ? "0.5px dashed rgba(0,0,0,0.05)"
+                            : "none",
+                          background: inDrag ? `${accent}22` : "transparent",
+                          paddingTop: 2,
+                          paddingBottom: 2,
                         }}
                       >
-                        {item.label || "새 플랜"}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        <div
+                          style={{
+                            fontSize: 8,
+                            color: "var(--text-muted)",
+                            lineHeight: 1,
+                            height: 9,
+                          }}
+                        >
+                          {day === 1 || day % 5 === 0 ? day : ""}
+                        </div>
+                        <div
+                          className="mt-[2px] w-full flex flex-col"
+                          style={{ gap: 2, paddingLeft: 1, paddingRight: 1 }}
+                        >
+                          {(() => {
+                            const dayHls = monthHls.filter((h) => day >= h.start && day <= h.end);
+                            return dayHls.length > 0 ? (
+                              dayHls.map((h) => (
+                                <div
+                                  key={h.id}
+                                  style={{
+                                    height: 8,
+                                    background: h.color,
+                                    borderTopLeftRadius: day === h.start ? 3 : 0,
+                                    borderBottomLeftRadius: day === h.start ? 3 : 0,
+                                    borderTopRightRadius: day === h.end ? 3 : 0,
+                                    borderBottomRightRadius: day === h.end ? 3 : 0,
+                                  }}
+                                />
+                              ))
+                            ) : (
+                              <div
+                                style={{
+                                  height: 8,
+                                  background: "var(--bg-tertiary)",
+                                  borderRadius: 2,
+                                  opacity: 0.35,
+                                }}
+                              />
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                </div>
+                {(() => {
+                  // 라벨 박스용 트랙 알고리즘 — 글자 길이 기반 너비 추정해서 겹침 판정
+                  type LabelPlaced = {
+                    id: number; start: number; end: number; color: string; label: string;
+                    estDays: number; track: number;
+                  };
+                  const CH_PX = 7; // 글자 1개당 약 7px
+                  const PAD_PX = 14;
+                  // estDays = 라벨이 차지하는 가로 (일 단위 환산) — 막대 너비보다 라벨이 길면 라벨이 우선
+                  const placedLabels: LabelPlaced[] = [];
+                  const ends: number[] = [];
+                  for (const p of [...placedBars].sort((a, b) => a.start - b.start)) {
+                    const text = p.label || "플랜";
+                    const estPx = text.length * CH_PX + PAD_PX;
+                    // px → days 환산 (스트립 = 31일 분량)
+                    // 화면 너비 모르니 31일 기준 비율로 처리
+                    const stripPxApprox = 280; // 대략적인 가로 (화면 폭 - 월 라벨 - 패딩)
+                    const labelDays = Math.ceil((estPx / stripPxApprox) * 31);
+                    const barDays = p.end - p.start + 1;
+                    const estDays = Math.max(labelDays, barDays);
+                    let t = -1;
+                    for (let i = 0; i < ends.length; i++) {
+                      if (ends[i] < p.start) { t = i; break; }
+                    }
+                    if (t === -1) {
+                      t = ends.length;
+                      ends.push(p.start + estDays - 1);
+                    } else {
+                      ends[t] = p.start + estDays - 1;
+                    }
+                    placedLabels.push({ ...p, estDays, track: t });
+                  }
+                  const labelTrackCount = Math.max(ends.length, 1);
+                  if (placedLabels.length === 0) return null;
+                  return (
+                    <div
+                      style={{
+                        position: "relative",
+                        marginTop: 4,
+                        height: labelTrackCount * (TRACK_H + TRACK_GAP),
+                      }}
+                    >
+                      {placedLabels.map((p) => {
+                        const left = ((p.start - 1) / 31) * 100;
+                        // 우측 끝(31일)까지 남은 공간으로 max-width 제한
+                        const maxWidthPct = ((31 - p.start + 1) / 31) * 100;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              if (onOpenEdit) {
+                                const ev = events.find((e) => e.id === p.id);
+                                if (ev) onOpenEdit(ev);
+                              } else {
+                                setEditingHl({ id: p.id, month: mi, start: p.start, end: p.end, color: p.color, label: p.label });
+                              }
+                            }}
+                            className="active:scale-95"
+                            style={{
+                              position: "absolute",
+                              left: `${left}%`,
+                              maxWidth: `${maxWidthPct}%`,
+                              top: p.track * (TRACK_H + TRACK_GAP),
+                              height: TRACK_H,
+                              background: p.color,
+                              borderRadius: 4,
+                              padding: "0 7px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "var(--text-primary)",
+                              lineHeight: `${TRACK_H}px`,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              letterSpacing: "-0.1px",
+                              border: 0,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              textAlign: "left",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            {p.label || "플랜"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
         })}
       </div>
 
+      {/* Add sheet */}
       {sheet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSheet(null)}>
-          <div className="absolute inset-0 bg-black/30" />
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setSheet(null)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-fade" />
           <div
-            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8 sheet-slide-up"
             style={{ background: "var(--bg-elevated)" }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="w-9 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--separator)" }} />
             <div style={{ fontSize: 17, fontWeight: 600 }}>형광펜으로 표시</div>
@@ -391,17 +387,15 @@ export function YearView({
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>시작일</div>
                 <select
                   value={sheet.start}
-                  onChange={(event) => {
-                    const nextStart = Number(event.target.value);
-                    setSheet({ ...sheet, start: nextStart, end: Math.max(sheet.end, nextStart) });
+                  onChange={(e) => {
+                    const ns = Number(e.target.value);
+                    setSheet({ ...sheet, start: ns, end: Math.max(sheet.end, ns) });
                   }}
                   className="w-full px-3 py-2 rounded-xl outline-none"
                   style={{ background: "var(--bg-tertiary)", fontSize: 14, color: "var(--text-primary)", border: "none" }}
                 >
-                  {Array.from({ length: daysInMonth(sheet.month) }, (_, index) => index + 1).map((day) => (
-                    <option key={day} value={day}>
-                      {sheet.month + 1}월 {day}일
-                    </option>
+                  {Array.from({ length: daysIn(sheet.month) }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{sheet.month + 1}월 {d}일</option>
                   ))}
                 </select>
               </div>
@@ -409,42 +403,40 @@ export function YearView({
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>종료일</div>
                 <select
                   value={sheet.end}
-                  onChange={(event) => setSheet({ ...sheet, end: Number(event.target.value) })}
+                  onChange={(e) => setSheet({ ...sheet, end: Number(e.target.value) })}
                   className="w-full px-3 py-2 rounded-xl outline-none"
                   style={{ background: "var(--bg-tertiary)", fontSize: 14, color: "var(--text-primary)", border: "none" }}
                 >
-                  {Array.from({ length: daysInMonth(sheet.month) }, (_, index) => index + 1)
-                    .filter((day) => day >= sheet.start)
-                    .map((day) => (
-                      <option key={day} value={day}>
-                        {sheet.month + 1}월 {day}일
-                      </option>
+                  {Array.from({ length: daysIn(sheet.month) }, (_, i) => i + 1)
+                    .filter((d) => d >= sheet.start)
+                    .map((d) => (
+                      <option key={d} value={d}>{sheet.month + 1}월 {d}일</option>
                     ))}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-6 gap-2 mt-4">
-              {highlights.map((item) => (
+              {highlights.map((h) => (
                 <button
-                  key={item.key}
-                  onClick={() => setPickedColor(item.key as HighlightKey)}
+                  key={h.key}
+                  onClick={() => setPickedColor(h.key as HighlightKey)}
                   className="aspect-square rounded-lg active:scale-95"
                   style={{
-                    background: item.color,
-                    border: pickedColor === item.key ? `2px solid ${accent}` : "0.5px solid var(--hairline)",
+                    background: h.color,
+                    border: pickedColor === h.key ? `2px solid ${accent}` : "0.5px solid var(--hairline)",
                   }}
                 />
               ))}
             </div>
             <input
               value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder="이름 (선택)"
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="라벨 (선택)"
               className="w-full mt-4 px-3 py-3 rounded-xl outline-none"
               style={{ background: "var(--bg-tertiary)", fontSize: 15 }}
             />
             <button
-              onClick={saveHighlight}
+              onClick={save}
               className="w-full mt-4 py-3 rounded-2xl active:scale-95"
               style={{ background: accent, color: "#fff", fontSize: 17, fontWeight: 600 }}
             >
@@ -454,13 +446,14 @@ export function YearView({
         </div>
       )}
 
-      {editingHighlight && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingHighlight(null)}>
-          <div className="absolute inset-0 bg-black/30" />
+      {/* Edit sheet */}
+      {editingHl && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setEditingHl(null)}>
+          <div className="absolute inset-0 bg-black/30 backdrop-fade" />
           <div
-            className="relative w-full max-w-[420px] rounded-3xl p-5 pb-6 shadow-2xl"
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl p-5 pb-8 sheet-slide-up"
             style={{ background: "var(--bg-elevated)" }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="w-9 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--separator)" }} />
             <div style={{ fontSize: 17, fontWeight: 600 }}>기간 편집</div>
@@ -468,24 +461,22 @@ export function YearView({
               <div className="flex-1">
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>월</div>
                 <select
-                  value={editingHighlight.month}
-                  onChange={(event) => {
-                    const nextMonth = Number(event.target.value);
-                    const maxDay = daysInMonth(nextMonth);
-                    setEditingHighlight({
-                      ...editingHighlight,
-                      month: nextMonth,
-                      start: Math.min(editingHighlight.start, maxDay),
-                      end: Math.min(editingHighlight.end, maxDay),
+                  value={editingHl.month}
+                  onChange={(e) => {
+                    const nm = Number(e.target.value);
+                    const maxDay = daysIn(nm);
+                    setEditingHl({
+                      ...editingHl,
+                      month: nm,
+                      start: Math.min(editingHl.start, maxDay),
+                      end: Math.min(editingHl.end, maxDay),
                     });
                   }}
                   className="w-full px-3 py-2 rounded-xl outline-none"
                   style={{ background: "var(--bg-tertiary)", fontSize: 14, color: "var(--text-primary)", border: "none" }}
                 >
-                  {monthNames.map((name, index) => (
-                    <option key={index} value={index}>
-                      {name}
-                    </option>
+                  {monthNames.map((mn, i) => (
+                    <option key={i} value={i}>{mn}</option>
                   ))}
                 </select>
               </div>
@@ -494,80 +485,72 @@ export function YearView({
               <div className="flex-1">
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>시작일</div>
                 <select
-                  value={editingHighlight.start}
-                  onChange={(event) => {
-                    const nextStart = Number(event.target.value);
-                    setEditingHighlight({
-                      ...editingHighlight,
-                      start: nextStart,
-                      end: Math.max(editingHighlight.end, nextStart),
-                    });
+                  value={editingHl.start}
+                  onChange={(e) => {
+                    const ns = Number(e.target.value);
+                    setEditingHl({ ...editingHl, start: ns, end: Math.max(editingHl.end, ns) });
                   }}
                   className="w-full px-3 py-2 rounded-xl outline-none"
                   style={{ background: "var(--bg-tertiary)", fontSize: 14, color: "var(--text-primary)", border: "none" }}
                 >
-                  {Array.from({ length: daysInMonth(editingHighlight.month) }, (_, index) => index + 1).map((day) => (
-                    <option key={day} value={day}>
-                      {day}일
-                    </option>
+                  {Array.from({ length: daysIn(editingHl.month) }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{d}일</option>
                   ))}
                 </select>
               </div>
               <div className="flex-1">
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>종료일</div>
                 <select
-                  value={editingHighlight.end}
-                  onChange={(event) => setEditingHighlight({ ...editingHighlight, end: Number(event.target.value) })}
+                  value={editingHl.end}
+                  onChange={(e) => setEditingHl({ ...editingHl, end: Number(e.target.value) })}
                   className="w-full px-3 py-2 rounded-xl outline-none"
                   style={{ background: "var(--bg-tertiary)", fontSize: 14, color: "var(--text-primary)", border: "none" }}
                 >
-                  {Array.from({ length: daysInMonth(editingHighlight.month) }, (_, index) => index + 1)
-                    .filter((day) => day >= editingHighlight.start)
-                    .map((day) => (
-                      <option key={day} value={day}>
-                        {day}일
-                      </option>
+                  {Array.from({ length: daysIn(editingHl.month) }, (_, i) => i + 1)
+                    .filter((d) => d >= editingHl.start)
+                    .map((d) => (
+                      <option key={d} value={d}>{d}일</option>
                     ))}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-6 gap-2 mt-4">
-              {highlights.map((item) => (
+              {highlights.map((h) => (
                 <button
-                  key={item.key}
-                  onClick={() => setEditingHighlight({ ...editingHighlight, color: item.color })}
+                  key={h.key}
+                  onClick={() => setEditingHl({ ...editingHl, color: h.color })}
                   className="aspect-square rounded-lg active:scale-95"
                   style={{
-                    background: item.color,
-                    border: editingHighlight.color === item.color ? `2px solid ${accent}` : "0.5px solid var(--hairline)",
+                    background: h.color,
+                    border: editingHl.color === h.color ? `2px solid ${accent}` : "0.5px solid var(--hairline)",
                   }}
                 />
               ))}
             </div>
             <input
-              value={editingHighlight.label}
-              onChange={(event) => setEditingHighlight({ ...editingHighlight, label: event.target.value })}
-              placeholder="이름 (선택)"
+              value={editingHl.label}
+              onChange={(e) => setEditingHl({ ...editingHl, label: e.target.value })}
+              placeholder="라벨 (선택)"
               className="w-full mt-4 px-3 py-3 rounded-xl outline-none"
               style={{ background: "var(--bg-tertiary)", fontSize: 15 }}
             />
             <div className="flex gap-2 mt-4">
               <button
-                onClick={deleteEditedHighlight}
+                onClick={deleteEdit}
                 className="flex-1 py-3 rounded-2xl"
                 style={{ color: "#FF3B30", fontSize: 15, fontWeight: 500, background: "var(--bg-tertiary)" }}
               >
                 삭제
               </button>
               <button
-                onClick={() => setEditingHighlight(null)}
+                onClick={() => setEditingHl(null)}
                 className="flex-1 py-3 rounded-2xl"
                 style={{ color: "var(--text-secondary)", fontSize: 15, background: "var(--bg-tertiary)" }}
               >
                 취소
               </button>
               <button
-                onClick={saveEditedHighlight}
+                onClick={saveEdit}
                 className="flex-1 py-3 rounded-2xl active:scale-95"
                 style={{ background: accent, color: "#fff", fontSize: 15, fontWeight: 600 }}
               >

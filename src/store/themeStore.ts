@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type AccentKey = 'blue' | 'purple' | 'pink' | 'orange' | 'green' | 'gray';
+export type AccentKey = 'blue' | 'purple' | 'pink' | 'orange' | 'green' | 'mint';
 
 type ThemeStore = {
   mode: ThemeMode;
@@ -18,7 +18,7 @@ export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
       mode: 'system',
-      accent: 'blue',
+      accent: 'mint',
       setMode: (mode) => set({ mode }),
       setAccent: (accent) => set({ accent }),
     }),

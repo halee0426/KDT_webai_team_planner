@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { highlights } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { TYPE } from "@/styles/typography";
 
 type Ev = { id: number; startSlot: number; endSlot: number; title: string; color: string };
 type Todo = { id: number; text: string; done: boolean; rolled?: boolean };
@@ -25,6 +26,8 @@ export function DailyFlipView({
   day,
   onDateChange,
   onBack,
+  onAdd,
+  onOpenEdit,
 }: {
   accent: string;
   events: SharedEvent[];
@@ -37,6 +40,10 @@ export function DailyFlipView({
   onDateChange?: (year: number, month: number, day: number) => void;
   /** 좌상단 ← 뒤로가기 — 달력으로 */
   onBack?: () => void;
+  /** 우상단 + 버튼 */
+  onAdd?: () => void;
+  /** 일정 카드 탭 시 — 외부 통합 편집 모달 */
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
   // 외부에서 props 가 오면 controlled, 아니면 내부 today 로 fallback
   const initialDate =
@@ -202,7 +209,14 @@ export function DailyFlipView({
         );
       } else if (!wasMoved) {
         const ev = timedEventsForDay.find((x) => x.id === id);
-        if (ev) setEditing({ ...ev });
+        if (ev) {
+          if (onOpenEdit) {
+            const full = events.find((x) => x.id === ev.id);
+            if (full) onOpenEdit(full);
+          } else {
+            setEditing({ ...ev });
+          }
+        }
       }
       return;
     }
@@ -283,117 +297,119 @@ export function DailyFlipView({
 
   return (
     <div className="relative" style={{ height: "calc(100% - 0px)" }}>
-      {/* 애플 캘린더 스타일 일력 헤더 — 알약 ← 4월 + 우상단 액션 + 요일/날짜 행 */}
+      {/* 일력 헤더 섹션 — 한 묶음 */}
       <div
         className="px-4"
         style={{
-          paddingTop: 12,
-          paddingBottom: 10,
+          paddingTop: 20,
+          paddingBottom: 16,
           background: "var(--bg-glass)",
           backdropFilter: "blur(20px)",
           borderBottom: "0.5px solid var(--hairline)",
         }}
       >
-        {/* 1행 — 알약 ← 월 + 우상단 알약 액션 */}
+        {/* 1행 — 좌: 큰 N월 N일 + 작은 요일 / 우: 이전/오늘/다음/+ */}
         <div
-          className="flex items-center justify-between"
-          style={{ marginBottom: 12 }}
+          className="flex items-end justify-between"
+          style={{ marginBottom: 18 }}
         >
-          {onBack ? (
-            <button
-              onClick={onBack}
-              className="active:scale-95"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "8px 16px 8px 12px",
-                borderRadius: 999,
-                background: "var(--bg-elevated)",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                color: "var(--text-primary)",
-                fontSize: 15,
-                fontWeight: 500,
-                letterSpacing: "-0.3px",
-                border: 0,
-                cursor: "pointer",
-              }}
-              aria-label="달력으로"
-            >
-              <ChevronLeft size={18} strokeWidth={2.2} />
-              {date.getMonth() + 1}월
-            </button>
-          ) : (
-            <div style={{ width: 1 }} />
-          )}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ ...TYPE.titlePage, color: isToday ? accent : "var(--text-primary)" }}>
+              {date.getMonth() + 1}월 {date.getDate()}일
+            </span>
+            <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+              {days[date.getDay()]}요일
+            </span>
+          </div>
 
-          {/* 우측: 알약 그룹 (이전/오늘/다음) */}
-          <div
-            className="flex items-center"
-            style={{
-              background: "var(--bg-elevated)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              borderRadius: 999,
-              padding: 4,
-              gap: 4,
-            }}
-          >
-            <button
-              onClick={() => shift(-1)}
-              className="active:scale-90"
+          <div className="flex items-center" style={{ gap: 6 }}>
+            <div
+              className="flex items-center"
               style={{
-                width: 30,
-                height: 30,
+                background: "var(--bg-tertiary)",
                 borderRadius: 999,
-                display: "grid",
-                placeItems: "center",
-                background: "transparent",
-                border: 0,
-                cursor: "pointer",
-                color: "var(--text-primary)",
-              }}
-              aria-label="이전 날"
-            >
-              <ChevronLeft size={18} strokeWidth={2.2} />
-            </button>
-            <button
-              onClick={() => setDate(new Date())}
-              disabled={isToday}
-              className="active:scale-95"
-              style={{
-                padding: "0 10px",
-                height: 30,
-                borderRadius: 999,
-                background: "transparent",
-                fontSize: 13,
-                fontWeight: 500,
-                color: "var(--text-primary)",
-                opacity: isToday ? 0.4 : 1,
-                border: 0,
-                cursor: isToday ? "default" : "pointer",
-                fontFamily: "inherit",
+                padding: 3,
+                gap: 2,
               }}
             >
-              오늘
-            </button>
-            <button
-              onClick={() => shift(1)}
-              className="active:scale-90"
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 999,
-                display: "grid",
-                placeItems: "center",
-                background: "transparent",
-                border: 0,
-                cursor: "pointer",
-                color: "var(--text-primary)",
-              }}
-              aria-label="다음 날"
-            >
-              <ChevronRight size={18} strokeWidth={2.2} />
-            </button>
+              <button
+                onClick={() => shift(-1)}
+                className="active:scale-90"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  color: "var(--text-secondary)",
+                }}
+                aria-label="이전 날"
+              >
+                <ChevronLeft size={16} strokeWidth={2.2} />
+              </button>
+              <button
+                onClick={() => setDate(new Date())}
+                disabled={isToday}
+                className="active:scale-95"
+                style={{
+                  padding: "0 10px",
+                  height: 28,
+                  borderRadius: 999,
+                  background: "transparent",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: accent,
+                  opacity: isToday ? 0.4 : 1,
+                  border: 0,
+                  cursor: isToday ? "default" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                오늘
+              </button>
+              <button
+                onClick={() => shift(1)}
+                className="active:scale-90"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  color: "var(--text-secondary)",
+                }}
+                aria-label="다음 날"
+              >
+                <ChevronRight size={16} strokeWidth={2.2} />
+              </button>
+            </div>
+            {onAdd && (
+              <button
+                onClick={onAdd}
+                className="active:scale-90"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  background: accent,
+                  color: "#fff",
+                  border: 0,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: `0 4px 12px ${accent}55`,
+                }}
+                aria-label="일정 추가"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -461,7 +477,6 @@ export function DailyFlipView({
           ref={gridRef}
           className="relative"
           style={{ height: TOTAL_SLOTS * SLOT, userSelect: "none", touchAction: "none" }}
-          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
         >
@@ -553,22 +568,6 @@ export function DailyFlipView({
             );
           })}
 
-          {/* Drag selection */}
-          {dragRange && (
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                left: 52,
-                right: 8,
-                top: Math.min(dragRange.a, dragRange.b) * SLOT,
-                height: (Math.abs(dragRange.b - dragRange.a) + 1) * SLOT,
-                background: `${accent}30`,
-                border: `2px dashed ${accent}`,
-                borderRadius: 8,
-              }}
-            />
-          )}
-
           {/* Current time line */}
           {isToday && (
             <div
@@ -598,125 +597,6 @@ export function DailyFlipView({
             </div>
           )}
         </div>
-      </div>
-
-      {/* Todo bottom sheet */}
-      <div
-        className="absolute left-0 right-0 bottom-0 rounded-t-3xl"
-        style={{
-          height: todoExpanded ? 360 : 96,
-          background: "var(--bg-glass)",
-          backdropFilter: "blur(20px)",
-          borderTop: "0.5px solid var(--hairline)",
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.06)",
-          transition: "height 220ms ease",
-          overflow: "hidden",
-        }}
-      >
-        <button
-          onClick={() => setTodoExpanded((v) => !v)}
-          className="w-full flex flex-col items-center pt-2"
-        >
-          <div className="w-9 h-1 rounded-full" style={{ background: "var(--separator)" }} />
-        </button>
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between">
-          <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }}>할 일</div>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            {doneCount}/{todos.length}
-          </span>
-        </div>
-        <div className="px-5">
-          <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${todos.length === 0 ? 0 : (doneCount / todos.length) * 100}%`,
-                background: accent,
-              }}
-            />
-          </div>
-        </div>
-
-        {todoExpanded && (
-          <div className="px-3 pt-3 pb-4 overflow-y-auto" style={{ maxHeight: 260 }}>
-            <div className="flex items-center gap-2 px-2 mb-2">
-              <input
-                value={todoDraft}
-                onChange={(e) => setTodoDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTodo()}
-                placeholder="새 할 일... (Enter로 추가)"
-                className="flex-1 px-3 py-2 rounded-full outline-none"
-                style={{ background: "var(--bg-tertiary)", fontSize: 15, letterSpacing: "-0.224px" }}
-              />
-              <button
-                onClick={addTodo}
-                className="px-3 py-2 rounded-full active:scale-95"
-                style={{ background: accent, color: "#fff", fontSize: 13, fontWeight: 600 }}
-              >
-                추가
-              </button>
-            </div>
-            {todos.length === 0 && (
-              <div className="text-center py-6" style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                오늘 할 일이 없어요. 가볍게 시작해볼까요?
-              </div>
-            )}
-            {todos.map((t) => (
-              <div key={t.id} className="group flex items-center gap-3 px-3 py-2 rounded-xl">
-                <button
-                  onClick={() => toggleTodo(t.id)}
-                  className="w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0 active:scale-90"
-                  style={{
-                    border: t.done ? "none" : "1.5px solid var(--separator)",
-                    background: t.done ? accent : "transparent",
-                  }}
-                >
-                  {t.done && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M2.5 6.5L5 9L9.5 3.5"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </button>
-                <div
-                  className="flex-1 flex items-center gap-2 min-w-0"
-                  style={{
-                    fontSize: 15,
-                    letterSpacing: "-0.224px",
-                    opacity: t.done ? 0.4 : 1,
-                    textDecoration: t.done ? "line-through" : "none",
-                  }}
-                >
-                  <span className="truncate">{t.text}</span>
-                  {t.rolled && (
-                    <span
-                      className="px-2 py-[2px] rounded-full shrink-0"
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 500,
-                        background: "var(--bg-tertiary)",
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      어제 이월
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => removeTodo(t.id)}
-                  className="p-1 rounded-full text-[var(--text-muted)] active:opacity-60"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Quick-add sheet */}
@@ -978,8 +858,8 @@ function WeekDayStrip({
                 borderRadius: 999,
                 display: "grid",
                 placeItems: "center",
-                background: isSelected ? "var(--text-primary)" : "transparent",
-                color: isSelected ? "var(--bg-canvas)" : "var(--text-primary)",
+                background: isSelected ? accent : "transparent",
+                color: isSelected ? "#fff" : "var(--text-primary)",
                 fontSize: 14,
                 fontWeight: isSelected ? 700 : 500,
               }}
