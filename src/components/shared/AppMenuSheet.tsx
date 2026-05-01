@@ -12,7 +12,10 @@ import {
   X,
   Settings as SettingsIcon,
   HelpCircle,
+  LogIn,
+  ChevronRight,
 } from "lucide-react";
+import { useUserStore } from "@/store/userStore";
 
 type Screen =
   | "day"
@@ -38,13 +41,19 @@ export function AppMenuSheet({
   accent,
   onNavigate,
   onOpenSettings,
+  onOpenAuth,
+  onOpenAccount,
 }: {
   open: boolean;
   onClose: () => void;
   accent: string;
   onNavigate: (screen: Screen) => void;
   onOpenSettings: () => void;
+  onOpenAuth?: () => void;
+  onOpenAccount?: () => void;
 }) {
+  const user = useUserStore((s) => s.user);
+
   if (!open) return null;
 
   const sections: { title: string; items: Item[] }[] = [
@@ -220,6 +229,165 @@ export function AppMenuSheet({
             padding: "12px 0 24px",
           }}
         >
+          {/* 계정 섹션 */}
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-muted)",
+                letterSpacing: "0.3px",
+                textTransform: "uppercase",
+                padding: "6px 20px",
+              }}
+            >
+              계정
+            </div>
+            {user ? (
+              <button
+                onClick={() => {
+                  onOpenAccount?.();
+                  onClose();
+                }}
+                className="active:scale-[0.99]"
+                style={{
+                  width: "calc(100% - 24px)",
+                  margin: "0 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                  background: "var(--bg-secondary)",
+                  border: 0,
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      background: `${accent}26`,
+                      color: accent,
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(user.displayName || user.email || "?").trim().charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.2px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.displayName || "이름 없음"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.email}
+                  </div>
+                </div>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.8}
+                  color="var(--text-muted)"
+                />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  onOpenAuth?.();
+                  onClose();
+                }}
+                className="active:scale-[0.99]"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "10px 20px",
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: `${accent}1A`,
+                    color: accent,
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <LogIn size={18} strokeWidth={1.8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.2px",
+                    }}
+                  >
+                    로그인 / 회원가입
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 1,
+                    }}
+                  >
+                    일정을 안전하게 동기화
+                  </div>
+                </div>
+              </button>
+            )}
+          </div>
+
           {sections.map((sec) => (
             <div key={sec.title} style={{ marginBottom: 16 }}>
               <div

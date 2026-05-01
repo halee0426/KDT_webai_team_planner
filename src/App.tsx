@@ -23,6 +23,8 @@ import { DiaryView } from "@/components/DiaryView";
 import { DailyFlipView } from "@/components/DailyFlipView";
 import { Settings } from "@/components/Settings";
 import { AppMenuSheet } from "@/components/shared/AppMenuSheet";
+import { AuthModal } from "@/components/shared/AuthModal";
+import { AccountSheet } from "@/components/shared/AccountSheet";
 import { NewEventModal, type NewEventInitial } from "@/components/shared/NewEventModal";
 import { CalendarScopeTabs, type ScopeKey } from "@/components/shared/CalendarScopeTabs";
 import { Splash } from "@/components/Splash";
@@ -139,6 +141,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [newEventInitial, setNewEventInitial] = useState<NewEventInitial | undefined>(undefined);
   const openNewEvent = (init?: NewEventInitial) => {
@@ -800,6 +804,28 @@ export default function App() {
             setMenuOpen(false);
             setSettingsOpen(true);
           }}
+          onOpenAuth={() => {
+            setMenuOpen(false);
+            setAuthOpen(true);
+          }}
+          onOpenAccount={() => {
+            setMenuOpen(false);
+            setAccountOpen(true);
+          }}
+        />
+
+        {/* 로그인 / 회원가입 모달 */}
+        <AuthModal
+          open={authOpen}
+          onClose={() => setAuthOpen(false)}
+          accent={accent}
+        />
+
+        {/* 계정 시트 */}
+        <AccountSheet
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          accent={accent}
         />
 
         {/* 설정 */}
