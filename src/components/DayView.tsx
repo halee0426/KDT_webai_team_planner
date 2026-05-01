@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
 import { highlights } from "./tokens";
 import type { Todo } from "./eventStore";
+import { TYPE } from "@/styles/typography";
 
 export function DayView({
   accent,
@@ -75,17 +76,33 @@ export function DayView({
   const progress = today.length === 0 ? 0 : doneCount / today.length;
 
   return (
-    <div className="px-5 pt-6 pb-32">
-      <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.5px", lineHeight: 1.2 }}>
-        4월 29일 수요일
-      </div>
+    <div className="px-5 pb-32" style={{ paddingTop: 24 }}>
+      {/* 헤더 섹션 — 한 묶음 */}
       <div
-        style={{ fontSize: 13, letterSpacing: "-0.224px" }}
-        className="mt-1 text-[var(--text-secondary)]"
+        style={{
+          marginBottom: 24,
+          paddingBottom: 16,
+          borderBottom: "0.5px solid var(--hairline)",
+        }}
       >
-        할일 {today.filter((t) => !t.done).length} · 일정 {events.length}
-        {planKind === "shared" && " · 멤버 4"}
-      </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+            4월 29일
+          </span>
+          <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+            수요일
+          </span>
+        </div>
+        <div
+          style={{
+            ...TYPE.bodySmall,
+            color: "var(--text-secondary)",
+            marginTop: 6,
+          }}
+        >
+          할일 {today.filter((t) => !t.done).length} · 일정 {events.length}
+          {planKind === "shared" && " · 멤버 4"}
+        </div>
       {planKind === "shared" && (
         <div className="flex items-center gap-2 mt-3">
           {["지민", "수아", "현우", "나"].map((n, i) => (
@@ -109,6 +126,7 @@ export function DayView({
           </span>
         </div>
       )}
+      </div>
 
       {/* 오늘 일정 — 헤더 바로 아래 (가장 먼저 보이게) */}
       <SectionLabel>오늘 일정</SectionLabel>

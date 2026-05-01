@@ -4,7 +4,7 @@ export const accents = {
   pink: "#FF2D55",
   orange: "#FF9500",
   green: "#34C759",
-  gray: "#636366",
+  mint: "#1ec4b3",
 } as const;
 
 export type AccentKey = keyof typeof accents;

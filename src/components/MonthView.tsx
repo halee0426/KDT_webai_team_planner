@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { TYPE } from "@/styles/typography";
 
 export function MonthView({
   accent,
@@ -13,6 +14,7 @@ export function MonthView({
   onMonthChange,
   onBack,
   onOpenDay,
+  onAdd,
 }: {
   accent: string;
   planKind?: "my" | "shared";
@@ -27,6 +29,8 @@ export function MonthView({
   onBack?: () => void;
   /** 날짜 셀 탭 시 일력으로 진입 */
   onOpenDay?: (year: number, month: number, day: number) => void;
+  /** 우상단 + 버튼 — 신규 일정 모달 열기 */
+  onAdd?: () => void;
 }) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
   const [innerMonth, setInnerMonth] = useState(planKind === "shared" ? 4 : 3);
@@ -156,122 +160,113 @@ export function MonthView({
   }
 
   return (
-    <div className="px-4 pt-4 pb-32">
-      {/* 애플 캘린더 스타일 헤더 — 좌상단 알약 ← 2026년 + 우상단 알약 액션 */}
+    <div className="px-4 pb-32" style={{ paddingTop: 24 }}>
+      {/* 헤더 섹션 — 한 묶음으로 호흡감 있게 */}
       <div
-        className="flex items-center justify-between"
-        style={{ paddingLeft: 4, paddingRight: 4, marginBottom: 16 }}
-      >
-        {/* 좌측: 알약형 ← 연도 버튼 */}
-        {onBack ? (
-          <button
-            onClick={onBack}
-            className="active:scale-95"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "8px 16px 8px 12px",
-              borderRadius: 999,
-              background: "var(--bg-elevated)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              color: "var(--text-primary)",
-              fontSize: 15,
-              fontWeight: 500,
-              letterSpacing: "-0.3px",
-              border: 0,
-              cursor: "pointer",
-            }}
-            aria-label="연력으로"
-          >
-            <ChevronLeft size={18} strokeWidth={2.2} />
-            {year}년
-          </button>
-        ) : (
-          <div style={{ width: 1 }} />
-        )}
-
-        {/* 우측: 알약 그룹 (이전/다음/오늘 통합) */}
-        <div
-          className="flex items-center"
-          style={{
-            background: "var(--bg-elevated)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            borderRadius: 999,
-            padding: 4,
-            gap: 4,
-          }}
-        >
-          <button
-            onClick={() => setMonth((m) => (m + 11) % 12)}
-            className="active:scale-90"
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 999,
-              display: "grid",
-              placeItems: "center",
-              background: "transparent",
-              border: 0,
-              cursor: "pointer",
-              color: "var(--text-primary)",
-            }}
-            aria-label="이전 달"
-          >
-            <ChevronLeft size={18} strokeWidth={2.2} />
-          </button>
-          <button
-            onClick={() => setMonth(new Date().getMonth())}
-            className="active:scale-95"
-            style={{
-              padding: "0 10px",
-              height: 30,
-              borderRadius: 999,
-              background: "transparent",
-              fontSize: 13,
-              fontWeight: 500,
-              color: "var(--text-primary)",
-              border: 0,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            오늘
-          </button>
-          <button
-            onClick={() => setMonth((m) => (m + 1) % 12)}
-            className="active:scale-90"
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 999,
-              display: "grid",
-              placeItems: "center",
-              background: "transparent",
-              border: 0,
-              cursor: "pointer",
-              color: "var(--text-primary)",
-            }}
-            aria-label="다음 달"
-          >
-            <ChevronRight size={18} strokeWidth={2.2} />
-          </button>
-        </div>
-      </div>
-
-      {/* 큰 월 타이틀 (애플 스타일) */}
-      <div
+        className="flex items-end justify-between"
         style={{
-          fontSize: 44,
-          fontWeight: 700,
-          letterSpacing: "-1.4px",
-          lineHeight: 1,
-          color: "var(--text-primary)",
-          padding: "0 4px",
-          marginBottom: 18,
+          marginBottom: 28,
+          paddingBottom: 16,
+          borderBottom: "0.5px solid var(--hairline)",
         }}
       >
-        {month + 1}월
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ ...TYPE.titleMonth, color: "var(--text-primary)" }}>
+            {month + 1}월
+          </span>
+          <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+            {year}
+          </span>
+        </div>
+
+        {/* 우측 알약 그룹: 이전/오늘/다음 + 분리된 + 버튼 */}
+        <div className="flex items-center" style={{ gap: 6 }}>
+          <div
+            className="flex items-center"
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: 999,
+              padding: 3,
+              gap: 2,
+            }}
+          >
+            <button
+              onClick={() => setMonth((m) => (m + 11) % 12)}
+              className="active:scale-90"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="이전 달"
+            >
+              <ChevronLeft size={16} strokeWidth={2.2} />
+            </button>
+            <button
+              onClick={() => setMonth(new Date().getMonth())}
+              className="active:scale-95"
+              style={{
+                padding: "0 10px",
+                height: 28,
+                borderRadius: 999,
+                background: "transparent",
+                fontSize: 12,
+                fontWeight: 600,
+                color: accent,
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              오늘
+            </button>
+            <button
+              onClick={() => setMonth((m) => (m + 1) % 12)}
+              className="active:scale-90"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="다음 달"
+            >
+              <ChevronRight size={16} strokeWidth={2.2} />
+            </button>
+          </div>
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              className="active:scale-90"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 999,
+                background: accent,
+                color: "#fff",
+                border: 0,
+                cursor: "pointer",
+                display: "grid",
+                placeItems: "center",
+                boxShadow: `0 4px 12px ${accent}55`,
+              }}
+              aria-label="일정 추가"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 요일 헤더 — 모두 회색 (애플 스타일) */}
@@ -299,6 +294,7 @@ export function MonthView({
         style={{
           touchAction: "none",
           userSelect: "none",
+          position: "relative",
         }}
         onPointerDown={onGridDown}
         onPointerMove={onGridMove}
@@ -310,7 +306,7 @@ export function MonthView({
           const isToday = d === today;
           const isSelected = d === selected;
           const row = Math.floor(i / 7);
-          // 해당 날짜에 걸리는 untimed 플랜 (멀티데이 포함) — 알약으로 표시
+          // 해당 날짜에 걸리는 untimed 플랜 (멀티데이 포함)
           const dayPlans = d ? plans.filter((p) => d >= p.start && d <= p.end) : [];
           // 해당 날짜의 timed events 개수 — 점으로 표시
           const dots = d
@@ -324,6 +320,8 @@ export function MonthView({
               style={{
                 aspectRatio: "1 / 1.6",
                 paddingTop: 8,
+                paddingLeft: 2,
+                paddingRight: 2,
                 borderTop: row === 0 ? "none" : "0.5px solid var(--hairline)",
               }}
             >
@@ -366,30 +364,63 @@ export function MonthView({
                         display: "flex",
                         flexDirection: "column",
                         gap: 2,
-                        paddingLeft: 2,
-                        paddingRight: 2,
                       }}
                     >
-                      {dayPlans.slice(0, 2).map((p, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 600,
-                            color: pillTextColor(p.color),
-                            background: pillBgColor(p.color),
-                            borderRadius: 4,
-                            padding: "1px 3px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            letterSpacing: "-0.1px",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {p.label || "플랜"}
-                        </div>
-                      ))}
+                      {dayPlans.slice(0, 2).map((p, idx) => {
+                        const isStart = p.start === d;
+                        const isEnd = p.end === d;
+                        const isMulti = p.start !== p.end;
+                        // 라벨은 멀티데이 범위의 가운데 셀에서만 표시
+                        const midDay = Math.floor((p.start + p.end) / 2);
+                        const showLabel = !isMulti || d === midDay;
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: "var(--text-primary)",
+                              background: pillBgColor(p.color),
+                              borderTopLeftRadius: !isMulti || isStart ? 4 : 0,
+                              borderBottomLeftRadius: !isMulti || isStart ? 4 : 0,
+                              borderTopRightRadius: !isMulti || isEnd ? 4 : 0,
+                              borderBottomRightRadius: !isMulti || isEnd ? 4 : 0,
+                              padding: "1px 3px",
+                              marginLeft: !isMulti || isStart ? 0 : -2,
+                              marginRight: !isMulti || isEnd ? 0 : -2,
+                              overflow: "visible",
+                              whiteSpace: "nowrap",
+                              letterSpacing: "-0.1px",
+                              lineHeight: 1.3,
+                              textAlign: "center",
+                              minHeight: 13,
+                              position: "relative",
+                            }}
+                          >
+                            {isMulti ? (
+                              isStart ? (
+                                <span
+                                  style={{
+                                    position: "absolute",
+                                    // 멀티데이 전체 너비의 정중앙으로 강제 이동
+                                    // 시작 셀에서 (전체일수 - 1) / 2 만큼 우측으로
+                                    left: `${50 + ((p.end - p.start) / 2) * 100}%`,
+                                    top: "50%",
+                                    transform: "translate(-50%, -50%)",
+                                    pointerEvents: "none",
+                                    whiteSpace: "nowrap",
+                                    zIndex: 2,
+                                  }}
+                                >
+                                  {p.label || "플랜"}
+                                </span>
+                              ) : null
+                            ) : (
+                              <span>{p.label || "."}</span>
+                            )}
+                          </div>
+                        );
+                      })}
                       {dayPlans.length > 2 && (
                         <div
                           style={{
@@ -538,20 +569,22 @@ export function MonthView({
                   {Array.from({ length: daysInMonth }, (_, i) => i + 1)
                     .filter((d) => d >= editingPlan.start)
                     .map((d) => (
-                      <option key={d} value={d}>{month + 1}월 {d}일</option>
+                      <option key={d} value={d}>
+                        {month + 1}/{d}
+                      </option>
                     ))}
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-6 gap-2 mt-4">
+            <div className="flex flex-wrap gap-2 mt-4">
               {highlights.map((h) => (
                 <button
                   key={h.key}
                   onClick={() => setEditingPlan({ ...editingPlan, color: h.color })}
-                  className="aspect-square rounded-lg active:scale-95"
+                  className="w-8 h-8 rounded-full active:scale-95"
                   style={{
                     background: h.color,
-                    border: editingPlan.color === h.color ? `2px solid ${accent}` : "0.5px solid var(--hairline)",
+                    border: editingPlan.color === h.color ? `2px solid var(--text-primary)` : "0.5px solid var(--hairline)",
                   }}
                 />
               ))}
@@ -559,7 +592,7 @@ export function MonthView({
             <input
               value={editingPlan.label}
               onChange={(e) => setEditingPlan({ ...editingPlan, label: e.target.value })}
-              placeholder="라벨 (선택)"
+              placeholder=""
               className="w-full mt-4 px-3 py-3 rounded-xl outline-none"
               style={{ background: "var(--bg-tertiary)", fontSize: 15 }}
             />
@@ -572,16 +605,9 @@ export function MonthView({
                 삭제
               </button>
               <button
-                onClick={() => setEditingPlan(null)}
-                className="flex-1 py-3 rounded-2xl"
-                style={{ color: "var(--text-secondary)", fontSize: 15, background: "var(--bg-tertiary)" }}
-              >
-                취소
-              </button>
-              <button
                 onClick={saveEditPlan}
-                className="flex-1 py-3 rounded-2xl active:scale-95"
-                style={{ background: accent, color: "#fff", fontSize: 15, fontWeight: 600 }}
+                className="flex-1 py-3 rounded-2xl"
+                style={{ background: accent, color: "#fff", fontSize: 15, fontWeight: 500 }}
               >
                 저장
               </button>
@@ -593,22 +619,17 @@ export function MonthView({
   );
 }
 
-/** 일정 알약 배경 — 원래 색의 매우 연한 톤 */
 function pillBgColor(c: string): string {
-  // hex 또는 rgb 스타일 모두 안전하게 처리
   if (c.startsWith("#") && (c.length === 7 || c.length === 4)) {
-    return `${c}33`; // ~20% alpha
+    return `${c}33`;
   }
   return c;
 }
-/** 일정 알약 텍스트 — 색을 어둡게 보정 */
 function pillTextColor(c: string): string {
   if (c.startsWith("#") && c.length === 7) {
-    // hex → rgb
     const r = parseInt(c.slice(1, 3), 16);
     const g = parseInt(c.slice(3, 5), 16);
     const b = parseInt(c.slice(5, 7), 16);
-    // 60% 어둡게
     const dr = Math.round(r * 0.55);
     const dg = Math.round(g * 0.55);
     const db = Math.round(b * 0.55);

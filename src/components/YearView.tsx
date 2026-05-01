@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { TYPE } from "@/styles/typography";
 
 type LocalHl = { id: number; month: number; start: number; end: number; color: string; label: string };
 
@@ -10,6 +11,7 @@ export function YearView({
   onEventsChange,
   year,
   onOpenMonth,
+  onAdd,
 }: {
   accent: string;
   events: SharedEvent[];
@@ -18,6 +20,8 @@ export function YearView({
   year?: number;
   /** 월 라벨 클릭 시 → 달력(MonthView)로 진입 */
   onOpenMonth?: (year: number, month: number) => void;
+  /** 우상단 + 버튼 */
+  onAdd?: () => void;
 }) {
   const YEAR = year ?? 2026;
 
@@ -75,63 +79,89 @@ export function YearView({
   };
 
   return (
-    <div className="px-5 pt-4 pb-32">
-      {/* 애플 캘린더 스타일 헤더 */}
-      <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: accent,
-            letterSpacing: "-0.1px",
-            marginBottom: 2,
-          }}
-        >
-          연력
+    <div className="px-5 pb-32" style={{ paddingTop: 24 }}>
+      {/* 헤더 섹션 — 한 묶음 */}
+      <div
+        className="flex items-end justify-between"
+        style={{ marginBottom: 12 }}
+      >
+        <div>
+          <div style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600, marginBottom: 2 }}>
+            {YEAR}
+          </div>
+          <div style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+            나의 1년 플랜
+          </div>
+          <div style={{ ...TYPE.bodySmall, color: "var(--text-secondary)", marginTop: 6 }}>
+            119일 / 365일 · 33%
+          </div>
         </div>
-        <div
-          style={{
-            fontSize: 32,
-            fontWeight: 700,
-            letterSpacing: "-0.8px",
-            lineHeight: 1.05,
-            color: "var(--text-primary)",
-          }}
-        >
-          {YEAR}
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            letterSpacing: "-0.2px",
-            marginTop: 6,
-          }}
-        >
-          119일 / 365일 · 33%
-        </div>
+        {onAdd && (
+          <button
+            onClick={onAdd}
+            className="active:scale-90"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              background: accent,
+              color: "#fff",
+              border: 0,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: `0 4px 12px ${accent}55`,
+              flexShrink: 0,
+            }}
+            aria-label="일정 추가"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        )}
       </div>
-      <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)", marginTop: 4 }}>
         <div className="h-full rounded-full" style={{ width: "33%", background: accent }} />
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: "0.5px solid var(--hairline)",
+        }}
+        className="space-y-2"
+      >
         {monthNames.map((mn, mi) => {
           const days = daysIn(mi);
           const monthHls = hls.filter((h) => h.month === mi);
+          const today = new Date();
+          const isCurrentMonth =
+            today.getFullYear() === YEAR && today.getMonth() === mi;
           return (
-            <div key={mi} className="flex items-start gap-2">
+            <div
+              key={mi}
+              className="flex items-start gap-2"
+              style={{
+                padding: "4px 0",
+                background: isCurrentMonth ? `${accent}0F` : "transparent",
+                borderRadius: 6,
+                marginLeft: -4,
+                marginRight: -4,
+                paddingLeft: 4,
+                paddingRight: 4,
+              }}
+            >
               <button
                 onClick={() => onOpenMonth?.(YEAR, mi)}
                 className="sticky w-9 pt-1 text-left active:scale-95"
                 style={{
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: isCurrentMonth ? 800 : 600,
                   letterSpacing: "-0.224px",
                   background: "transparent",
                   border: 0,
                   cursor: onOpenMonth ? "pointer" : "default",
-                  color: "var(--text-primary)",
+                  color: isCurrentMonth ? accent : "var(--text-primary)",
                   fontFamily: "inherit",
                   padding: 0,
                 }}
@@ -139,9 +169,9 @@ export function YearView({
               >
                 {mn}
               </button>
-              <div className="flex-1 overflow-x-auto">
+              <div className="flex-1 min-w-0">
                 <div
-                  className="flex min-w-max"
+                  className="flex w-full relative"
                   style={{ touchAction: "none", userSelect: "none" }}
                   onPointerDown={(ev) => {
                     const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
@@ -189,29 +219,64 @@ export function YearView({
                       drag.month === mi &&
                       day >= Math.min(drag.a, drag.b) &&
                       day <= Math.max(drag.a, drag.b);
+                    // 가이드 라인 (5/10/15/20/25, 진하기 차등)
+                    const isMidGuide = day === 15;
+                    const isMinorGuide = day % 5 === 0 && !isMidGuide;
                     return (
                       <div
                         key={di}
                         data-yday={day}
                         className="flex flex-col items-center justify-start"
                         style={{
-                          width: 9,
-                          paddingRight: 1,
-                          borderRight: day < days ? "0.5px solid var(--hairline)" : "none",
+                          width: `${100 / 31}%`,
+                          minWidth: 0,
+                          boxSizing: "border-box",
+                          borderRight: isMidGuide
+                            ? "0.5px dashed rgba(0,0,0,0.12)"
+                            : isMinorGuide
+                            ? "0.5px dashed rgba(0,0,0,0.05)"
+                            : "none",
                           background: inDrag ? `${accent}22` : "transparent",
+                          paddingTop: 2,
+                          paddingBottom: 2,
                         }}
                       >
-                        <div style={{ fontSize: 8, color: "var(--text-muted)", lineHeight: 1 }}>
-                          {day % 5 === 0 || day === 1 ? day : ""}
+                        <div
+                          style={{
+                            fontSize: 8,
+                            color: "var(--text-muted)",
+                            lineHeight: 1,
+                            height: 9,
+                          }}
+                        >
+                          {day === 1 || day % 5 === 0 ? day : ""}
                         </div>
-                        <div className="mt-[2px] w-full flex flex-col gap-[1px]">
+                        <div
+                          className="mt-[2px] w-full flex flex-col"
+                          style={{ gap: 2, paddingLeft: 1, paddingRight: 1 }}
+                        >
                           {dayHls.length > 0 ? (
                             dayHls.map((h) => (
-                              <div key={h.id} style={{ height: 6, background: h.color, borderRadius: 1 }} />
+                              <div
+                                key={h.id}
+                                style={{
+                                  height: 8,
+                                  background: h.color,
+                                  borderTopLeftRadius: day === h.start ? 3 : 0,
+                                  borderBottomLeftRadius: day === h.start ? 3 : 0,
+                                  borderTopRightRadius: day === h.end ? 3 : 0,
+                                  borderBottomRightRadius: day === h.end ? 3 : 0,
+                                }}
+                              />
                             ))
                           ) : (
                             <div
-                              style={{ height: 6, background: "var(--bg-tertiary)", borderRadius: 1, opacity: 0.4 }}
+                              style={{
+                                height: 8,
+                                background: "var(--bg-tertiary)",
+                                borderRadius: 2,
+                                opacity: 0.35,
+                              }}
                             />
                           )}
                         </div>

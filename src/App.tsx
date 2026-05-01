@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Settings as SettingsIcon, Calendar, CalendarDays, Target,
+  Settings as SettingsIcon, Menu as MenuIcon, Calendar, CalendarDays, Target,
   MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
   User as UserIcon, Users as UsersIcon,
 } from "lucide-react";
@@ -22,6 +22,9 @@ import { MandalaView } from "@/components/MandalaView";
 import { DiaryView } from "@/components/DiaryView";
 import { DailyFlipView } from "@/components/DailyFlipView";
 import { Settings } from "@/components/Settings";
+import { AppMenuSheet } from "@/components/shared/AppMenuSheet";
+import { NewEventModal, type NewEventInitial } from "@/components/shared/NewEventModal";
+import { CalendarScopeTabs, type ScopeKey } from "@/components/shared/CalendarScopeTabs";
 import { Splash } from "@/components/Splash";
 import { PlanSelect } from "@/components/PlanSelect";
 import { LogoLockup, LogoMark } from "@/components/Logo";
@@ -90,7 +93,7 @@ function computePlanStats({
 export default function App() {
   // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
-  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "blue");
+  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "mint");
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
   const [planKind, setPlanKind] = usePersistedState<"my" | "shared">("planKind", "my");
 
@@ -130,10 +133,20 @@ export default function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [newEventOpen, setNewEventOpen] = useState(false);
+  const [newEventInitial, setNewEventInitial] = useState<NewEventInitial | undefined>(undefined);
+  const openNewEvent = (init?: NewEventInitial) => {
+    setNewEventInitial(init);
+    setNewEventOpen(true);
+  };
   const [stage, setStage] = useState<Stage>("splash");
   // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
   const [splashMounted, setSplashMounted] = useState(true);
   const [sharedEvents, setSharedEvents] = useState<SharedEvent[]>(initialSharedEvents);
+  const handleAddEvent = (e: Omit<SharedEvent, "id">) => {
+    setSharedEvents((prev) => [...prev, { ...e, id: Date.now() }]);
+  };
 
   // splash-mode 클래스 — splash가 시각적으로 가리고 있을 때만 검정 강제
   // splashLeaving (페이드 아웃 중) 시점부터는 클래스를 제거해서 그 아래 PlanSelect가 자연스럽게 드러남
@@ -211,7 +224,7 @@ export default function App() {
     return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   }, [theme]);
 
-  const accent = accents[accentKey];
+  const accent = accents[accentKey] ?? accents.mint;
 
   const cssVars: Record<string, string> = isDark
     ? {
@@ -441,6 +454,7 @@ export default function App() {
             setScreen("daily");
             setMoreOpen(false);
           }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: true })}
         />
       );
       case "year": return (
@@ -454,6 +468,7 @@ export default function App() {
             setScreen("month");
             setMoreOpen(false);
           }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: 1, allDay: true })}
         />
       );
       case "week": return <WeekView accent={accent} planKind={planKind} />;
@@ -470,6 +485,7 @@ export default function App() {
           day={calDay}
           onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
           onBack={() => { setScreen("month"); setMoreOpen(false); }}
+          onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: false })}
         />
       );
     }
@@ -540,7 +556,7 @@ export default function App() {
           }}
         >
           {/* 좌측: 로고 (커진 사이즈) */}
-          <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
+          <LogoLockup color="#444444" accent={accent} size={32} />
 
           {/* 우측: 플랜 토글 + 설정 */}
           <div className="flex items-center gap-2 shrink-0">
@@ -594,10 +610,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* 설정 */}
+            {/* 햄버거 메뉴 */}
             <button
-              onClick={() => setSettingsOpen(true)}
-              aria-label="설정"
+              onClick={() => setMenuOpen(true)}
+              aria-label="메뉴"
               style={{
                 width: 32, height: 32,
                 display: "grid", placeItems: "center",
@@ -605,7 +621,7 @@ export default function App() {
                 color: "var(--text-primary)",
               }}
             >
-              <SettingsIcon size={20} strokeWidth={1.5} />
+              <MenuIcon size={22} strokeWidth={1.8} />
             </button>
           </div>
         </div>
@@ -621,6 +637,20 @@ export default function App() {
           }}
           key={planKind + screen}
         >
+          {/* 캘린더 계층 + 10분 플래너 — 상단 스코프 탭 (연/월/일/10분) */}
+          {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
+            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
+              <CalendarScopeTabs
+                accent={accent}
+                active={screen as ScopeKey}
+                onChange={(k) => {
+                  setScreen(k as Screen);
+                  setMoreOpen(false);
+                }}
+              />
+            </div>
+          )}
+
           {/* 화면 전환 애니메이션 wrapper — 진입 방향에 따라 슬라이드/페이드/줌 */}
           <div className={transitionClass} key={screen}>
             {renderScreen()}
@@ -717,6 +747,30 @@ export default function App() {
             onDone={() => setSplashMounted(false)}
           />
         )}
+
+        {/* 신규 일정 모달 */}
+        <NewEventModal
+          open={newEventOpen}
+          onClose={() => setNewEventOpen(false)}
+          onSave={handleAddEvent}
+          initial={newEventInitial}
+          accent={accent}
+        />
+
+        {/* 햄버거 메뉴 시트 */}
+        <AppMenuSheet
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          accent={accent}
+          onNavigate={(s) => {
+            setScreen(s as Screen);
+            setMoreOpen(false);
+          }}
+          onOpenSettings={() => {
+            setMenuOpen(false);
+            setSettingsOpen(true);
+          }}
+        />
 
         {/* 설정 */}
         <Settings

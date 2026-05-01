@@ -66,7 +66,7 @@ export function PlanSelect({
           flexShrink: 0,
         }}
       >
-        <LogoLockup color="var(--text-primary)" accent={accent} size={28} />
+        <LogoLockup color="#444444" accent={accent} size={32} />
         <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>
           {dateLabel}
         </div>

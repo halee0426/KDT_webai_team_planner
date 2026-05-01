@@ -22,7 +22,7 @@ export function Settings({
   aiOn: boolean;
   setAiOn: (v: boolean) => void;
 }) {
-  const accent = accents[accentKey];
+  const accent = accents[accentKey] ?? accents.mint;
   if (!open) return null;
 
   return (

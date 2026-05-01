@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Maximize2 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
+import { TYPE } from "@/styles/typography";
 
 export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: "my" | "shared" }) {
   const [cells, setCells] = useState<string[]>(() => {
@@ -232,16 +233,46 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   }
 
   return (
-    <div className="px-4 pt-4 pb-32">
-      <div className="flex items-start justify-between">
+    <div className="px-4 pb-32" style={{ paddingTop: 24 }}>
+      {/* 헤더 섹션 — 한 묶음 */}
+      <div
+        className="flex items-end justify-between"
+        style={{
+          marginBottom: 24,
+          paddingBottom: 16,
+          borderBottom: "0.5px solid var(--hairline)",
+        }}
+      >
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>만다라트</div>
-          <div style={{ fontSize: 13 }} className="text-[var(--text-secondary)] mt-1">
+          <div style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+            만다라트
+          </div>
+          <div
+            style={{
+              ...TYPE.bodySmall,
+              color: "var(--text-secondary)",
+              marginTop: 6,
+            }}
+          >
             중앙 핵심 목표 → 8개 세부 목표 → 각 실행 계획
           </div>
         </div>
-        <button onClick={reset} className="flex items-center gap-1" style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          <RotateCcw size={14} /> 초기화
+        <button
+          onClick={reset}
+          className="flex items-center gap-1 active:scale-95"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--text-muted)",
+            background: "var(--bg-tertiary)",
+            border: 0,
+            cursor: "pointer",
+            padding: "6px 12px",
+            borderRadius: 999,
+            fontFamily: "inherit",
+          }}
+        >
+          <RotateCcw size={12} /> 초기화
         </button>
       </div>
 
