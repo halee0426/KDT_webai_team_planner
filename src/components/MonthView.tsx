@@ -675,7 +675,7 @@ export function MonthView({
           const BOTTOM_OFFSET = 6;
           // 같은 plan(id)이 여러 행에 걸쳐 있을 때, 모든 segment가 같은 시각적 흐름으로 보이도록
           // plan id별로 통과하는 모든 셀의 max content를 미리 계산
-          const planMaxItems = new Map<string, number>();
+          const planMaxItems = new Map<number, number>();
           for (const s of placed) {
             let m = planMaxItems.get(s.id) ?? 0;
             for (let col = s.startCol; col <= s.endCol; col++) {
