@@ -61,10 +61,27 @@ export function useSharedEventsSync(
   const debounceTimerRef = useRef<number | null>(null);
 
   // 로그인 상태 변화 → Firestore 에서 로드 (한 uid 당 1회)
+  // 로그아웃 (이전에 로그인했던 uid → null) 감지 시 로컬 캐시 + state 초기화
   useEffect(() => {
     if (!isFirebaseConfigured) return; // 게스트 모드 영구
     if (!uid) {
-      lastLoadedUidRef.current = null;
+      // lastLoadedUidRef 가 non-null 이었다가 null 이 된 경우만 로그아웃으로 간주
+      // (첫 마운트에서 인증 미확정으로 uid 가 null 인 게스트 케이스는 제외)
+      if (lastLoadedUidRef.current !== null) {
+        lastLoadedUidRef.current = null;
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+        // 진행 중인 Firestore 저장 debounce 취소 — 로그아웃 후 이전 uid 로 저장되지 않도록
+        if (debounceTimerRef.current !== null) {
+          window.clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+        eventsRef.current = [];
+        setEventsState([]);
+      }
       return;
     }
     if (lastLoadedUidRef.current === uid) return;
