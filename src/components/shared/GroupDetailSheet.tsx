@@ -12,6 +12,7 @@ import {
   renameGroup,
 } from "@/lib/firebase/groupsAdapter";
 import { MAX_GROUP_MEMBERS } from "@/types/group";
+import { MemberAvatar } from "./MemberAvatar";
 
 export function GroupDetailSheet({
   open,
@@ -367,6 +368,7 @@ export function GroupDetailSheet({
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {group.memberUids.map((memberUid) => {
               const memberName = group.memberNames[memberUid] || "알 수 없음";
+              const memberPhoto = group.memberPhotos[memberUid];
               const isMe = memberUid === user.uid;
               const memberIsOwner = memberUid === group.ownerUid;
               return (
@@ -381,16 +383,14 @@ export function GroupDetailSheet({
                     borderRadius: 10,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 30, height: 30, borderRadius: 999,
-                      background: `${accent}26`, color: accent,
-                      display: "grid", placeItems: "center",
-                      fontSize: 12, fontWeight: 700, flexShrink: 0,
-                    }}
-                  >
-                    {memberName.trim().charAt(0).toUpperCase()}
-                  </div>
+                  <MemberAvatar
+                    name={memberName}
+                    photoURL={memberPhoto}
+                    size={36}
+                    accent={accent}
+                    ring={isMe}
+                    ringBg="var(--bg-secondary)"
+                  />
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
                     {memberName}
                     {isMe && <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: 6 }}>(나)</span>}

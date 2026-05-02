@@ -8,6 +8,7 @@ import { useUserStore } from "@/store/userStore";
 import { useMyGroups } from "@/hooks/useMyGroups";
 import { createGroup, joinByCode } from "@/lib/firebase/groupsAdapter";
 import type { Group } from "@/types/group";
+import { MemberAvatarStack, membersFromGroup } from "./MemberAvatar";
 
 type Tab = "list" | "create" | "join";
 
@@ -51,7 +52,7 @@ export function GroupSheet({
     setBusy(true);
     try {
       const ownerName = user.displayName || user.email || "이름없음";
-      const g = await createGroup(user.uid, ownerName, trimmed);
+      const g = await createGroup(user.uid, ownerName, user.photoURL, trimmed);
       setName("");
       setTab("list");
       onSelectGroup(g.id);
@@ -77,7 +78,7 @@ export function GroupSheet({
     setBusy(true);
     try {
       const displayName = user.displayName || user.email || "이름없음";
-      const g = await joinByCode(user.uid, displayName, trimmed);
+      const g = await joinByCode(user.uid, displayName, user.photoURL, trimmed);
       setCode("");
       setTab("list");
       onSelectGroup(g.id);
@@ -356,15 +357,14 @@ function GroupList({
                 fontFamily: "inherit",
               }}
             >
-              <div
-                style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: `${accent}26`, color: accent,
-                  display: "grid", placeItems: "center", flexShrink: 0,
-                }}
-              >
-                <UsersIcon size={18} strokeWidth={1.8} />
-              </div>
+              <MemberAvatarStack
+                members={membersFromGroup(g)}
+                size={28}
+                max={4}
+                accent={accent}
+                currentUid={currentUid}
+                ringBg="var(--bg-secondary)"
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{

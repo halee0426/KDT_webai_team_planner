@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, User as UserIcon, Users as UsersIcon, Crown } from "lucide-react";
 import type { Group } from "@/types/group";
+import { MemberAvatarStack, membersFromGroup } from "./MemberAvatar";
 
 export function GroupSelector({
   accent,
@@ -106,7 +107,7 @@ export function GroupSelector({
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label="그룹 선택"
-          className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
+          className="relative flex items-center justify-center gap-1 px-2 rounded-full active:scale-[0.97] transition-transform"
           style={{
             fontSize: 12,
             fontWeight: !isMy ? 600 : 500,
@@ -115,11 +116,22 @@ export function GroupSelector({
             border: 0,
             background: "transparent",
             cursor: "pointer",
-            maxWidth: 100,
+            maxWidth: 130,
             overflow: "hidden",
           }}
         >
-          <UsersIcon size={12} strokeWidth={2} />
+          {!isMy && activeGroup ? (
+            <MemberAvatarStack
+              members={membersFromGroup(activeGroup)}
+              size={16}
+              max={2}
+              accent={accent}
+              currentUid={currentUid}
+              ringBg="var(--bg-elevated)"
+            />
+          ) : (
+            <UsersIcon size={12} strokeWidth={2} />
+          )}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {isMy ? "그룹" : activeGroupName}
           </span>
@@ -168,7 +180,14 @@ export function GroupSelector({
                   fontFamily: "inherit",
                 }}
               >
-                <UsersIcon size={14} color={accent} strokeWidth={1.8} />
+                <MemberAvatarStack
+                  members={membersFromGroup(g)}
+                  size={20}
+                  max={3}
+                  accent={accent}
+                  currentUid={currentUid}
+                  ringBg={isActive ? `color-mix(in srgb, ${accent} 8%, var(--bg-elevated))` : "var(--bg-elevated)"}
+                />
                 <div
                   style={{
                     flex: 1,
