@@ -25,6 +25,10 @@ function groupFromDoc(id: string, data: any): Group {
       data.memberNames && typeof data.memberNames === 'object'
         ? data.memberNames
         : {},
+    memberPhotos:
+      data.memberPhotos && typeof data.memberPhotos === 'object'
+        ? data.memberPhotos
+        : {},
     inviteCode: String(data.inviteCode ?? ''),
     createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
   };

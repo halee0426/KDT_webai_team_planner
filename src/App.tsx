@@ -283,7 +283,7 @@ export default function App() {
     if (claimedRef.current === user.uid) return;
     claimedRef.current = user.uid;
     const displayName = user.displayName || user.email || "이름없음";
-    claimPendingInvites(user.uid, displayName, user.email).catch((err) => {
+    claimPendingInvites(user.uid, displayName, user.photoURL, user.email).catch((err) => {
       console.warn("pending invites 처리 실패:", err);
     });
   }, [user]);

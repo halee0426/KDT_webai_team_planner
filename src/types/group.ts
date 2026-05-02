@@ -15,6 +15,8 @@ export type Group = {
   ownerName: string;
   memberUids: string[];
   memberNames: Record<string, string>;
+  /** uid → photoURL. 사진이 없는 멤버는 키 자체가 없음 */
+  memberPhotos: Record<string, string>;
   inviteCode: string;
   createdAt: number;
 };

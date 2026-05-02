@@ -52,6 +52,11 @@ function groupFromDoc(id: string, data: any): Group {
       data.memberNames && typeof data.memberNames === 'object'
         ? data.memberNames
         : {},
+    // memberPhotos 는 Phase 6 신규 — 기존 그룹 (필드 없음) 호환을 위해 빈 객체로 fallback
+    memberPhotos:
+      data.memberPhotos && typeof data.memberPhotos === 'object'
+        ? data.memberPhotos
+        : {},
     inviteCode: String(data.inviteCode ?? ''),
     createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
   };
@@ -61,6 +66,7 @@ function groupFromDoc(id: string, data: any): Group {
 export async function createGroup(
   uid: string,
   ownerName: string,
+  ownerPhotoURL: string | undefined,
   name: string,
 ): Promise<Group> {
   // 코드 충돌 시 최대 5회 재시도
@@ -79,12 +85,16 @@ export async function createGroup(
   const groupId = groupRef.id;
   const createdAt = Date.now();
 
+  const memberPhotos: Record<string, string> = {};
+  if (ownerPhotoURL) memberPhotos[uid] = ownerPhotoURL;
+
   const data = {
     name,
     ownerUid: uid,
     ownerName,
     memberUids: [uid],
     memberNames: { [uid]: ownerName },
+    memberPhotos,
     inviteCode,
     createdAt,
   };
@@ -123,48 +133,59 @@ export async function listMyGroups(uid: string): Promise<Group[]> {
 export async function joinByCode(
   uid: string,
   displayName: string,
+  photoURL: string | undefined,
   rawCode: string,
 ): Promise<Group> {
   const code = rawCode.trim().toUpperCase();
+  // 1. 초대 코드 조회 (invites 룰: 인증 사용자 누구나 read OK)
   const inviteSnap = await getDoc(doc(db, 'invites', code));
   if (!inviteSnap.exists()) throw new Error('유효하지 않은 초대 코드입니다');
 
   const { groupId } = inviteSnap.data() as { groupId: string };
   const groupRef = doc(db, 'groups', groupId);
+
+  // 2. 비멤버 상태에서는 groups read 가 룰에 막힘 → 바로 update 시도
+  //    update 룰의 "비멤버가 자기 자신 추가" 분기 활용
+  //    실패 시 (이미 멤버 등) catch 로 분기 처리
+  try {
+    const updatePayload: Record<string, unknown> = {
+      memberUids: arrayUnion(uid),
+      [`memberNames.${uid}`]: displayName,
+    };
+    if (photoURL) updatePayload[`memberPhotos.${uid}`] = photoURL;
+
+    const batch = writeBatch(db);
+    batch.update(groupRef, updatePayload);
+    batch.set(doc(db, 'users', uid, 'myGroups', groupId), {
+      joinedAt: Date.now(),
+    });
+    await batch.commit();
+  } catch (e: any) {
+    // permission-denied 면 정원 초과거나 이미 멤버일 가능성
+    // 멤버라면 다시 read 가능 → 그룹 정보 가져오기
+    const groupSnap = await getDoc(groupRef).catch(() => null);
+    if (groupSnap?.exists()) {
+      const g = groupFromDoc(groupSnap.id, groupSnap.data());
+      if (g.memberUids.includes(uid)) {
+        // 이미 멤버 — 인덱스만 보정 후 반환
+        await setDoc(
+          doc(db, 'users', uid, 'myGroups', groupId),
+          { joinedAt: Date.now() },
+          { merge: true },
+        );
+        return g;
+      }
+      if (g.memberUids.length >= MAX_GROUP_MEMBERS) {
+        throw new Error(`그룹 인원이 최대(${MAX_GROUP_MEMBERS}명)에 도달했습니다`);
+      }
+    }
+    throw e;
+  }
+
+  // 3. 가입 성공 후 그룹 본체 read (이제 멤버이므로 룰 통과)
   const groupSnap = await getDoc(groupRef);
   if (!groupSnap.exists()) throw new Error('그룹을 찾을 수 없습니다');
-
-  const group = groupFromDoc(groupSnap.id, groupSnap.data());
-
-  if (group.memberUids.includes(uid)) {
-    // 이미 멤버 — 멱등 처리: 인덱스만 보정
-    await setDoc(
-      doc(db, 'users', uid, 'myGroups', groupId),
-      { joinedAt: Date.now() },
-      { merge: true },
-    );
-    return group;
-  }
-
-  if (group.memberUids.length >= MAX_GROUP_MEMBERS) {
-    throw new Error(`그룹 인원이 최대(${MAX_GROUP_MEMBERS}명)에 도달했습니다`);
-  }
-
-  const batch = writeBatch(db);
-  batch.update(groupRef, {
-    memberUids: arrayUnion(uid),
-    [`memberNames.${uid}`]: displayName,
-  });
-  batch.set(doc(db, 'users', uid, 'myGroups', groupId), {
-    joinedAt: Date.now(),
-  });
-  await batch.commit();
-
-  return {
-    ...group,
-    memberUids: [...group.memberUids, uid],
-    memberNames: { ...group.memberNames, [uid]: displayName },
-  };
+  return groupFromDoc(groupSnap.id, groupSnap.data());
 }
 
 /** 그룹 나가기 — owner 면 deleteGroup 호출, 일반 멤버면 멤버 목록에서 제거 */
@@ -186,6 +207,7 @@ export async function leaveGroup(uid: string, groupId: string): Promise<void> {
   await updateDoc(groupRef, {
     memberUids: arrayRemove(uid),
     [`memberNames.${uid}`]: deleteField(),
+    [`memberPhotos.${uid}`]: deleteField(),
   });
   await deleteDoc(doc(db, 'users', uid, 'myGroups', groupId)).catch(() => {});
 }
@@ -271,6 +293,7 @@ export async function inviteByEmail(
 export async function claimPendingInvites(
   uid: string,
   displayName: string,
+  photoURL: string | undefined,
   email: string | null | undefined,
 ): Promise<Group[]> {
   if (!email) return [];
@@ -287,7 +310,7 @@ export async function claimPendingInvites(
       continue;
     }
     try {
-      const g = await joinByCode(uid, displayName, code);
+      const g = await joinByCode(uid, displayName, photoURL, code);
       joined.push(g);
     } catch (err) {
       // 그룹 사라짐 / 인원 초과 — 무시하고 초대 정리
