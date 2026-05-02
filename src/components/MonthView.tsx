@@ -17,7 +17,7 @@ export function MonthView({
   onAdd,
 }: {
   accent: string;
-  planKind?: "my" | "shared";
+  planKind?: string;
   events: SharedEvent[];
   onEventsChange: (e: SharedEvent[]) => void;
   /** 외부에서 전달되는 표시 연/월 — 있으면 그 값 사용, 없으면 내부 상태 fallback */
@@ -33,7 +33,7 @@ export function MonthView({
   onAdd?: () => void;
 }) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
-  const [innerMonth, setInnerMonth] = useState(planKind === "shared" ? 4 : 3);
+  const [innerMonth, setInnerMonth] = useState(planKind !== "my" ? 4 : 3);
   const [innerYear, setInnerYear] = useState(2026);
   const month = monthProp ?? innerMonth;
   const year = yearProp ?? innerYear;
@@ -43,7 +43,7 @@ export function MonthView({
     else setInnerMonth(next);
   };
   void setInnerYear;
-  const [selected, setSelected] = useState(planKind === "shared" ? 5 : 29);
+  const [selected, setSelected] = useState(planKind !== "my" ? 5 : 29);
   const today = 29;
 
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
@@ -374,6 +374,7 @@ export function MonthView({
               className="relative flex flex-col items-center"
               style={{
                 aspectRatio: "1 / 1.85",
+                minHeight: 120, // 좁은 화면에서도 트랙 두 개 + 콘텐츠 공간 보장 (MIN_BAR_TOP 42 + ITEM 16 + GAP 14 + BAR 11+3+11 + 여백)
                 paddingTop: 8,
                 paddingLeft: 2,
                 paddingRight: 2,
@@ -672,7 +673,6 @@ export function MonthView({
           const MIN_BAR_TOP = 42;
           const ITEM_H = 16; // 점+텍스트 한 줄 실제 높이
           const BAR_TOP_GAP = 14; // 점+텍스트 끝과 첫 막대 사이 여백
-          const BOTTOM_OFFSET = 6;
           // 같은 plan(id)이 여러 행에 걸쳐 있을 때, 모든 segment가 같은 시각적 흐름으로 보이도록
           // plan id별로 통과하는 모든 셀의 max content를 미리 계산
           const planMaxItems = new Map<number, number>();
@@ -693,11 +693,9 @@ export function MonthView({
                 // 같은 plan의 모든 segment가 공유하는 max content 사용 (행 통일)
                 const segMaxItems = planMaxItems.get(s.id) ?? 0;
                 // 콘텐츠 기반 top — 같은 plan이면 segMaxItems 동일 → 모든 행에서 같은 위치
+                // bottom 캡 제거: 셀 minHeight 로 공간 보장 → 항상 contentBasedTop 사용 → 트랙 간격 일정
                 const contentBasedTop = MIN_BAR_TOP + segMaxItems * ITEM_H + (segMaxItems > 0 ? BAR_TOP_GAP : 0) + s.track * (BAR_H + BAR_GAP);
-                // bottom 기준 — 셀 하단에서 트랙 위치
-                const bottomBasedTop = `calc(${(s.row + 1) * rowHeightPct}% - ${BOTTOM_OFFSET + BAR_H + s.track * (BAR_H + BAR_GAP)}px)`;
-                // contentBasedTop 이 셀 height 안에 들어가면 그걸 사용, 아니면 bottom 기준
-                const finalTop = `min(calc(${s.row * rowHeightPct}% + ${contentBasedTop}px), ${bottomBasedTop})`;
+                const finalTop = `calc(${s.row * rowHeightPct}% + ${contentBasedTop}px)`;
                 return (
                   <div
                     key={`${s.id}-${i}`}

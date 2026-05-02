@@ -2,15 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Settings as SettingsIcon, Menu as MenuIcon, Calendar, CalendarDays, Target,
-  MoreHorizontal, Sun, BookOpen, Clock, Grid3x3,
-  User as UserIcon, Users as UsersIcon,
+  Menu as MenuIcon, Calendar, CalendarDays, Target,
+  MoreHorizontal, Sun, BookOpen, Clock,
 } from "lucide-react";
 import { accents, AccentKey } from "@/components/tokens";
 import {
   initialSharedEvents,
   initialMyTodos,
-  initialSharedTodos,
 } from "@/components/eventStore";
 import type { SharedEvent, Todo } from "@/components/eventStore";
 import { DayView } from "@/components/DayView";
@@ -32,9 +30,17 @@ import { PlanSelect } from "@/components/PlanSelect";
 import { LogoLockup, LogoMark } from "@/components/Logo";
 import { InsightGreeting, shouldShowInsightToday } from "@/components/shared/InsightGreeting";
 import { AIChatModal, type AIEvent } from "@/components/ai/AIChatModal";
+import { GroupSheet } from "@/components/shared/GroupSheet";
+import { GroupDetailSheet } from "@/components/shared/GroupDetailSheet";
+import { GroupSelector } from "@/components/shared/GroupSelector";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSharedEventsSync } from "@/hooks/useSharedEventsSync";
+import { useGroupEventsSync } from "@/hooks/useGroupEventsSync";
+import { useGroupTodosSync } from "@/hooks/useGroupTodosSync";
+import { useMyGroups } from "@/hooks/useMyGroups";
 import { useAuthSubscription } from "@/hooks/useAuth";
+import { useUserStore } from "@/store/userStore";
+import { claimPendingInvites } from "@/lib/firebase/groupsAdapter";
 
 type Theme = "light" | "dark" | "system";
 type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary" | "daily";
@@ -44,11 +50,11 @@ type Stage = "splash" | "select" | "app";
 function computePlanStats({
   sharedEvents,
   myTodos,
-  sharedTodos,
+  groupCount,
 }: {
   sharedEvents: SharedEvent[];
   myTodos: Todo[];
-  sharedTodos: Todo[];
+  groupCount: number;
 }) {
   const now = new Date();
   const y = now.getFullYear();
@@ -82,15 +88,14 @@ function computePlanStats({
 
   // 오늘 할일 (later=false인 것 = 오늘 분량)
   const todayMyTodoCount = myTodos.filter((t) => !t.later && !t.done).length;
-  const todaySharedTodoCount = sharedTodos.filter((t) => !t.later && !t.done).length;
 
   return {
     // 나의 플랜 카드용
     todayCount: todayEventCount + todayMyTodoCount,
     weekCount: weekEventCount,
-    // 공동 플랜 카드용
-    teamMembers: 4,            // TODO: 추후 Firebase 팀 데이터로 교체
-    teamWeekShared: weekEventCount + todaySharedTodoCount,
+    // 공동 플랜 카드용 — 가입한 그룹 수 (멤버 수는 그룹 진입 후 확인)
+    teamMembers: groupCount,
+    teamWeekShared: weekEventCount,
   };
 }
 
@@ -102,7 +107,19 @@ export default function App() {
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
   const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "mint");
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
-  const [planKind, setPlanKind] = usePersistedState<"my" | "shared">("planKind", "my");
+  // planKind: "my" 또는 groupId (string). 기존 "shared" 값은 그룹 모델 도입 전 유산이라 "my" 로 마이그레이션
+  const [planKindRaw, setPlanKind] = usePersistedState<string>("planKind", "my");
+  const planKind = planKindRaw === "shared" ? "my" : planKindRaw;
+  useEffect(() => {
+    if (planKindRaw === "shared") setPlanKind("my");
+  }, [planKindRaw, setPlanKind]);
+
+  // 활성 그룹 — planKind 가 "my" 가 아니면 그게 groupId
+  const activeGroupId = planKind === "my" ? null : planKind;
+
+  // 내 그룹 목록 + 로그인 사용자
+  const user = useUserStore((s) => s.user);
+  const { groups: myGroups } = useMyGroups();
 
   // 캘린더 계층 네비게이션 — 연력 → 달력 → 일력 사이 공통 focus (year/month/day)
   const todayObj = new Date();
@@ -143,6 +160,8 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
+  const [groupDetailId, setGroupDetailId] = useState<string | null>(null);
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [newEventInitial, setNewEventInitial] = useState<NewEventInitial | undefined>(undefined);
   const openNewEvent = (init?: NewEventInitial) => {
@@ -152,8 +171,15 @@ export default function App() {
   const [stage, setStage] = useState<Stage>("splash");
   // Splash 가 아직 마운트되어 있는지 (페이드 아웃 동안에도 true)
   const [splashMounted, setSplashMounted] = useState(true);
-  // sharedEvents — localStorage(게스트) + Firestore(로그인) 자동 동기화
-  const [sharedEvents, setSharedEvents] = useSharedEventsSync(initialSharedEvents);
+  // 내 일정 (planKind === "my") — localStorage(게스트) + Firestore(로그인) 자동 동기화
+  const [myEvents, setMyEvents] = useSharedEventsSync(initialSharedEvents);
+  // 그룹 일정 — 활성 그룹의 events 실시간 구독
+  const [groupEvents, setGroupEvents] = useGroupEventsSync(activeGroupId);
+
+  // 현재 활성 events / setter
+  const events = activeGroupId ? groupEvents : myEvents;
+  const setEvents = activeGroupId ? setGroupEvents : setMyEvents;
+
   const [editingEvent, setEditingEvent] = useState<SharedEvent | null>(null);
   const openEditEvent = (e: SharedEvent) => {
     setEditingEvent(e);
@@ -162,16 +188,16 @@ export default function App() {
   const handleAddEvent = (e: Omit<SharedEvent, "id">) => {
     if (editingEvent) {
       // 편집 모드 — 같은 id 유지하고 교체
-      setSharedEvents((prev) =>
+      setEvents((prev) =>
         prev.map((x) => (x.id === editingEvent.id ? { ...e, id: editingEvent.id } : x)),
       );
     } else {
-      setSharedEvents((prev) => [...prev, { ...e, id: Date.now() }]);
+      setEvents((prev) => [...prev, { ...e, id: Date.now() }]);
     }
     setEditingEvent(null);
   };
   const handleDeleteEvent = (id: number) => {
-    setSharedEvents((prev) => prev.filter((x) => x.id !== id));
+    setEvents((prev) => prev.filter((x) => x.id !== id));
     setEditingEvent(null);
   };
 
@@ -189,9 +215,14 @@ export default function App() {
     };
   }, [stage, splashMounted]);
 
-  // 🔒 todos — 영속화 (나의 플랜 / 공동 플랜 분리)
+  // 🔒 내 todos — 영속화 (planKind === "my" 일 때 사용)
   const [myTodos, setMyTodos] = usePersistedState<Todo[]>("myTodos", initialMyTodos);
-  const [sharedTodos, setSharedTodos] = usePersistedState<Todo[]>("sharedTodos", initialSharedTodos);
+  // 그룹 todos — 활성 그룹의 todos 실시간 구독
+  const [groupTodos, setGroupTodos] = useGroupTodosSync(activeGroupId);
+
+  // 현재 활성 todos / setter
+  const activeTodos = activeGroupId ? groupTodos : myTodos;
+  const setActiveTodos = activeGroupId ? setGroupTodos : setMyTodos;
 
   const [insightOpen, setInsightOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -235,7 +266,7 @@ export default function App() {
         endSlot,
       };
     });
-    setSharedEvents((prev) => [...prev, ...newEvents]);
+    setEvents((prev) => [...prev, ...newEvents]);
   };
 
   // 앱 진입(stage="app") + 개인 플랜일 때 인사이트 모달 표시 (오늘 닫지 않았다면)
@@ -244,6 +275,28 @@ export default function App() {
       setInsightOpen(true);
     }
   }, [stage, planKind]);
+
+  // 로그인 시 — 내 이메일로 온 대기 초대 자동 합류
+  const claimedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user || !user.email) return;
+    if (claimedRef.current === user.uid) return;
+    claimedRef.current = user.uid;
+    const displayName = user.displayName || user.email || "이름없음";
+    claimPendingInvites(user.uid, displayName, user.email).catch((err) => {
+      console.warn("pending invites 처리 실패:", err);
+    });
+  }, [user]);
+
+  // activeGroupId 가 더 이상 내 그룹에 없으면 (탈퇴/삭제됨) "my" 로 fallback
+  useEffect(() => {
+    if (planKind === "my") return;
+    // 그룹 목록 로딩 직후 빈 배열이 잠깐 있을 수 있음 — user 가 로그인 상태이고 myGroups 가 채워졌는데도 없으면 정리
+    if (!user) return;
+    if (myGroups.length === 0) return;
+    const stillExists = myGroups.some((g) => g.id === planKind);
+    if (!stillExists) setPlanKind("my");
+  }, [planKind, myGroups, user, setPlanKind]);
 
   const isDark = useMemo(() => {
     if (theme === "dark") return true;
@@ -462,16 +515,16 @@ export default function App() {
         <DayView
           accent={accent}
           planKind={planKind}
-          todos={planKind === "shared" ? sharedTodos : myTodos}
-          onTodosChange={planKind === "shared" ? setSharedTodos : setMyTodos}
+          todos={activeTodos}
+          onTodosChange={setActiveTodos}
         />
       );
       case "month": return (
         <MonthView
           accent={accent}
           planKind={planKind}
-          events={sharedEvents}
-          onEventsChange={setSharedEvents}
+          events={events}
+          onEventsChange={setEvents}
           year={calYear}
           month={calMonth}
           onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
@@ -487,8 +540,8 @@ export default function App() {
       case "year": return (
         <YearView
           accent={accent}
-          events={sharedEvents}
-          onEventsChange={setSharedEvents}
+          events={events}
+          onEventsChange={setEvents}
           year={calYear}
           onOpenMonth={(y, m) => {
             setCalYear(y); setCalMonth(m);
@@ -506,8 +559,8 @@ export default function App() {
       case "daily": return (
         <DailyFlipView
           accent={accent}
-          events={sharedEvents}
-          onEventsChange={setSharedEvents}
+          events={events}
+          onEventsChange={setEvents}
           year={calYear}
           month={calMonth}
           day={calDay}
@@ -587,57 +640,17 @@ export default function App() {
           {/* 좌측: 로고 (커진 사이즈) */}
           <LogoLockup color="#444444" accent={accent} size={32} />
 
-          {/* 우측: 플랜 토글 + 설정 */}
+          {/* 우측: 플랜 선택 (나의 / 그룹 드롭다운) + 메뉴 */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* 플랜 토글 (컴팩트 버전) */}
-            <div
-              className="relative flex p-0.5 rounded-full"
-              style={{ background: "var(--bg-tertiary)", height: 32 }}
-            >
-              <div
-                className="absolute top-0.5 bottom-0.5 rounded-full transition-all duration-300 ease-out"
-                style={{
-                  width: "calc(50% - 2px)",
-                  left: planKind === "my" ? 2 : "calc(50%)",
-                  background: "var(--bg-elevated)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                }}
-              />
-              <button
-                onClick={() => setPlanKind("my")}
-                aria-label="나의 플랜"
-                className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
-                style={{
-                  fontSize: 12,
-                  fontWeight: planKind === "my" ? 600 : 500,
-                  color: planKind === "my" ? accent : "var(--text-secondary)",
-                  letterSpacing: "-0.2px",
-                  border: 0,
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <UserIcon size={12} strokeWidth={2} />
-                나의
-              </button>
-              <button
-                onClick={() => setPlanKind("shared")}
-                aria-label="공동 플랜"
-                className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
-                style={{
-                  fontSize: 12,
-                  fontWeight: planKind === "shared" ? 600 : 500,
-                  color: planKind === "shared" ? accent : "var(--text-secondary)",
-                  letterSpacing: "-0.2px",
-                  border: 0,
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <UsersIcon size={12} strokeWidth={2} />
-                공동
-              </button>
-            </div>
+            <GroupSelector
+              accent={accent}
+              planKind={planKind}
+              groups={myGroups}
+              currentUid={user?.uid ?? null}
+              onSelectMy={() => setPlanKind("my")}
+              onSelectGroup={(gid) => setPlanKind(gid)}
+              onOpenGroupSheet={() => setGroupSheetOpen(true)}
+            />
 
             {/* 햄버거 메뉴 */}
             <button
@@ -756,11 +769,26 @@ export default function App() {
         {(stage === "select" || stage === "splash") && (
           <PlanSelect
             accent={accent}
-            stats={computePlanStats({ sharedEvents, myTodos, sharedTodos })}
-            recentPlanKind={planKind}
+            stats={computePlanStats({
+              sharedEvents: myEvents,
+              myTodos,
+              groupCount: myGroups.length,
+            })}
+            recentPlanKind={planKind === "my" ? "my" : "shared"}
             onSelect={(k) => {
-              setPlanKind(k);
-              setStage("app");
+              if (k === "my") {
+                setPlanKind("my");
+                setStage("app");
+              } else {
+                // "공동" 선택 — 그룹이 있으면 첫 그룹 진입, 없으면 그룹 시트 열어 안내
+                if (myGroups.length > 0) {
+                  setPlanKind(myGroups[0].id);
+                  setStage("app");
+                } else {
+                  setStage("app");
+                  setGroupSheetOpen(true);
+                }
+              }
             }}
             onOpenSettings={() => setSettingsOpen(true)}
           />
@@ -812,6 +840,10 @@ export default function App() {
             setMenuOpen(false);
             setAccountOpen(true);
           }}
+          onOpenGroups={() => {
+            setMenuOpen(false);
+            setGroupSheetOpen(true);
+          }}
         />
 
         {/* 로그인 / 회원가입 모달 */}
@@ -855,6 +887,29 @@ export default function App() {
           onSubmit={handleAISubmit}
           onSaveEvents={handleSaveAIEvents}
           accent={accent}
+        />
+
+        {/* 그룹 관리 시트 — 목록 / 새 그룹 / 코드로 참여 */}
+        <GroupSheet
+          open={groupSheetOpen}
+          onClose={() => setGroupSheetOpen(false)}
+          accent={accent}
+          onSelectGroup={(gid) => setPlanKind(gid)}
+          onOpenDetail={(gid) => {
+            setGroupDetailId(gid);
+          }}
+        />
+
+        {/* 그룹 상세 시트 — 이름 / 초대 코드 / 이메일 초대 / 멤버 / 나가기·삭제 */}
+        <GroupDetailSheet
+          open={groupDetailId !== null}
+          groupId={groupDetailId}
+          onClose={() => setGroupDetailId(null)}
+          accent={accent}
+          onAfterLeaveOrDelete={() => {
+            // 떠난 / 삭제한 그룹이 활성이라면 "my" 로 되돌림
+            if (planKind === groupDetailId) setPlanKind("my");
+          }}
         />
       </div>
     </div>

@@ -22,10 +22,10 @@ export function DiaryView({
   planKind = "my",
 }: {
   accent: string;
-  planKind?: "my" | "shared";
+  planKind?: string;
 }) {
   const seed: Entry[] =
-    planKind === "shared"
+    planKind !== "my"
       ? [
           { id: "2026-3-29", year: 2026, month: 3, day: 29, mood: "🥳", text: "팀 워크숍 후기 — 모두가 즐겁게 참여했다. 다음 분기 목표도 함께 정했다." },
           { id: "2026-3-27", year: 2026, month: 3, day: 27, mood: "😊", text: "지민이 공유한 시안 좋았다. 수아가 피드백을 정리해줬다." },

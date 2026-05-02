@@ -3,10 +3,10 @@ import { RotateCcw, Maximize2 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { TYPE } from "@/styles/typography";
 
-export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: "my" | "shared" }) {
+export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
   const [cells, setCells] = useState<string[]>(() => {
     const arr = Array(81).fill("");
-    arr[40] = planKind === "shared" ? "팀 목표" : "올해 목표";
+    arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
     return arr;
   });
 

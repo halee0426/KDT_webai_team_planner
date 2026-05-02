@@ -4,7 +4,7 @@ import { highlights } from "./tokens";
 
 type Block = { id: number; day: number; start: number; dur: number; title: string; c: string };
 
-export function WeekView({ accent, planKind = "my" }: { accent: string; planKind?: "my" | "shared" }) {
+export function WeekView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
   const days = ["월", "화", "수", "목", "금", "토", "일"];
   const dates = [27, 28, 29, 30, 1, 2, 3];
   const today = 2;
@@ -16,7 +16,7 @@ export function WeekView({ accent, planKind = "my" }: { accent: string; planKind
   const halfHours = Array.from({ length: 37 }, (_, i) => 6 + i * 0.5);
 
   const [blocks, setBlocks] = useState<Block[]>(
-    planKind === "shared"
+    planKind !== "my"
       ? [
           { id: 1, day: 1, start: 11, dur: 2, title: "팀 워크숍", c: highlights[3].color },
           { id: 2, day: 2, start: 16, dur: 1, title: "기획 싱크", c: highlights[1].color },

@@ -11,7 +11,7 @@ export function DayView({
   onTodosChange,
 }: {
   accent: string;
-  planKind?: "my" | "shared";
+  planKind?: string;
   todos: Todo[];
   onTodosChange: (todos: Todo[]) => void;
 }) {
@@ -32,7 +32,7 @@ export function DayView({
   const later = useMemo(() => todos.filter((t) => t.later), [todos]);
 
   const events =
-    planKind === "shared"
+    planKind !== "my"
       ? [
           { id: 1, time: "11:00 — 12:00", title: "팀 워크숍", loc: "라운지", hl: highlights[3].color },
           { id: 2, time: "16:00 — 17:00", title: "기획 싱크", loc: "줌", hl: highlights[1].color },
@@ -44,7 +44,7 @@ export function DayView({
 
   // 다가오는 일정 (오늘 이후 며칠 내)
   const upcoming =
-    planKind === "shared"
+    planKind !== "my"
       ? [
           { id: 11, when: "내일 (목)", time: "10:00 — 11:30", title: "스프린트 회고", loc: "회의실 B", hl: highlights[2].color },
           { id: 12, when: "5/2 (금)", time: "13:00", title: "분기 리뷰", loc: "본관 대회의실", hl: highlights[4].color },
@@ -101,9 +101,9 @@ export function DayView({
           }}
         >
           할일 {today.filter((t) => !t.done).length} · 일정 {events.length}
-          {planKind === "shared" && " · 멤버 4"}
+          {planKind !== "my" && " · 멤버 4"}
         </div>
-      {planKind === "shared" && (
+      {planKind !== "my" && (
         <div className="flex items-center gap-2 mt-3">
           {["지민", "수아", "현우", "나"].map((n, i) => (
             <div

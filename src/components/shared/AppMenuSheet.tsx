@@ -14,6 +14,7 @@ import {
   HelpCircle,
   LogIn,
   ChevronRight,
+  Users as UsersIcon,
 } from "lucide-react";
 import { useUserStore } from "@/store/userStore";
 
@@ -43,6 +44,7 @@ export function AppMenuSheet({
   onOpenSettings,
   onOpenAuth,
   onOpenAccount,
+  onOpenGroups,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +53,7 @@ export function AppMenuSheet({
   onOpenSettings: () => void;
   onOpenAuth?: () => void;
   onOpenAccount?: () => void;
+  onOpenGroups?: () => void;
 }) {
   const user = useUserStore((s) => s.user);
 
@@ -131,6 +134,17 @@ export function AppMenuSheet({
     {
       title: "기타",
       items: [
+        ...(user
+          ? [
+              {
+                key: "groups",
+                label: "그룹 관리",
+                desc: "공동 일정 · 6자리 코드 / 이메일 초대",
+                icon: UsersIcon,
+                onClick: () => onOpenGroups?.(),
+              },
+            ]
+          : []),
         {
           key: "settings",
           label: "설정",
