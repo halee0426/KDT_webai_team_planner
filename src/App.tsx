@@ -41,6 +41,7 @@ import { useMyGroups } from "@/hooks/useMyGroups";
 import { useAuthSubscription } from "@/hooks/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { claimPendingInvites } from "@/lib/firebase/groupsAdapter";
+import { askAI } from "@/lib/aiClient";
 
 type Theme = "light" | "dark" | "system";
 type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary" | "daily";
@@ -247,21 +248,28 @@ export default function App() {
   const [insightOpen, setInsightOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
 
-  // AI 자연어 입력 → 더미 응답 (나중에 OpenAI Edge Function으로 교체)
+  // AI 자연어 입력 → /api/ai/orchestrate 실제 호출
+  // 미인증 사용자는 차단 (안내 reply 만 반환), 그 외 에러는 메시지 그대로 표시
   const handleAISubmit = async (text: string): Promise<{ reply: string; events?: AIEvent[] }> => {
-    void text;
-    // 1초 후 가짜 일정 3개 반환
-    await new Promise((r) => setTimeout(r, 1200));
-    const todayY = 2026;
-    const todayM = 4; // 5월 (0-indexed)
-    return {
-      reply: "이렇게 짜봤어요! 확인해보세요.",
-      events: [
-        { id: `ai-${Date.now()}-1`, date: `${todayY}-0${todayM + 1}-05`, title: "출발 / 이동", startTime: "09:00", endTime: "11:00", color: "#0066cc" },
-        { id: `ai-${Date.now()}-2`, date: `${todayY}-0${todayM + 1}-05`, title: "현지 점심", startTime: "12:30", endTime: "14:00", color: "#FF9500" },
-        { id: `ai-${Date.now()}-3`, date: `${todayY}-0${todayM + 1}-06`, title: "주요 활동", startTime: "10:00", endTime: "13:00", color: "#34C759" },
-      ],
-    };
+    if (!user) {
+      return { reply: "로그인 후 하루온봇을 사용할 수 있어요." };
+    }
+    try {
+      const isGroup = !!activeGroupId;
+      return await askAI(text, {
+        scope: isGroup ? "group" : "personal",
+        groupId: isGroup ? activeGroupId : undefined,
+        groupName: activeGroup?.name ?? null,
+        personalEvents: isGroup ? undefined : myEvents,
+        personalTodos: isGroup ? undefined : myTodos,
+        groupEvents: isGroup ? groupEvents : undefined,
+        groupTodos: isGroup ? groupTodos : undefined,
+        currentScreen: screen,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "AI 호출 중 오류가 발생했어요.";
+      return { reply: message };
+    }
   };
 
   // AI가 만든 일정을 sharedEvents에 머지
