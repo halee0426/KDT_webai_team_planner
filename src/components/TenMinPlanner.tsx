@@ -115,15 +115,61 @@ export function TenMinPlanner({ accent }: { accent: string }) {
         </div>
 
         <div className="flex-1">
+          {/* 도움말 — 한 칸 = 10분 */}
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              color: "var(--text-muted)",
+              letterSpacing: "0.3px",
+              textTransform: "uppercase",
+              padding: "0 1px 6px",
+            }}
+          >
+            한 칸 = 10분 · 한 줄 = 1시간
+          </div>
           <div
             className="select-none"
             style={{ border: "0.5px solid var(--hairline)", borderRadius: 8, overflow: "hidden" }}
           >
+            {/* 헤더 행 — 분 단위 라벨 (00, 10, 20, 30, 40, 50) */}
+            <div className="flex" style={{ borderBottom: "0.5px solid var(--separator)", background: "var(--bg-secondary)" }}>
+              <div
+                className="flex items-center justify-center"
+                style={{
+                  width: 22,
+                  height: 16,
+                  fontSize: 8,
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.2px",
+                }}
+              >
+                시
+              </div>
+              {Array.from({ length: 6 }).map((_, s) => (
+                <div
+                  key={s}
+                  className="flex-1 flex items-center justify-center"
+                  style={{
+                    height: 16,
+                    fontSize: 8,
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    letterSpacing: "0.2px",
+                    borderLeft: "0.5px solid var(--hairline)",
+                  }}
+                >
+                  {s === 0 ? "00" : String(s * 10)}
+                </div>
+              ))}
+            </div>
+
             {hours.map((h) => (
               <div key={h} className="flex" style={{ borderBottom: "0.5px solid var(--hairline)" }}>
                 <div
                   className="flex items-center justify-center"
-                  style={{ width: 22, fontSize: 9, color: "var(--text-muted)", background: "var(--bg-secondary)" }}
+                  style={{ width: 22, fontSize: 9, fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-secondary)" }}
                 >
                   {String(h).padStart(2, "0")}
                 </div>
@@ -147,7 +193,10 @@ export function TenMinPlanner({ accent }: { accent: string }) {
                       style={{
                         height: 22,
                         background: color || "var(--bg-elevated)",
-                        borderLeft: "0.5px solid var(--hairline)",
+                        // 30분 경계 (3번째 칸 시작) 는 구분선 굵게
+                        borderLeft: s === 3
+                          ? "1px solid var(--separator)"
+                          : "0.5px solid var(--hairline)",
                       }}
                     />
                   );
