@@ -804,12 +804,23 @@ export default function App() {
               groupCount: myGroups.length,
             })}
             recentPlanKind={planKind === "my" ? "my" : "shared"}
+            groups={myGroups}
+            currentUid={user?.uid ?? null}
+            onSelectGroup={(gid) => {
+              setActivePlan(gid);
+              setStage("app");
+            }}
+            onOpenGroupManage={() => {
+              setStage("app");
+              setGroupSheetOpen(true);
+            }}
             onSelect={(k) => {
               if (k === "my") {
                 setPlanKind("my");
                 setStage("app");
               } else {
                 // "공동" 선택 — 그룹이 있으면 첫 그룹 진입, 없으면 그룹 시트 열어 안내
+                // (2개 이상이어도 첫 그룹 자동 활성화 — 사용자는 미니 카드로 다른 그룹 직접 선택 가능)
                 if (myGroups.length > 0) {
                   setActivePlan(myGroups[0].id);
                   setStage("app");

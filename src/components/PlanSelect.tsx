@@ -1,11 +1,15 @@
-// 플랜 선택 진입 화면 — 인사 헤더 + 가로 풀폭 카드 두 장
+// 플랜 선택 진입 화면 — 인사 헤더 + 가로 풀폭 카드 두 장 + 내 그룹 미니 카드
 //
 // props (App.tsx 호환 유지):
 //   accent: 사용자가 선택한 액센트 색상
 //   onSelect: (kind: "my" | "shared") => void
+//   groups: 내 그룹 목록 (공동 플랜 카드 아래 미니 카드로 표시)
 
 import { useMemo } from "react";
+import { Plus } from "lucide-react";
 import { LogoLockup } from "./Logo";
+import { MemberAvatarStack, membersFromGroup } from "./shared/MemberAvatar";
+import type { Group } from "@/types/group";
 
 type PlanKind = "my" | "shared";
 
@@ -20,6 +24,14 @@ export type PlanSelectProps = {
     teamWeekShared?: number;
   };
   onSelect: (kind: PlanKind) => void;
+  /** 내 그룹 목록 — 공동 플랜 카드 아래 미니 카드로 노출 */
+  groups?: Group[];
+  /** 본인 표시용 — MemberAvatarStack 의 ring */
+  currentUid?: string | null;
+  /** 미니 카드 직접 클릭 → 그 그룹 활성화 + 앱 진입 */
+  onSelectGroup?: (groupId: string) => void;
+  /** "+ 그룹 추가 / 관리" 버튼 → 그룹 관리 시트 열기 */
+  onOpenGroupManage?: () => void;
   /** @deprecated — 더 이상 사용하지 않지만 App.tsx 호환을 위해 유지 */
   onOpenSettings?: () => void;
   /** @deprecated */
@@ -32,6 +44,10 @@ export function PlanSelect({
   recentPlanKind = "my",
   stats,
   onSelect,
+  groups,
+  currentUid = null,
+  onSelectGroup,
+  onOpenGroupManage,
 }: PlanSelectProps) {
   // accent 색상의 10% 톤 (배경) — RGB 변환 후 alpha 합성 대신 hex+1A 사용
   const accentSoft = `${accent}1A`;     // ~10% alpha
@@ -115,6 +131,67 @@ export function PlanSelect({
           stats={stats}
           onClick={() => onSelect("shared")}
         />
+
+        {/* 내 그룹 목록 — 공동 플랜 카드 아래 미니 카드. 그룹 0개면 영역 자체 미표시 */}
+        {groups && groups.length > 0 && (
+          <div
+            style={{
+              marginTop: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              paddingLeft: 4,
+              paddingRight: 4,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "var(--text-muted)",
+                letterSpacing: "0.3px",
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginBottom: 2,
+              }}
+            >
+              내 그룹 {groups.length}개
+            </div>
+            {groups.map((g) => (
+              <MiniGroupCard
+                key={g.id}
+                group={g}
+                accent={accent}
+                currentUid={currentUid}
+                onClick={() => onSelectGroup?.(g.id)}
+              />
+            ))}
+            {onOpenGroupManage && (
+              <button
+                onClick={onOpenGroupManage}
+                className="active:scale-[0.98]"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "transparent",
+                  border: "1px dashed var(--separator)",
+                  color: "var(--text-muted)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Plus size={12} strokeWidth={2} />
+                그룹 추가 / 관리
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
         <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
@@ -245,6 +322,74 @@ function BigPlanCard({
         </div>
       </div>
       <ChevronRight size={16} color="var(--text-muted)" />
+    </button>
+  );
+}
+
+function MiniGroupCard({
+  group,
+  accent,
+  currentUid,
+  onClick,
+}: {
+  group: Group;
+  accent: string;
+  currentUid?: string | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="active:scale-[0.98] transition-transform"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "var(--bg-elevated)",
+        border: "0.5px solid var(--hairline)",
+        boxShadow: "var(--card-shadow)",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        textAlign: "left",
+        width: "100%",
+      }}
+    >
+      <MemberAvatarStack
+        members={membersFromGroup(group)}
+        size={26}
+        max={3}
+        accent={accent}
+        currentUid={currentUid}
+        ringBg="var(--bg-elevated)"
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.2px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {group.name}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            marginTop: 2,
+            letterSpacing: "-0.1px",
+          }}
+        >
+          멤버 {group.memberUids.length}명
+        </div>
+      </div>
+      <ChevronRight size={14} color="var(--text-muted)" />
     </button>
   );
 }
