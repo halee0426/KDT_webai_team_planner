@@ -1,8 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Brush, Eraser, Plus } from "lucide-react";
 import { highlights } from "./tokens";
 
 type Task = { id: number; name: string; color: string };
+/** 드래그 페인트 모드 — 시작 셀 상태로 결정 (있으면 erase, 없으면 fill) */
+type PaintMode = "fill" | "erase" | null;
 
 export function TenMinPlanner({ accent }: { accent: string }) {
   const [tasks, setTasks] = useState<Task[]>([
@@ -14,17 +16,57 @@ export function TenMinPlanner({ accent }: { accent: string }) {
   const [mode, setMode] = useState<"brush" | "eraser">("brush");
   const [cells, setCells] = useState<Record<string, number>>({}); // key h-s -> taskId
   const dragging = useRef(false);
+  const paintModeRef = useRef<PaintMode>(null);
 
   const hours = Array.from({ length: 18 }, (_, i) => i + 6);
 
-  const paint = (h: number, s: number) => {
+  // window pointerup — 드래그 종료 시 모드 초기화 (셀 밖에서 떼도 정상 종료)
+  useEffect(() => {
+    const onUp = () => {
+      dragging.current = false;
+      paintModeRef.current = null;
+    };
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
+  /** 단일 셀 적용 — 명시적 모드 인자 받음 (드래그 enter 시 시작 모드 유지) */
+  const applyCell = (h: number, s: number, paintMode: PaintMode) => {
     const key = `${h}-${s}`;
     setCells((prev) => {
       const next = { ...prev };
-      if (mode === "eraser") delete next[key];
-      else if (activeId) next[key] = activeId;
+      if (paintMode === "erase") {
+        if (!(key in next)) return prev;
+        delete next[key];
+      } else if (paintMode === "fill" && activeId) {
+        if (next[key] === activeId) return prev;
+        next[key] = activeId;
+      } else {
+        return prev;
+      }
       return next;
     });
+  };
+
+  /** 시작 셀 — toolbar 의 brush/eraser 보다 시작 셀 상태가 우선
+   *  (있는 셀 → erase, 빈 셀 → fill). 단, eraser 모드면 강제 erase. */
+  const startPaint = (h: number, s: number) => {
+    const key = `${h}-${s}`;
+    const occupied = key in cells;
+    const startMode: PaintMode =
+      mode === "eraser" ? "erase" : occupied ? "erase" : "fill";
+    paintModeRef.current = startMode;
+    dragging.current = true;
+    applyCell(h, s, startMode);
+  };
+
+  const enterPaint = (h: number, s: number) => {
+    if (!dragging.current) return;
+    applyCell(h, s, paintModeRef.current);
   };
 
   const minutesFor = (id: number) =>
@@ -40,12 +82,7 @@ export function TenMinPlanner({ accent }: { accent: string }) {
   };
 
   return (
-    <div
-      className="px-3 pt-4 pb-32"
-      onMouseUp={() => (dragging.current = false)}
-      onMouseLeave={() => (dragging.current = false)}
-      onTouchEnd={() => (dragging.current = false)}
-    >
+    <div className="px-3 pt-4 pb-32">
       <div className="flex items-center gap-2 px-2">
         <span className="px-3 py-1 rounded-full" style={{ background: "var(--bg-tertiary)", fontSize: 13 }}>
           4월 29일
@@ -180,15 +217,13 @@ export function TenMinPlanner({ accent }: { accent: string }) {
                   return (
                     <div
                       key={s}
-                      onMouseDown={() => {
-                        dragging.current = true;
-                        paint(h, s);
+                      onPointerDown={(e) => {
+                        // 단일 손가락 / 마우스 좌클릭만 — 멀티터치는 무시
+                        if (e.pointerType === "touch" && !e.isPrimary) return;
+                        e.preventDefault();
+                        startPaint(h, s);
                       }}
-                      onMouseEnter={() => dragging.current && paint(h, s)}
-                      onTouchStart={() => {
-                        dragging.current = true;
-                        paint(h, s);
-                      }}
+                      onPointerEnter={() => enterPaint(h, s)}
                       className="flex-1"
                       style={{
                         height: 22,
@@ -197,6 +232,10 @@ export function TenMinPlanner({ accent }: { accent: string }) {
                         borderLeft: s === 3
                           ? "1px solid var(--separator)"
                           : "0.5px solid var(--hairline)",
+                        touchAction: "none",
+                        userSelect: "none",
+                        // 색칠 변화 부드럽게 — 새로 칠해진 셀 100ms fade-in 효과
+                        transition: "background 120ms ease-out",
                       }}
                     />
                   );
