@@ -13,6 +13,9 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   // AI 제안(미리보기) — 적용 전까지 cells 에 반영하지 않음
   const [proposal, setProposal] = useState<string[] | null>(null);
 
+  // 초기화 확인 다이얼로그
+  const [confirmingReset, setConfirmingReset] = useState(false);
+
   // 핀치 줌 + 팬 (transform: translate + scale)
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
@@ -186,11 +189,12 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
 
   const reset = () => {
     const arr = Array(81).fill("");
-    arr[40] = "올해 목표";
+    arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
     setCells(arr);
     setProposal(null);
     setModalVisible(false);
     setModalLeaving(false);
+    setConfirmingReset(false);
   };
 
   // AI에게 분해 부탁 → 즉시 적용하지 않고 proposal 로만 보관 (미리보기)
@@ -258,7 +262,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           </div>
         </div>
         <button
-          onClick={reset}
+          onClick={() => setConfirmingReset(true)}
           className="flex items-center gap-1 active:scale-95"
           style={{
             fontSize: 12,
@@ -275,6 +279,79 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           <RotateCcw size={12} /> 초기화
         </button>
       </div>
+
+      {/* 초기화 확인 다이얼로그 — 인라인 (window.confirm 안 씀) */}
+      {confirmingReset && (
+        <div
+          className="mt-3 rounded-2xl"
+          style={{
+            background: "var(--bg-elevated)",
+            border: "0.5px solid var(--hairline)",
+            padding: 16,
+            boxShadow: "var(--card-shadow)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.3px",
+              marginBottom: 4,
+            }}
+          >
+            초기화 하시겠습니까?
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              lineHeight: 1.5,
+              marginBottom: 14,
+            }}
+          >
+            모든 칸이 비워집니다. 이 작업은 되돌릴 수 없습니다.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setConfirmingReset(false)}
+              className="active:scale-95 transition-transform"
+              style={{
+                flex: 1,
+                height: 40,
+                borderRadius: 10,
+                background: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+                fontSize: 14,
+                fontWeight: 600,
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              취소
+            </button>
+            <button
+              onClick={reset}
+              className="active:scale-95 transition-transform"
+              style={{
+                flex: 1,
+                height: 40,
+                borderRadius: 10,
+                background: "#ef4444",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              초기화
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <button
