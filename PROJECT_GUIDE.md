@@ -93,7 +93,171 @@ KDT WebAI 팀 프로젝트 · 2026-05 기준 최종본
 
 ---
 
-## 3. 기술 스택
+## 3. UX / UI 디자인
+
+### 3.1 디자인 철학
+
+- **Apple HIG + iOS 캘린더 영감** — 익숙한 모바일 인터랙션, 학습비용 최소
+- **모바일 우선** — 430px 기준 설계 (iPhone 14 Pro Max), 데스크탑은 가운데 정렬
+- **컨텐츠 중심** — 장식 요소 최소화, 일정·할일·목표가 주인공
+- **부담 없는 톤** — "등록했습니다" 대신 "잡아봤어요" 같은 친근한 한국어
+- **AI 결과는 항상 미리보기** — 사용자가 통제권을 가짐
+- **점진적 정보 노출** — 헤더는 깔끔, 디테일은 시트/모달에서
+
+### 3.2 컬러 시스템
+
+#### Accent (사용자 선택 가능)
+
+```ts
+// src/components/tokens.ts
+export const accents = {
+  mint:   "#1ec4b3",  // 기본 — 차분하고 활기 있음
+  blue:   "#0066cc",
+  purple: "#AF52DE",
+  pink:   "#FF2D55",
+  orange: "#FF9500",
+  green:  "#34C759",
+};
+```
+
+설정 → "테마 색상" 에서 6개 중 선택. accent 색은 **버튼·강조 텍스트·활성 탭·그룹 캐릭터** 에 일관 적용.
+
+#### Highlight (일정 색상 — 형광펜 톤)
+
+```ts
+export const highlights = [
+  { key: "red",    color: "rgba(255,59,48,0.38)" },
+  { key: "orange", color: "rgba(255,149,0,0.42)" },
+  { key: "yellow", color: "rgba(255,204,0,0.5)"  },
+  { key: "green",  color: "rgba(52,199,89,0.38)" },
+  { key: "blue",   color: "rgba(0,122,255,0.32)" },
+  { key: "purple", color: "rgba(175,82,222,0.38)"},
+];
+```
+
+**rgba 의 의도된 투명도** — 종이 위 형광펜처럼 부드럽게. 짙은 단색 X.
+
+#### CSS 변수 (라이트 / 다크 모드 전환)
+
+```css
+--bg-primary       /* 메인 배경 */
+--bg-secondary     /* 섹션 배경 */
+--bg-elevated      /* 카드 / 시트 표면 */
+--bg-tertiary      /* 토글 / 입력 배경 */
+--text-primary     /* 본문 */
+--text-secondary   /* 보조 */
+--text-muted       /* 가장 약한 텍스트 */
+--hairline         /* 0.5px 구분선 */
+```
+
+### 3.3 타이포그래피 스케일
+
+폰트: **Pretendard** (한글 가독성 + 숫자 균형)
+
+```ts
+// src/styles/typography.ts — 모든 컴포넌트가 import
+TYPE.titlePage     // 32 / 800 / -1.0px   — 페이지 메인 타이틀
+TYPE.titleMonth    // 32 / 800 / -1.0px   — "5월" 같은 큰 월 표시
+TYPE.titleSection  // 17 / 700 / -0.4px   — "오늘의 일정"
+TYPE.titleCard     // 14 / 600 / -0.2px   — 카드 제목
+TYPE.captionMeta   // 12 / 500 / -0.2px   — 부제 ("2026", "수요일")
+TYPE.captionCount  // 11 / 700 / -0.1px   — "3개", "N명"
+TYPE.body          // 15 / 400 / -0.3px   — 본문
+TYPE.bodySmall     // 13 / 400 / -0.2px   — 보조
+TYPE.pillTiny      //  9 / 600 / -0.1px   — 셀 안 일정 알약
+TYPE.tabLabel      // 13 / 600 / -0.2px   — 캘린더 스코프 탭
+```
+
+원칙:
+- **위계가 명확한 4단계**: titlePage(32) → titleSection(17) → body(15) → caption(11~13)
+- **letter-spacing 음수**: 한글 + 영문 혼용 시 답답함 제거
+- **font-weight 700~800**: 모바일 화면 대비 가독성 ↑
+
+### 3.4 레이아웃 + 간격
+
+- **모바일 frame**: 가로 430px 기준, safe-area-top/bottom 보정
+- **좌우 padding**: 16px (콘텐츠) / 20px (시트 헤더)
+- **카드 radius**: 14~16px (큰 카드) / 12px (시트 안 항목) / 999px (알약·아바타)
+- **카드 그림자**: `0 1px 3px rgba(0,0,0,0.08)` (가벼움) / `0 10px 30px rgba(0,0,0,0.15)` (드롭다운)
+- **셀 사이 hairline**: `0.5px solid var(--hairline)` (1px 선보다 섬세)
+
+### 3.5 인터랙션 패턴
+
+| 패턴 | 설명 | 사용처 |
+|------|------|--------|
+| **Sheet (Bottom Sheet)** | 화면 아래에서 슬라이드 업, `rounded-t-3xl` + 핸들바 | 그룹 시트, 신규 일정, 인증 모달 |
+| **인라인 confirm** | `window.confirm` 대신 같은 자리에 인라인 카드로 확인 | 만다라트 초기화, 그룹 삭제 |
+| **active:scale-95** | 탭 시 살짝 축소 — 피드백 즉시 | 모든 버튼·카드 |
+| **transition-all 200ms** | 자연스러운 전환 | 토글, 상태 변화 |
+| **드롭다운 안의 ring** | 본인 표시는 accent 색 외곽선 | 멤버 아바타 스택 |
+| **debounce 800ms** | 빠른 연속 입력은 마지막만 저장 | useSharedEventsSync, useGroupEventsSync |
+| **onSnapshot 실시간** | 다른 멤버 변경 즉시 반영 | 그룹 일정·할일·멤버 목록 |
+
+### 3.6 컴포넌트 시스템
+
+#### shadcn/ui 25종 — Radix UI 기반
+
+`Dialog`, `Sheet`, `DropdownMenu`, `Tabs`, `Switch`, `Select`, `Calendar`, `AlertDialog` 등.
+
+**커스터마이즈 원칙**:
+- shadcn 기본 스타일 위에 토큰(CSS 변수) 적용 → 라이트/다크 자동 전환
+- 모서리 둥글게 (radius 14~16) — Apple 톤
+- 그림자 가볍게
+
+#### 자체 핵심 컴포넌트
+
+| 컴포넌트 | 역할 |
+|----------|------|
+| `MemberAvatar` | 단일 원형 아바타 — Google 사진 / 이니셜 폴백 / accent ring |
+| `MemberAvatarStack` | 여러 멤버 겹쳐 표시 + "+N" 배지 |
+| `NewEventModal` | 시트 스타일 일정 생성/편집 통합 모달 |
+| `AuthModal` | 시트 스타일 로그인/회원가입 (모드 토글) |
+| `AccountSheet` | 사용자 카드 + 로그아웃 + 인라인 탈퇴 confirm |
+| `AppMenuSheet` | 햄버거 메뉴 — 계정 카드 + 그룹 관리 진입 |
+| `GroupSelector` | 헤더 토글 ("나의 / 그룹 ▾") — 멤버 사진 X, 그룹 이름 중심 |
+| `GroupSheet` / `GroupDetailSheet` | 그룹 목록 / 상세 (코드 복사 + 이메일 초대 + 멤버 목록) |
+| `SearchSheet` | 캘린더 일정 검색 |
+| `CalendarScopeTabs` | 연/월/일/10분 탭 |
+
+### 3.7 모바일 우선 + 데스크탑 대응
+
+- **`Dimensions: iPhone 14 Pro Max`** 기준으로 모든 컴포넌트 설계
+- 데스크탑(>768px) 에서는 모바일 frame 을 가운데 정렬 + 좌우 회색 띠
+- PWA 설치 시 풀스크린 + 자체 상태바 숨김
+- safe-area-inset (iOS notch / Android nav bar) 자동 보정
+
+### 3.8 다크 모드
+
+- `useTheme.ts` + `themeStore.ts` 로 system/light/dark 토글
+- 모든 색상이 CSS 변수 기반 → 토큰만 바꾸면 자동 전환
+- accent 는 그대로 유지 (밝은 미트색이 다크에서도 잘 보임)
+
+### 3.9 톤 & 마이크로카피
+
+| 상황 | 좋은 예 | 피해야 할 예 |
+|------|--------|------------|
+| AI 일정 생성 | "5/5 여행 일정 잡아봤어요. 확인해보세요." | "사용자 요청에 따라 일정을 생성했습니다." |
+| AI 할일 분해 | "발표 준비 할일 나눠봤어요." | "다음과 같이 할일이 분해되었습니다." |
+| 충돌 경고 | "겹치는 일정이 있어요. 조정해서 볼래요?" | "충돌이 감지되었습니다. 검토 후 승인하세요." |
+| 빈 상태 | "오늘은 할일이 없어요 ☀" | "데이터가 존재하지 않습니다." |
+| 에러 | "로그인이 만료됐어요. 다시 로그인해주세요" | "Authentication error: token expired" |
+
+내부 용어 (agent, payload, commit, repository) 절대 노출 X. — Response Composer Agent 시스템 프롬프트 참조.
+
+### 3.10 접근성 + UX 디테일
+
+- **active:scale 피드백** — 모든 버튼에 적용 (탭 인지)
+- **aria-label** — 아이콘 전용 버튼에 명시
+- **키보드 Enter** — AuthModal 의 이메일 입력에서 제출
+- **로딩 상태** — 버튼 disabled + opacity 변화
+- **에러 메시지** — 빨강 (#ef4444), 12px, 입력 아래
+- **빈 상태 메시지** — 이모지 한 개 + 짧은 한국어
+- **사진 폴백** — `img onError` → 이니셜 + accent 배경
+- **CRLF/LF** — `referrerPolicy="no-referrer"` 로 Google CDN 사진 CORS 우회
+
+---
+
+## 4. 기술 스택
 
 ### 3.1 프론트엔드
 
@@ -145,7 +309,7 @@ KDT WebAI 팀 프로젝트 · 2026-05 기준 최종본
 
 ---
 
-## 4. 디렉토리 구조
+## 5. 디렉토리 구조
 
 ```
 src/
@@ -249,7 +413,7 @@ src/
 
 ---
 
-## 5. 데이터 모델
+## 6. 데이터 모델
 
 ### 5.1 Firestore 컬렉션
 
@@ -333,7 +497,7 @@ match /invites/{inviteCode} {
 
 ---
 
-## 6. AI 멀티 에이전트 아키텍처
+## 7. AI 멀티 에이전트 아키텍처
 
 ### 6.1 흐름도
 
@@ -413,7 +577,7 @@ export default async function handler(req: Request): Promise<Response> {
 
 ---
 
-## 7. 환경 변수
+## 8. 환경 변수
 
 `.env.local` (절대 git 커밋 X — `.gitignore` 의 `.env*.local` 패턴):
 
@@ -442,9 +606,9 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE K
 
 ---
 
-## 8. 핵심 흐름
+## 9. 핵심 흐름
 
-### 8.1 인증
+### 9.1 인증
 
 1. 햄버거 메뉴 → 로그인/회원가입 → `AuthModal`
 2. Google OAuth 또는 이메일+비밀번호
@@ -452,7 +616,7 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE K
 4. 첫 로그인 시 Firestore `users/{uid}` 자동 생성
 5. `useUserStore.user` 업데이트 → 모든 컴포넌트 리렌더
 
-### 8.2 개인 일정 동기화
+### 9.2 개인 일정 동기화
 
 ```
 useState  →  useSharedEventsSync(initial)  →  [events, setEvents]
@@ -463,7 +627,7 @@ useState  →  useSharedEventsSync(initial)  →  [events, setEvents]
                   └─ 800ms debounce: Firestore 저장
 ```
 
-### 8.3 그룹 데이터 동기화 (실시간)
+### 9.3 그룹 데이터 동기화 (실시간)
 
 ```
 useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
@@ -473,7 +637,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 사용자당 최대 3개 listener: `myGroups` + 활성 그룹의 `events` + `todos`.
 
-### 8.4 AI 챗봇 사용 흐름
+### 9.4 AI 챗봇 사용 흐름
 
 1. FAB ✨ 또는 메뉴 → AIChatModal 열림
 2. 사용자 입력: "다음 주 월요일 오전 10시 디자인 리뷰"
@@ -484,7 +648,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 7. 저장 클릭 → `setSharedEvents([...prev, ...newEvents])`
 8. `useSharedEventsSync` 가 800ms 후 Firestore 저장
 
-### 8.5 그룹 가입 흐름 (6자리 코드)
+### 9.5 그룹 가입 흐름 (6자리 코드)
 
 1. 그룹 owner: `GroupDetailSheet` → 코드 복사 → 카톡 전달
 2. 가입자: `GroupSheet` → "코드로 참여" → 6자리 입력
@@ -493,7 +657,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 5. (룰: 비멤버의 자기 자신 추가 분기 허용 + 기존 멤버 보존)
 6. `useMyGroups` onSnapshot → 헤더 드롭다운에 즉시 새 그룹 표시
 
-### 8.6 그룹 삭제 흐름
+### 9.6 그룹 삭제 흐름
 
 1. owner: `GroupDetailSheet` → "그룹 삭제" → 인라인 confirm
 2. `deleteGroup(uid, groupId)`:
@@ -505,7 +669,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 ---
 
-## 9. 팀원 분담 (실제 진행 기준)
+## 10. 팀원 분담 (실제 진행 기준)
 
 | 역할 | 담당 영역 | 산출물 |
 |------|----------|-------|
@@ -523,7 +687,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 ---
 
-## 10. 시연 시나리오 (발표용)
+## 11. 시연 시나리오 (발표용)
 
 ### 시나리오 1 — 개인 모드 + AI 자연어 일정
 
@@ -538,7 +702,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 1. 그룹 만들기 → "연인" 이름 → 6자리 코드 발급
 2. 카톡으로 코드 공유 → 상대방 합류
 3. 양쪽 화면 나란히
-4. 한쪽에서 일정 추가 → **800ms 안에 다른 쪽 자동 반영** ✅
+4. 한쪽에서 일정 추가 → **800ms 안에 다른 쪽 자동 반영**
 5. 헤더 멤버 썸네일 자동 갱신
 
 ### 시나리오 3 — AI 만다라트 분해
@@ -552,11 +716,11 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 1. 시크릿창 → 다른 계정 로그인
 2. F12 콘솔에서 다른 uid 데이터 fetch 시도
-3. → `403 Forbidden` ✅ Security Rules 정상 작동
+3. → `403 Forbidden` (Security Rules 정상 작동)
 
 ---
 
-## 11. 리스크 & 대응
+## 12. 리스크 & 대응
 
 | 리스크 | 대응 |
 |--------|------|
@@ -572,9 +736,9 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 ---
 
-## 12. 배포
+## 13. 배포
 
-### 12.1 Vercel 배포
+### 13.1 Vercel 배포
 
 1. GitHub 저장소 → Vercel 프로젝트 연결
 2. 환경변수 등록 (Vercel 대시보드 → Project Settings → Environment Variables):
@@ -587,13 +751,13 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 5. Firebase Console → Authentication → Settings → 승인된 도메인 에 vercel 도메인 추가
 6. Firestore Rules 게시 (한 번만)
 
-### 12.2 PWA 시연 (모바일)
+### 13.2 PWA 시연 (모바일)
 
 - iPhone Safari: 공유 → "홈 화면에 추가"
 - Android Chrome: 메뉴 → "앱 설치"
 - 설치 후 풀스크린 네이티브 앱 경험
 
-### 12.3 발표장 시연 흐름
+### 13.3 발표장 시연 흐름
 
 1. PC 에서 Vercel URL 띄움 + 시크릿창 두 개 (개인 / 그룹 멤버 두 계정)
 2. QR 코드로 청중이 본인 폰에서 접속 가능 (선택)
@@ -602,7 +766,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 ---
 
-## 13. 향후 작업 (v2)
+## 14. 향후 작업 (v2)
 
 | 우선순위 | 작업 |
 |---------|------|
@@ -620,7 +784,7 @@ useGroupEventsSync(activeGroupId, [])  →  [events, setEvents]
 
 ---
 
-## 14. 참고 자료
+## 15. 참고 자료
 
 - [Firebase Documentation](https://firebase.google.com/docs)
 - [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
