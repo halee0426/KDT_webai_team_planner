@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
-import { useYearHolidays } from "@/hooks/useHolidays";
 import { TYPE } from "@/styles/typography";
 
 type LocalHl = { id: number; month: number; start: number; end: number; color: string; label: string };
@@ -28,8 +27,6 @@ export function YearView({
   onOpenEdit?: (e: SharedEvent) => void;
 }) {
   const YEAR = year ?? 2026;
-  // 한 해 전체 공휴일 — Map<"월인덱스-일", 공휴일명>
-  const yearHolidays = useYearHolidays(YEAR);
 
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
@@ -213,7 +210,6 @@ export function YearView({
                     // 가이드 라인 (5/10/15/20/25, 진하기 차등)
                     const isMidGuide = day === 15;
                     const isMinorGuide = day % 5 === 0 && !isMidGuide;
-                    const isHoliday = yearHolidays.has(`${mi}-${day}`);
                     return (
                       <div
                         key={di}
@@ -236,14 +232,12 @@ export function YearView({
                         <div
                           style={{
                             fontSize: 8,
-                            color: isHoliday ? "#FF3B30" : "var(--text-muted)",
-                            fontWeight: isHoliday ? 700 : 400,
+                            color: "var(--text-muted)",
                             lineHeight: 1,
                             height: 9,
                           }}
-                          title={isHoliday ? yearHolidays.get(`${mi}-${day}`) : undefined}
                         >
-                          {isHoliday || day === 1 || day % 5 === 0 ? day : ""}
+                          {day === 1 || day % 5 === 0 ? day : ""}
                         </div>
                         <div
                           className="mt-[2px] w-full flex flex-col"
