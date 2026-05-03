@@ -7,7 +7,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X, MoreHorizontal, ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 
 export type AIEvent = {
   id: string;
@@ -51,19 +53,15 @@ export function AIChatModal({
   const [input, setInput] = useState("");
   const [editPlaceholder, setEditPlaceholder] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [animState, setAnimState] = useState<"in" | "out" | "idle">("idle");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // open 변화에 따른 진입/퇴장
+  // open 시 input focus (motion 진입 애니메이션 끝나는 시점)
   useEffect(() => {
     if (open) {
-      setAnimState("in");
       const t = setTimeout(() => inputRef.current?.focus(), 320);
       return () => clearTimeout(t);
-    } else {
-      setAnimState("idle");
     }
   }, [open]);
 
@@ -81,13 +79,11 @@ export function AIChatModal({
     ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
   }, [input]);
 
-  if (!open && animState === "idle") return null;
-
   const showSuggests = messages.length === 1; // AI 인삿말만 있을 때
 
   const handleClose = () => {
-    setAnimState("out");
-    setTimeout(onClose, 280);
+    // motion AnimatePresence 가 exit 애니메이션 자동 처리
+    onClose();
   };
 
   const send = async () => {
@@ -157,17 +153,23 @@ export function AIChatModal({
   };
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="aichat-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className="absolute inset-0 z-[80]"
-      style={{
-        background: "rgba(0,0,0,0.4)",
-        opacity: animState === "in" ? 1 : 0,
-        transition: "opacity 0.28s ease-out",
-        pointerEvents: animState === "out" ? "none" : "auto",
-      }}
+      style={{ background: "rgba(0,0,0,0.4)" }}
       onClick={handleClose}
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 40, scale: 0.96 }}
+        transition={SPRING.sheet}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
@@ -182,14 +184,7 @@ export function AIChatModal({
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          transform:
-            animState === "in"
-              ? "translateY(0) scale(1)"
-              : "translateY(40px) scale(0.96)",
           transformOrigin: "50% 100%",
-          opacity: animState === "in" ? 1 : 0,
-          transition:
-            "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease-out",
         }}
       >
         {/* 헤더 */}
@@ -388,8 +383,10 @@ export function AIChatModal({
             ✓ {toast}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
 

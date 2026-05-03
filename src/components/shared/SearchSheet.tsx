@@ -7,7 +7,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import type { SharedEvent } from "../eventStore";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 
 export function SearchSheet({
   open,
@@ -44,8 +46,6 @@ export function SearchSheet({
       });
   }, [events, query]);
 
-  if (!open) return null;
-
   function fmtDate(e: SharedEvent) {
     const m = e.month + 1;
     const d = e.startDay;
@@ -63,10 +63,24 @@ export function SearchSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 backdrop-fade" style={{ background: "rgba(0,0,0,0.3)" }} />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="search-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
+      className="fixed inset-0 z-[70] flex items-end"
+      onClick={onClose}
+      style={{ background: "rgba(0,0,0,0.3)" }}
+    >
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={SPRING.sheet}
+        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
         style={{
           background: "var(--bg-elevated)",
           maxHeight: "92vh",
@@ -254,7 +268,9 @@ export function SearchSheet({
             </button>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }

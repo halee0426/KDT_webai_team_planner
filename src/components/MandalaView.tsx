@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Maximize2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
+import { SPRING } from "@/styles/animations";
 import { TYPE } from "@/styles/typography";
 
 export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
@@ -13,8 +15,10 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   // AI 제안(미리보기) — 적용 전까지 cells 에 반영하지 않음
   const [proposal, setProposal] = useState<string[] | null>(null);
 
-  // 초기화 확인 다이얼로그
+  // 초기화 확인 다이얼로그 — AI 미리보기와 동일한 애니메이션 패턴
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmLeaving, setConfirmLeaving] = useState(false);
 
   // 핀치 줌 + 팬 (transform: translate + scale)
   const MIN_ZOOM = 1;
@@ -176,6 +180,14 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
     }
   }, [proposal, modalLeaving]);
 
+  // 초기화 다이얼로그도 같은 패턴
+  useEffect(() => {
+    if (confirmingReset && !confirmLeaving) {
+      const id = requestAnimationFrame(() => setConfirmVisible(true));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [confirmingReset, confirmLeaving]);
+
   const update = (i: number, v: string) => {
     setCells((c) => {
       const next = [...c];
@@ -194,7 +206,17 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
     setProposal(null);
     setModalVisible(false);
     setModalLeaving(false);
-    setConfirmingReset(false);
+  };
+
+  const closeConfirmReset = (apply: boolean) => {
+    if (confirmLeaving) return;
+    setConfirmLeaving(true);
+    setConfirmVisible(false);
+    setTimeout(() => {
+      if (apply) reset();
+      setConfirmingReset(false);
+      setConfirmLeaving(false);
+    }, 220);
   };
 
   // AI에게 분해 부탁 → 즉시 적용하지 않고 proposal 로만 보관 (미리보기)
@@ -279,79 +301,6 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           <RotateCcw size={12} /> 초기화
         </button>
       </div>
-
-      {/* 초기화 확인 다이얼로그 — 인라인 (window.confirm 안 씀) */}
-      {confirmingReset && (
-        <div
-          className="mt-3 rounded-2xl"
-          style={{
-            background: "var(--bg-elevated)",
-            border: "0.5px solid var(--hairline)",
-            padding: 16,
-            boxShadow: "var(--card-shadow)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.3px",
-              marginBottom: 4,
-            }}
-          >
-            초기화 하시겠습니까?
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              lineHeight: 1.5,
-              marginBottom: 14,
-            }}
-          >
-            모든 칸이 비워집니다. 이 작업은 되돌릴 수 없습니다.
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => setConfirmingReset(false)}
-              className="active:scale-95 transition-transform"
-              style={{
-                flex: 1,
-                height: 40,
-                borderRadius: 10,
-                background: "var(--bg-tertiary)",
-                color: "var(--text-secondary)",
-                fontSize: 14,
-                fontWeight: 600,
-                border: 0,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              취소
-            </button>
-            <button
-              onClick={reset}
-              className="active:scale-95 transition-transform"
-              style={{
-                flex: 1,
-                height: 40,
-                borderRadius: 10,
-                background: "#ef4444",
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 600,
-                border: 0,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              초기화
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <button
@@ -539,6 +488,103 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         })}
       </div>
       </div>
+
+      {/* 초기화 확인 다이얼로그 — AI 미리보기와 동일한 위치/형태 */}
+      {confirmingReset && (
+        <div
+          className="mt-4 rounded-2xl"
+          style={{
+            background: "var(--bg-elevated)",
+            border: `1px solid ${accent}55`,
+            boxShadow: `0 8px 24px ${accent}1F`,
+            padding: 16,
+            opacity: confirmLeaving ? 0 : confirmVisible ? 1 : 0,
+            transform: confirmLeaving
+              ? "translateY(8px) scale(0.98)"
+              : confirmVisible
+              ? "translateY(0) scale(1)"
+              : "translateY(12px) scale(0.96)",
+            transition: confirmLeaving
+              ? "opacity 0.18s ease-in, transform 0.18s ease-in"
+              : "opacity 0.28s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1)",
+            willChange: "opacity, transform",
+          }}
+        >
+          <div className="flex items-center gap-1.5" style={{ marginBottom: 6 }}>
+            <RotateCcw size={14} color={accent} />
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: accent,
+                letterSpacing: "-0.1px",
+              }}
+            >
+              초기화
+            </div>
+          </div>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.3px",
+              marginBottom: 4,
+            }}
+          >
+            초기화 하시겠습니까?
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              lineHeight: 1.5,
+              marginBottom: 14,
+            }}
+          >
+            모든 칸이 비워집니다.
+          </div>
+          <div className="flex gap-8" style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => closeConfirmReset(false)}
+              className="active:scale-95 transition-transform"
+              style={{
+                flex: 1,
+                height: 44,
+                borderRadius: 12,
+                background: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+                fontSize: 14,
+                fontWeight: 600,
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              취소
+            </button>
+            <button
+              onClick={() => closeConfirmReset(true)}
+              className="active:scale-95 transition-transform"
+              style={{
+                flex: 1,
+                height: 44,
+                borderRadius: 12,
+                background: accent,
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                border: 0,
+                cursor: "pointer",
+                boxShadow: `0 4px 12px ${accent}40`,
+                fontFamily: "inherit",
+              }}
+            >
+              초기화
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI 추천 미리보기 — 설정 하시겠습니까? */}
       {isPreviewing && (

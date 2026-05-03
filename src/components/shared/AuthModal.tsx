@@ -1,7 +1,9 @@
 // 로그인 / 회원가입 통합 모달 — Haru:on 톤 (sheet-style)
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
 
 type Mode = "signin" | "signup";
@@ -59,8 +61,6 @@ export function AuthModal({
     }
   }, [open, initialMode]);
 
-  if (!open) return null;
-
   const handleEmail = async () => {
     setError(null);
     if (!email || !password) {
@@ -106,16 +106,24 @@ export function AuthModal({
       : "계정을 만들어 일정을 안전하게 보관하세요";
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="auth-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className="fixed inset-0 z-[70] flex items-end"
       onClick={onClose}
+      style={{ background: "rgba(0,0,0,0.3)" }}
     >
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.3)" }}
-      />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={SPRING.sheet}
+        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
         style={{
           background: "var(--bg-elevated)",
           maxHeight: "92vh",
@@ -398,8 +406,10 @@ export function AuthModal({
             로그인 시 일정이 자동으로 동기화됩니다
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
 

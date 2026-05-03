@@ -4,6 +4,8 @@
 
 import { useState } from "react";
 import { X, Users as UsersIcon, ChevronRight, Crown } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
 import { useMyGroups } from "@/hooks/useMyGroups";
 import { createGroup, joinByCode } from "@/lib/firebase/groupsAdapter";
@@ -35,8 +37,6 @@ export function GroupSheet({
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!open) return null;
 
   const handleCreate = async () => {
     if (!user) {
@@ -96,16 +96,24 @@ export function GroupSheet({
   };
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="group-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className="fixed inset-0 z-[70] flex items-end"
       onClick={onClose}
+      style={{ background: "rgba(0,0,0,0.35)" }}
     >
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.35)" }}
-      />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={SPRING.sheet}
+        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
         style={{
           background: "var(--bg-elevated)",
           maxHeight: "82vh",
@@ -285,8 +293,10 @@ export function GroupSheet({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
 

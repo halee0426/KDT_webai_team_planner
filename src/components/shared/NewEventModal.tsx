@@ -7,8 +7,10 @@
 // - 색상 6개 중 선택
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { SharedEvent } from "../eventStore";
 import { highlights } from "../tokens";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 
 // 일정 색상 — 파스텔 형광펜 톤 (tokens.ts 의 highlights 그대로 사용)
 const EVENT_COLORS = highlights.map((h) => ({ key: h.key, color: h.color }));
@@ -99,8 +101,6 @@ export function NewEventModal({
     }
   }, [open, initial, editing]);
 
-  if (!open) return null;
-
   const selectedColor = EVENT_COLORS.find((c) => c.key === colorKey)?.color ?? accent;
 
   const handleSave = () => {
@@ -135,16 +135,24 @@ export function NewEventModal({
   };
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="newevent-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className="fixed inset-0 z-[70] flex items-end"
       onClick={onClose}
+      style={{ background: "rgba(0,0,0,0.3)" }}
     >
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.3)" }}
-      />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={SPRING.sheet}
+        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
         style={{
           background: "var(--bg-elevated)",
           maxHeight: "92vh",
@@ -385,8 +393,10 @@ export function NewEventModal({
             </button>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
 

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import {
   X, Copy, Check, Crown, LogOut, Trash2, Pencil,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
 import { useMyGroups } from "@/hooks/useMyGroups";
 import {
@@ -52,10 +54,9 @@ export function GroupDetailSheet({
     setCopied(false);
   }, [groupId]);
 
-  if (!open) return null;
   if (!group || !user) {
     return (
-      <Backdrop onClose={onClose}>
+      <Backdrop open={open} onClose={onClose}>
         <div style={{ padding: 24, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
           그룹 정보를 불러올 수 없습니다
         </div>
@@ -139,7 +140,7 @@ export function GroupDetailSheet({
   };
 
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop open={open} onClose={onClose}>
       <div
         style={{
           display: "flex",
@@ -517,34 +518,46 @@ export function GroupDetailSheet({
 }
 
 function Backdrop({
+  open,
   children,
   onClose,
 }: {
+  open: boolean;
   children: React.ReactNode;
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-end"
-      onClick={onClose}
-    >
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.35)" }}
-      />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
-        style={{
-          background: "var(--bg-elevated)",
-          maxHeight: "82vh",
-          display: "flex",
-          flexDirection: "column",
-          paddingBottom: "env(safe-area-inset-bottom, 0)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="groupdetail-root"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
+          className="fixed inset-0 z-[70] flex items-end"
+          onClick={onClose}
+          style={{ background: "rgba(0,0,0,0.35)" }}
+        >
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={SPRING.sheet}
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
+            style={{
+              background: "var(--bg-elevated)",
+              maxHeight: "82vh",
+              display: "flex",
+              flexDirection: "column",
+              paddingBottom: "env(safe-area-inset-bottom, 0)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

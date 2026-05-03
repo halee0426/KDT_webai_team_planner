@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Trash2, BookOpen } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { SPRING } from "@/styles/animations";
 
 type Entry = {
   id: string;
@@ -355,8 +357,14 @@ export function DiaryView({
         </div>
 
         {/* 인라인 삭제 confirm — AccountSheet 의 계정 삭제 패턴 */}
+        <AnimatePresence>
         {confirmingDelete && (
-          <div
+          <motion.div
+            key="diary-delete-confirm"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={SPRING.snap}
             className="rounded-xl mb-3"
             style={{
               background: "rgba(239,68,68,0.08)",
@@ -422,8 +430,9 @@ export function DiaryView({
                 삭제
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Mood picker */}
         <div

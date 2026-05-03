@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { LogOut, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
 
 export function AccountSheet({
@@ -20,8 +22,6 @@ export function AccountSheet({
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!open) return null;
 
   const handleSignOut = async () => {
     setError(null);
@@ -50,61 +50,36 @@ export function AccountSheet({
     }
   };
 
-  // 비로그인 상태인데 시트가 열린 경우 — 안전 가드
-  if (!user) {
-    return (
-      <div
-        className="fixed inset-0 z-[70] flex items-end"
-        onClick={onClose}
-      >
-        <div
-          className="absolute inset-0 backdrop-fade"
-          style={{ background: "rgba(0,0,0,0.3)" }}
-        />
-        <div
-          className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
-          style={{
-            background: "var(--bg-elevated)",
-            padding: "24px 20px 32px",
-            textAlign: "center",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div
-            style={{
-              fontSize: 14,
-              color: "var(--text-muted)",
-              padding: "20px 0",
-            }}
-          >
-            로그인 정보를 불러올 수 없습니다
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  if (!user) return null;
   const initial = (user.displayName || user.email || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-end"
-      onClick={onClose}
-    >
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.3)" }}
-      />
-      <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
-        style={{
-          background: "var(--bg-elevated)",
-          maxHeight: "92vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
+          className="fixed inset-0 z-[70] flex items-end"
+          onClick={onClose}
+          style={{ background: "rgba(0,0,0,0.3)" }}
+        >
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={SPRING.sheet}
+            className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
+            style={{
+              background: "var(--bg-elevated)",
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+
         {/* 핸들 바 */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div
@@ -289,8 +264,14 @@ export function AccountSheet({
 
           {/* 계정 삭제 */}
           <div style={{ marginTop: 24, textAlign: "center" }}>
+            <AnimatePresence mode="wait" initial={false}>
             {!confirmDelete ? (
-              <button
+              <motion.button
+                key="ask"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={SPRING.snap}
                 onClick={() => setConfirmDelete(true)}
                 style={{
                   background: "transparent",
@@ -309,9 +290,14 @@ export function AccountSheet({
               >
                 <Trash2 size={12} strokeWidth={1.8} />
                 계정 삭제
-              </button>
+              </motion.button>
             ) : (
-              <div
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={SPRING.snap}
                 style={{
                   background: "rgba(239,68,68,0.08)",
                   border: "0.5px solid rgba(239,68,68,0.3)",
@@ -387,11 +373,14 @@ export function AccountSheet({
                     {busy ? "삭제 중…" : "삭제"}
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

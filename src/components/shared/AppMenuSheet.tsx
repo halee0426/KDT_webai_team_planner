@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Users as UsersIcon,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
 
 type Screen =
@@ -59,8 +60,6 @@ export function AppMenuSheet({
   onOpenGroups?: () => void;
 }) {
   const user = useUserStore((s) => s.user);
-
-  if (!open) return null;
 
   const sections: { title: string; items: Item[] }[] = [
     {
@@ -171,20 +170,25 @@ export function AppMenuSheet({
   ];
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="appmenu-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className="fixed inset-0 z-[60] flex justify-end"
       onClick={onClose}
-      style={{ background: "rgba(0,0,0,0)", animation: "none" }}
+      style={{ background: "rgba(0,0,0,0.35)" }}
     >
-      {/* 백드롭 */}
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.35)" }}
-      />
-
       {/* 우측 슬라이드 패널 */}
-      <div
-        className="relative panel-slide-right"
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={SPRING.sheet}
+        className="relative"
         style={{
           width: "min(85vw, 320px)",
           height: "100%",
@@ -511,7 +515,9 @@ export function AppMenuSheet({
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }
