@@ -111,11 +111,10 @@ export type OrchestratorOutput = {
 export async function callOrchestrator(
   input: OrchestratorInput,
 ): Promise<AgentResult<OrchestratorOutput>> {
-  // 라우팅 결과는 짧음 — max_tokens 제한해 응답 속도 ↑
   return callJsonAgent<OrchestratorOutput>(
     "orchestrator",
     ORCHESTRATOR_SYSTEM_PROMPT,
     input,
-    { maxTokens: 1500 },
+    { maxTokens: 3000 },
   );
 }

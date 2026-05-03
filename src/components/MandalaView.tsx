@@ -6,17 +6,47 @@ import { SPRING } from "@/styles/animations";
 import { TYPE } from "@/styles/typography";
 import { askAI } from "@/lib/aiClient";
 
+function mandalaKey(planKind: string) {
+  return `mandala-${planKind}`;
+}
+
+function loadMandala(planKind: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(mandalaKey(planKind));
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data) && data.length === 81) return data as string[];
+    }
+  } catch {}
+  return null;
+}
+
+function defaultCells(planKind: string): string[] {
+  const arr = Array(81).fill("");
+  arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
+  return arr;
+}
+
 export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
-  const [cells, setCells] = useState<string[]>(() => {
-    const arr = Array(81).fill("");
-    arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
-    return arr;
-  });
+  const [cells, setCells] = useState<string[]>(() => loadMandala(planKind) ?? defaultCells(planKind));
 
   // AI 제안(미리보기) — 적용 전까지 cells 에 반영하지 않음
   const [proposal, setProposal] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // cells 변경 시 planKind 키로 저장
+  useEffect(() => {
+    try { localStorage.setItem(mandalaKey(planKind), JSON.stringify(cells)); } catch {}
+  }, [cells]);
+
+  // planKind 변경 시 해당 플랜 데이터 로드
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setCells(loadMandala(planKind) ?? defaultCells(planKind));
+    setProposal(null);
+  }, [planKind]);
 
   // 초기화 확인 다이얼로그 — AI 미리보기와 동일한 애니메이션 패턴
   const [confirmingReset, setConfirmingReset] = useState(false);

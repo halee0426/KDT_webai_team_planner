@@ -67,7 +67,7 @@ export type OrchestrationResult =
       scope: "personal" | "group";
       composer: ResponseComposerOutput;
       raw: {
-        orchestrator: OrchestratorOutput;
+        orchestrator?: OrchestratorOutput;
         context?: ContextAgentOutput;
         scheduleParser?: ScheduleParserOutput;
         taskBreakdown?: TaskBreakdownOutput;
@@ -188,14 +188,9 @@ export async function runOrchestration(
     };
   }
 
-  // Orchestrator 실패는 치명적 — 에러 반환 (다른 agent 결과 있어도 라우팅 메타 없음)
-  if (!orchRes.ok || !orchRes.data) {
-    return {
-      ok: false,
-      error: orchRes.error ?? { code: "ORCH_FAILED", message: "unknown" },
-    };
-  }
-  const plan = orchRes.data;
+  // Orchestrator 실패 시 specialist 결과로 계속 진행 (non-fatal)
+  const plan = orchRes.ok ? orchRes.data : null;
+  const intent = plan?.intent ?? "unknown";
 
   const contextOut = contextRes.ok ? contextRes.data : undefined;
   // 본인 영역이 아닌 specialist 는 자동으로 nonXxxRequest=true + 빈 배열 반환 — 그대로 사용
@@ -203,13 +198,13 @@ export async function runOrchestration(
   const taskOut = taskRes.ok ? taskRes.data : undefined;
   const mandalaOut = mandalaRes.ok ? mandalaRes.data : undefined;
 
-  // 4. Conflict Agent (proposed 가 하나라도 있고 라우팅에 포함되면)
+  // 4. Conflict Agent (proposed 가 하나라도 있으면 호출 — 오케스트레이터 실패 시에도)
   let conflictOut: ConflictAgentOutput | undefined;
   const hasProposed =
     (scheduleOut?.events.length ?? 0) > 0 ||
     (taskOut?.todos.length ?? 0) > 0 ||
     (mandalaOut && !mandalaOut.nonMandalaRequest);
-  if (hasProposed && plan.agentsToCall.includes("conflict_agent")) {
+  if (hasProposed && (plan ? plan.agentsToCall.includes("conflict_agent") : true)) {
     const conf = await withTimeout(
       callConflictAgent({
         subject: resolved.subject,
@@ -271,11 +266,11 @@ export async function runOrchestration(
 
   return {
     ok: true,
-    intent: plan.intent,
+    intent,
     scope: resolved.subject.scope,
     composer: composer.data,
     raw: {
-      orchestrator: plan,
+      orchestrator: plan ?? undefined,
       context: contextOut,
       scheduleParser: scheduleOut,
       taskBreakdown: taskOut,
