@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
+import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock, Trash2 } from "lucide-react";
 import { highlights } from "./tokens";
 import type { Todo, SharedEvent } from "./eventStore";
 import type { Group } from "@/types/group";
@@ -40,6 +40,8 @@ export function DayView({
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [adding, setAdding] = useState<"today" | "later" | null>(null);
   const [draft, setDraft] = useState("");
+  const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
   );
@@ -143,6 +145,28 @@ export function DayView({
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   const move = (id: number) =>
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, later: !t.later, rolled: false } : t)));
+  const startEditTodo = (todo: Todo) => {
+    setAdding(null);
+    setDraft("");
+    setEditingTodoId(todo.id);
+    setEditDraft(todo.text);
+  };
+  const cancelEditTodo = () => {
+    setEditingTodoId(null);
+    setEditDraft("");
+  };
+  const saveEditTodo = () => {
+    if (editingTodoId === null) return;
+    const text = editDraft.trim();
+    if (!text) {
+      setTodos((ts) => ts.filter((t) => t.id !== editingTodoId));
+    } else {
+      setTodos((ts) => ts.map((t) => (t.id === editingTodoId ? { ...t, text } : t)));
+    }
+    cancelEditTodo();
+  };
+  const deleteTodo = (id: number) =>
+    setTodos((ts) => ts.filter((t) => t.id !== id));
   const submitAdd = () => {
     if (!draft.trim()) {
       setAdding(null);
@@ -387,6 +411,13 @@ export function DayView({
               accent={accent}
               onToggle={() => toggle(t.id)}
               onMove={() => move(t.id)}
+              onEdit={() => startEditTodo(t)}
+              onDelete={() => deleteTodo(t.id)}
+              isEditing={editingTodoId === t.id}
+              editDraft={editDraft}
+              setEditDraft={setEditDraft}
+              onSaveEdit={saveEditTodo}
+              onCancelEdit={cancelEditTodo}
               moveIcon={<ArrowDown size={14} />}
               moveLabel="나중에"
             />
@@ -457,6 +488,13 @@ export function DayView({
               dim
               onToggle={() => toggle(t.id)}
               onMove={() => move(t.id)}
+              onEdit={() => startEditTodo(t)}
+              onDelete={() => deleteTodo(t.id)}
+              isEditing={editingTodoId === t.id}
+              editDraft={editDraft}
+              setEditDraft={setEditDraft}
+              onSaveEdit={saveEditTodo}
+              onCancelEdit={cancelEditTodo}
               moveIcon={<ArrowUp size={14} />}
               moveLabel="오늘로"
             />
@@ -521,6 +559,13 @@ function TodoRow({
   dim,
   onToggle,
   onMove,
+  onEdit,
+  onDelete,
+  isEditing,
+  editDraft,
+  setEditDraft,
+  onSaveEdit,
+  onCancelEdit,
   moveIcon,
   moveLabel,
 }: {
@@ -529,6 +574,13 @@ function TodoRow({
   dim?: boolean;
   onToggle: () => void;
   onMove: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  isEditing: boolean;
+  editDraft: string;
+  setEditDraft: (value: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
   moveIcon: React.ReactNode;
   moveLabel: string;
 }) {
@@ -548,7 +600,27 @@ function TodoRow({
           </svg>
         )}
       </button>
-      <div
+      {isEditing ? (
+        <input
+          autoFocus
+          value={editDraft}
+          onChange={(e) => setEditDraft(e.target.value)}
+          onBlur={onSaveEdit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSaveEdit();
+            if (e.key === "Escape") onCancelEdit();
+          }}
+          className="min-w-0 flex-1 rounded-xl bg-transparent px-2 py-1 outline-none"
+          style={{
+            fontSize: 17,
+            letterSpacing: "-0.374px",
+            border: "0.5px solid var(--hairline)",
+          }}
+        />
+      ) : (
+      <button
+        type="button"
+        onClick={onEdit}
         className="flex-1 flex items-center gap-2 min-w-0"
         style={{
           fontSize: 17,
@@ -571,14 +643,24 @@ function TodoRow({
             어제 이월
           </span>
         )}
-      </div>
+      </button>
+      )}
       <button
         onClick={onMove}
-        className="flex items-center gap-1 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity active:scale-95"
+        className="flex items-center gap-1 px-2 py-1 rounded-full transition-transform active:scale-95"
         style={{ background: "var(--bg-tertiary)", fontSize: 11, color: "var(--text-secondary)" }}
       >
         {moveIcon}
-        {moveLabel}
+        <span className="hidden sm:inline">{moveLabel}</span>
+      </button>
+      <button
+        onClick={onDelete}
+        aria-label="할일 삭제"
+        title="할일 삭제"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-full transition-transform active:scale-90"
+        style={{ background: "var(--bg-tertiary)", color: "#FF3B30" }}
+      >
+        <Trash2 size={14} />
       </button>
       <GripVertical size={14} className="text-[var(--text-muted)] shrink-0" />
     </div>

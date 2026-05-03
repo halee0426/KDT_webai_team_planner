@@ -371,7 +371,7 @@ export function DailyFlipView({
                 ...TYPE.captionMeta,
                 fontSize: isDesktop ? 17 : TYPE.captionMeta.fontSize,
                 fontWeight: isDesktop ? 600 : 600,
-                color: accent,
+                color: todayHolidayName ? "#FF3B30" : accent,
                 whiteSpace: "nowrap",
               }}
             >
@@ -485,7 +485,7 @@ export function DailyFlipView({
             }}
             title={todayHolidayName}
           >
-            🇰🇷 {todayHolidayName}
+            {todayHolidayName}
           </div>
         )}
 
@@ -493,6 +493,7 @@ export function DailyFlipView({
         <WeekDayStrip
           date={date}
           accent={accent}
+          holidays={holidays}
           onPickDay={(d) => setDate(d)}
         />
       </div>
@@ -894,10 +895,12 @@ function SheetShell({
 function WeekDayStrip({
   date,
   accent,
+  holidays,
   onPickDay,
 }: {
   date: Date;
   accent: string;
+  holidays: Map<number, string>;
   onPickDay: (d: Date) => void;
 }) {
   // date 가 속한 주의 일요일 ~ 토요일
@@ -916,6 +919,10 @@ function WeekDayStrip({
           d.getFullYear() === date.getFullYear() &&
           d.getMonth() === date.getMonth() &&
           d.getDate() === date.getDate();
+        const holidayName =
+          d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth()
+            ? holidays.get(d.getDate())
+            : undefined;
         return (
           <button
             key={i}
@@ -939,7 +946,7 @@ function WeekDayStrip({
               style={{
                 fontSize: 11,
                 fontWeight: 500,
-                color: "var(--text-muted)",
+                color: holidayName ? "#FF3B30" : "var(--text-muted)",
                 letterSpacing: "0.2px",
               }}
             >
@@ -953,7 +960,7 @@ function WeekDayStrip({
                 display: "grid",
                 placeItems: "center",
                 background: isSelected ? accent : "transparent",
-                color: isSelected ? "#fff" : "var(--text-primary)",
+                color: isSelected ? "#fff" : holidayName ? "#FF3B30" : "var(--text-primary)",
                 fontSize: 14,
                 fontWeight: isSelected ? 700 : 500,
               }}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
 import { SearchSheet } from "./shared/SearchSheet";
+import { useHolidays } from "@/hooks/useHolidays";
 
 export function MonthViewWeb({
   accent,
@@ -14,6 +15,7 @@ export function MonthViewWeb({
   onMonthChange,
   onBack,
   onOpenDay,
+  onAdd,
   onOpenEdit,
 }: {
   accent: string;
@@ -45,6 +47,7 @@ export function MonthViewWeb({
   void setInnerYear;
   const [selected, setSelected] = useState(planKind !== "my" ? 5 : 29);
   const today = 29;
+  const holidays = useHolidays(year, month);
 
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
   const [sheet, setSheet] = useState<{ start: number; end: number } | null>(null);
@@ -257,6 +260,27 @@ export function MonthViewWeb({
           >
             <Search size={18} strokeWidth={2} />
           </button>
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              className="active:scale-90"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 999,
+                background: accent,
+                boxShadow: `0 4px 12px ${accent}55`,
+                color: "#fff",
+                border: 0,
+                cursor: "pointer",
+                display: "grid",
+                placeItems: "center",
+              }}
+              aria-label="일정 추가"
+            >
+              <Plus size={19} strokeWidth={2.4} />
+            </button>
+          )}
           <div
             className="flex items-center"
             style={{
@@ -295,7 +319,7 @@ export function MonthViewWeb({
               background: "transparent",
               fontSize: 13,
               fontWeight: 500,
-              color: "var(--text-primary)",
+              color: accent,
               border: 0,
               cursor: "pointer",
               fontFamily: "inherit",
@@ -384,6 +408,7 @@ export function MonthViewWeb({
             ? timedEvents.filter((e) => e.startDay === d).length
             : 0;
           const timedDayItems = d ? timedEvents.filter((e) => e.startDay === d) : [];
+          const holidayName = d ? holidays.get(d) : undefined;
           const desktopPlanSlots = isDesktop
             ? [0, 1].map((lane) => dayPlans.find((plan) => planLanesByRow[row]?.get(plan.id) === lane))
             : [];
@@ -418,6 +443,8 @@ export function MonthViewWeb({
                         letterSpacing: "-0.3px",
                         color: isToday
                           ? "#fff"
+                          : holidayName
+                          ? "#FF3B30"
                           : dow === 0
                           ? "#FF3B30"
                           : dow === 6
@@ -430,6 +457,29 @@ export function MonthViewWeb({
                   </div>
 
                   {/* 일력에서 등록된 시간 일정 */}
+                  {holidayName && (
+                    <div
+                      title={holidayName}
+                      style={{
+                        marginTop: 2,
+                        fontSize: isDesktop ? 10 : 9,
+                        fontWeight: 700,
+                        color: "#FF3B30",
+                        letterSpacing: "-0.1px",
+                        lineHeight: 1.2,
+                        maxWidth: "100%",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textAlign: "center",
+                        paddingLeft: 2,
+                        paddingRight: 2,
+                      }}
+                    >
+                      {holidayName}
+                    </div>
+                  )}
+
                   {isDesktop && timedDayItems.length > 0 && (
                     <div className="mt-1.5 space-y-1">
                       {timedDayItems.slice(0, 3).map((event) => (
@@ -535,7 +585,7 @@ export function MonthViewWeb({
                   )}
 
                   {/* 시간 일정 점 */}
-                  {dots > 0 && dayPlans.length === 0 && (
+                  {!isDesktop && dots > 0 && dayPlans.length === 0 && (
                     <div className="flex gap-[2px] mt-1">
                       {Array.from({ length: Math.min(dots, 3) }).map((_, j) => (
                         <div

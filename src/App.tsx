@@ -49,6 +49,7 @@ import { askAI } from "@/lib/aiClient";
 type Theme = "light" | "dark" | "system";
 type Screen = "day" | "month" | "year" | "week" | "tenmin" | "mandala" | "diary" | "daily";
 type Stage = "splash" | "select" | "app";
+const ACCENT_DEFAULT_MIGRATION_KEY = "kdt:accentKeyDefaultMintMigrated";
 
 const ALL_SCREENS: Array<{ screen: Screen; label: string; helper: string; icon: React.ReactNode }> = [
   { screen: "day", label: "오늘", helper: "오늘의 일정과 할 일을 한눈에 보기", icon: <Sun size={18} strokeWidth={1.75} /> },
@@ -119,7 +120,7 @@ export default function App() {
 
   // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
-  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey", "mint");
+  const [accentKey, setAccentKey] = usePersistedState<AccentKey>("accentKey:v2", "mint");
   const [aiOn, setAiOn] = usePersistedState<boolean>("aiOn", true);
   // planKind: "my" 또는 groupId (string). 기존 "shared" 값은 그룹 모델 도입 전 유산이라 "my" 로 마이그레이션
   const [planKindRaw, setPlanKind] = usePersistedState<string>("planKind", "my");
@@ -127,6 +128,12 @@ export default function App() {
   useEffect(() => {
     if (planKindRaw === "shared") setPlanKind("my");
   }, [planKindRaw, setPlanKind]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(ACCENT_DEFAULT_MIGRATION_KEY) === "1") return;
+    localStorage.setItem(ACCENT_DEFAULT_MIGRATION_KEY, "1");
+    if (accentKey === "blue") setAccentKey("mint");
+  }, [accentKey, setAccentKey]);
 
   // 활성 그룹 — planKind 가 "my" 가 아니면 그게 groupId
   const activeGroupId = planKind === "my" ? null : planKind;
@@ -816,30 +823,30 @@ export default function App() {
         ) : (
           <div className="flex h-full w-full overflow-hidden">
             <aside
-              className="flex h-full w-[360px] shrink-0 flex-col border-r"
+              className="flex h-full w-[320px] shrink-0 flex-col border-r"
               style={{ borderColor: "var(--hairline)", background: "var(--bg-canvas)" }}
             >
-              <div className="flex items-center justify-between px-8 pt-10 pb-8">
-                <LogoLockup color="#444444" accent={accent} size={35} />
+              <div className="flex items-center justify-between px-6 pt-8 pb-6">
+                <LogoLockup color="#444444" accent={accent} size={32} />
                 <button
                   onClick={() => setMenuOpen(true)}
                   aria-label="메뉴"
                   className="grid place-items-center transition-transform active:scale-95"
                   style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: 18,
+                    width: 46,
+                    height: 46,
+                    borderRadius: 16,
                     background: "var(--bg-tertiary)",
                     color: "var(--text-primary)",
                     border: 0,
                     cursor: "pointer",
                   }}
                 >
-                  <MenuIcon size={22} strokeWidth={1.9} />
+                  <MenuIcon size={20} strokeWidth={1.9} />
                 </button>
               </div>
 
-              <div className="px-7 pb-8">
+              <div className="px-5 pb-6">
                 <div
                   className="grid grid-cols-2 gap-1 rounded-full p-1"
                   style={{ background: "var(--bg-tertiary)" }}
@@ -857,7 +864,7 @@ export default function App() {
                           else if (myGroups.length > 0) setActivePlan(myGroups[0].id);
                           else setGroupSheetOpen(true);
                         }}
-                        className="flex items-center justify-center gap-2 rounded-full px-3 py-3 text-sm font-semibold transition-all"
+                        className="flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-semibold transition-all"
                         style={{
                           background: active ? "var(--bg-elevated)" : "transparent",
                           color: active ? accent : "var(--text-secondary)",
@@ -872,8 +879,8 @@ export default function App() {
                 </div>
               </div>
 
-              <nav className="flex-1 overflow-y-auto px-5 pb-6">
-                <div className="flex flex-col gap-4">
+              <nav className="flex-1 overflow-y-auto px-4 pb-5">
+                <div className="flex flex-col gap-2.5">
                   {ALL_SCREENS.map((item) => {
                     const active =
                       item.screen === "month"
@@ -883,17 +890,17 @@ export default function App() {
                       <button
                         key={item.screen}
                         onClick={() => setScreen(item.screen)}
-                        className="flex w-full items-center gap-4 rounded-[26px] px-5 py-4 text-left transition-all active:scale-[0.98]"
+                        className="flex w-full items-center gap-3.5 rounded-[22px] px-4 py-3 text-left transition-all active:scale-[0.98]"
                         style={{
                           background: active ? `${accent}14` : "transparent",
                           color: active ? accent : "var(--text-primary)",
                         }}
                       >
                         <span
-                          className="grid place-items-center rounded-[18px]"
+                          className="grid place-items-center rounded-[15px]"
                           style={{
-                            width: 48,
-                            height: 48,
+                            width: 42,
+                            height: 42,
                             background: active ? `${accent}18` : "var(--bg-tertiary)",
                             color: active ? accent : "var(--text-primary)",
                             flexShrink: 0,
@@ -902,16 +909,16 @@ export default function App() {
                           {item.icon}
                         </span>
                         <span className="min-w-0">
-                          <span style={{ display: "block", fontSize: 18, fontWeight: 800 }}>
+                          <span style={{ display: "block", fontSize: 16.5, fontWeight: 800 }}>
                             {item.label}
                           </span>
                           <span
                             style={{
                               display: "block",
-                              marginTop: 5,
+                              marginTop: 3,
                               color: "var(--text-secondary)",
-                              fontSize: 13,
-                              lineHeight: 1.35,
+                              fontSize: 12,
+                              lineHeight: 1.32,
                               whiteSpace: "normal",
                               wordBreak: "keep-all",
                             }}
@@ -925,28 +932,28 @@ export default function App() {
                 </div>
               </nav>
 
-              <div className="px-5 pb-7">
+              <div className="px-4 pb-6 pt-2">
                 <button
                   onClick={() => setAiChatOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-[24px] px-4 py-4 text-left transition-transform active:scale-[0.98]"
+                  className="flex w-full items-center gap-3 rounded-[22px] px-4 py-3.5 text-left transition-transform active:scale-[0.98]"
                   style={{
                     background: isDark ? `${accent}22` : `${accent}16`,
                     border: `0.5px solid ${accent}33`,
                     color: "var(--text-primary)",
                   }}
                 >
-                  <LogoMark size={34} accent={accent} rounded={12} />
+                  <LogoMark size={32} accent={accent} rounded={11} />
                   <span className="min-w-0">
-                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: accent }}>
+                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: accent }}>
                       하루온봇
                     </span>
                     <span
                       style={{
                         display: "block",
-                        fontSize: 11.5,
+                        fontSize: 11,
                         color: "var(--text-secondary)",
-                        marginTop: 3,
-                        lineHeight: 1.4,
+                        marginTop: 2,
+                        lineHeight: 1.3,
                       }}
                     >
                       일정과 계획을 도와드려요

@@ -33,6 +33,10 @@ type AgentLike<TData> = {
   error?: { code: string; message: string };
 };
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function withTimeout<T extends AgentLike<unknown>>(
   promise: Promise<T>,
   ms: number,
@@ -227,16 +231,16 @@ export async function runOrchestration(
 
   // 5. Response Composer — 항상 호출 (UI 표시용 최종 텍스트)
   const allWarnings = [
-    ...(contextOut?.warnings ?? []),
-    ...(scheduleOut?.warnings ?? []),
-    ...(taskOut?.warnings ?? []),
-    ...(mandalaOut?.warnings ?? []),
+    ...asArray(contextOut?.warnings),
+    ...asArray(scheduleOut?.warnings),
+    ...asArray(taskOut?.warnings),
+    ...asArray(mandalaOut?.warnings),
   ];
   const allAmbiguities = [
-    ...(contextOut?.ambiguities ?? []),
-    ...(scheduleOut?.ambiguities ?? []),
-    ...(taskOut?.ambiguities ?? []),
-    ...(mandalaOut?.ambiguities ?? []),
+    ...asArray(contextOut?.ambiguities),
+    ...asArray(scheduleOut?.ambiguities),
+    ...asArray(taskOut?.ambiguities),
+    ...asArray(mandalaOut?.ambiguities),
   ];
 
   const composer = await withTimeout(

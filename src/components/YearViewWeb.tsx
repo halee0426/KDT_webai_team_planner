@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SharedEvent } from "./eventStore";
 import { highlights, HighlightKey } from "./tokens";
+import { useYearHolidays } from "@/hooks/useHolidays";
 
 type LocalHighlight = {
   id: number;
@@ -36,6 +37,7 @@ export function YearViewWeb({
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
   );
+  const holidays = useYearHolidays(year);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -242,7 +244,8 @@ export function YearViewWeb({
                       <div className="flex w-full">
                         {Array.from({ length: days }).map((_, index) => {
                           const day = index + 1;
-                          const shouldShowDayLabel = day % 5 === 0 || day === 1;
+                          const holidayName = holidays.get(`${monthIndex}-${day}`);
+                          const shouldShowDayLabel = day % 5 === 0 || day === 1 || !!holidayName;
                           const inDrag =
                             drag &&
                             drag.month === monthIndex &&
@@ -253,6 +256,7 @@ export function YearViewWeb({
                             <div
                               key={index}
                               data-yday={day}
+                              title={holidayName}
                               className="flex flex-col items-center justify-start"
                               style={{
                                 width: `${desktopDayWidthPercent}%`,
@@ -269,7 +273,8 @@ export function YearViewWeb({
                                   alignItems: "center",
                                   justifyContent: "center",
                                   fontSize: 9,
-                                  color: "var(--text-muted)",
+                                  color: holidayName ? "#FF3B30" : "var(--text-muted)",
+                                  fontWeight: holidayName ? 700 : 400,
                                   lineHeight: 1,
                                   marginBottom: 0,
                                 }}
@@ -324,6 +329,7 @@ export function YearViewWeb({
                       {Array.from({ length: days }).map((_, index) => {
                         const day = index + 1;
                         const dayHighlights = monthHighlights.filter((item) => day >= item.start && day <= item.end);
+                        const holidayName = holidays.get(`${monthIndex}-${day}`);
                         const inDrag =
                           drag &&
                           drag.month === monthIndex &&
@@ -334,6 +340,7 @@ export function YearViewWeb({
                           <div
                             key={index}
                             data-yday={day}
+                            title={holidayName}
                             className="flex flex-col items-center justify-start"
                             style={{
                               width: mobileDayCellWidth,
@@ -345,11 +352,12 @@ export function YearViewWeb({
                             <div
                               style={{
                                 fontSize: 8,
-                                color: "var(--text-muted)",
+                                color: holidayName ? "#FF3B30" : "var(--text-muted)",
+                                fontWeight: holidayName ? 700 : 400,
                                 lineHeight: 1,
                               }}
                             >
-                              {day % 5 === 0 || day === 1 ? day : ""}
+                              {day % 5 === 0 || day === 1 || holidayName ? day : ""}
                             </div>
                             <div className="mt-[2px] w-full flex flex-col gap-[1px]">
                               {dayHighlights.length > 0 ? (
