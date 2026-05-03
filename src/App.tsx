@@ -535,6 +535,7 @@ export default function App() {
             setMoreOpen(false);
           }}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: true })}
+          onOpenEdit={openEditEvent}
         />
       );
       case "year": return (

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { SearchSheet } from "./shared/SearchSheet";
 import { TYPE } from "@/styles/typography";
 
 export function MonthView({
@@ -15,6 +16,7 @@ export function MonthView({
   onBack,
   onOpenDay,
   onAdd,
+  onOpenEdit,
 }: {
   accent: string;
   planKind?: string;
@@ -31,6 +33,8 @@ export function MonthView({
   onOpenDay?: (year: number, month: number, day: number) => void;
   /** 우상단 + 버튼 — 신규 일정 모달 열기 */
   onAdd?: () => void;
+  /** 검색 결과에서 선택된 이벤트 편집 — 부모(App)의 NewEventModal 열림 */
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
   const [innerMonth, setInnerMonth] = useState(planKind !== "my" ? 4 : 3);
@@ -51,6 +55,7 @@ export function MonthView({
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [editingPlan, setEditingPlan] = useState<{ id: number; start: number; end: number; color: string; label: string } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const first = new Date(year, month, 1).getDay();
@@ -245,6 +250,25 @@ export function MonthView({
               <ChevronRight size={16} strokeWidth={2.2} />
             </button>
           </div>
+          {/* 검색 버튼 — + 버튼 왼쪽 */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="active:scale-90"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+              border: 0,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+            }}
+            aria-label="일정 검색"
+          >
+            <Search size={16} strokeWidth={2} />
+          </button>
           {onAdd && (
             <button
               onClick={onAdd}
@@ -889,6 +913,35 @@ export function MonthView({
           </div>
         </div>
       )}
+
+      {/* 일정 검색 시트 */}
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        events={events}
+        accent={accent}
+        onSelect={(e) => {
+          // 다른 달이면 그 달로 이동
+          if (e.year !== year || e.month !== month) {
+            if (onMonthChange) onMonthChange(e.year, e.month);
+          }
+          setSelected(e.startDay);
+          setSearchOpen(false);
+          // 편집 모달 열기 — onOpenEdit 가 있으면 부모(App)의 통합 모달 사용
+          if (onOpenEdit) {
+            onOpenEdit(e);
+          } else if (e.startSlot === undefined) {
+            // fallback — 로컬 편집 시트 (untimed)
+            setEditingPlan({
+              id: e.id,
+              start: e.startDay,
+              end: e.endDay,
+              color: e.color,
+              label: e.title,
+            });
+          }
+        }}
+      />
     </div>
   );
 }
