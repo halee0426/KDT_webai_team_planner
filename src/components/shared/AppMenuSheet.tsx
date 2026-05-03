@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Users as UsersIcon,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { useUserStore } from "@/store/userStore";
 
 type Screen =
@@ -34,6 +35,8 @@ type Item = {
   desc: string;
   icon: any;
   onClick: () => void;
+  /** 우측 상단에 작은 배지 (예: "NEW") + subtle pulse */
+  badge?: string;
 };
 
 export function AppMenuSheet({
@@ -121,6 +124,7 @@ export function AppMenuSheet({
           desc: "집중 시간 설계",
           icon: Clock,
           onClick: () => onNavigate("tenmin"),
+          badge: "NEW",
         },
         {
           key: "diary",
@@ -461,9 +465,35 @@ export function AppMenuSheet({
                           fontWeight: 600,
                           color: "var(--text-primary)",
                           letterSpacing: "-0.2px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
                         }}
                       >
                         {it.label}
+                        {it.badge && (
+                          <motion.span
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: "#fff",
+                              background: accent,
+                              padding: "2px 6px",
+                              borderRadius: 999,
+                              letterSpacing: "0.3px",
+                              lineHeight: 1,
+                              boxShadow: `0 2px 6px ${accent}55`,
+                            }}
+                          >
+                            {it.badge}
+                          </motion.span>
+                        )}
                       </div>
                       <div
                         style={{

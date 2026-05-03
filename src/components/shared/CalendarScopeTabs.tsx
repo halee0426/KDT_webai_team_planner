@@ -1,5 +1,6 @@
-// 캘린더 계층 + 10분 플래너 사이 빠른 이동 탭 — Calendar Views.html 의 ScopeTabs 디자인
+// 캘린더 계층 빠른 이동 탭 — Calendar Views.html 의 ScopeTabs 디자인
 // 디자인: 작은 탭 라벨 + 활성은 액센트 색 + 하단 2px 액센트 보더
+// 10분 플래너는 별도 도구라 스코프에서 분리됨 (햄버거 메뉴 → 도구 → 10분 플래너 NEW)
 //
 // props:
 //   accent — 액센트 색
@@ -12,7 +13,6 @@ const SCOPE_ITEMS: { key: ScopeKey; label: string }[] = [
   { key: "year", label: "연" },
   { key: "month", label: "월" },
   { key: "daily", label: "일" },
-  { key: "tenmin", label: "10분" },
 ];
 
 export function CalendarScopeTabs({
