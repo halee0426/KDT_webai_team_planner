@@ -2,7 +2,7 @@
 //
 // 탭: "내 그룹" | "+ 새 그룹" | "코드로 참여"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Users as UsersIcon, ChevronRight, Crown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { SPRING, EASE, DURATION } from "@/styles/animations";
@@ -32,6 +32,17 @@ export function GroupSheet({
   const user = useUserStore((s) => s.user);
   const { groups, loading } = useMyGroups();
   const [tab, setTab] = useState<Tab>("list");
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -104,22 +115,23 @@ export function GroupSheet({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
-      className="fixed inset-0 z-[70] flex items-end"
+      className={`fixed inset-0 z-[70] flex ${isDesktop ? "items-center justify-center p-4" : "items-end"}`}
       onClick={onClose}
       style={{ background: "rgba(0,0,0,0.35)" }}
     >
       <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
+        initial={isDesktop ? { opacity: 0, y: 28, scale: 0.96 } : { y: "100%" }}
+        animate={isDesktop ? { opacity: 1, y: 0, scale: 1 } : { y: 0 }}
+        exit={isDesktop ? { opacity: 0, y: 28, scale: 0.96 } : { y: "100%" }}
         transition={SPRING.sheet}
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
+        className={`relative w-full ${isDesktop ? "max-w-[440px] rounded-3xl" : "max-w-[375px] rounded-t-3xl"} mx-auto`}
         style={{
           background: "var(--bg-elevated)",
-          maxHeight: "82vh",
+          maxHeight: isDesktop ? "min(640px, calc(100vh - 48px))" : "82vh",
           display: "flex",
           flexDirection: "column",
-          paddingBottom: "env(safe-area-inset-bottom, 0)",
+          paddingBottom: isDesktop ? undefined : "env(safe-area-inset-bottom, 0)",
+          boxShadow: isDesktop ? "0 24px 70px rgba(0,0,0,0.24)" : undefined,
         }}
         onClick={(e) => e.stopPropagation()}
       >
