@@ -121,6 +121,12 @@ export default function App() {
   const user = useUserStore((s) => s.user);
   const { groups: myGroups } = useMyGroups();
 
+  // 활성 그룹 객체 — DayView 등에서 멤버 표시에 사용
+  const activeGroup = useMemo(
+    () => (activeGroupId ? myGroups.find((g) => g.id === activeGroupId) ?? null : null),
+    [activeGroupId, myGroups],
+  );
+
   // 새로 만든/가입한 그룹을 활성화한 직후 onSnapshot 이 따라잡기 전에
   // 아래 fallback useEffect 가 "stillExists=false" 로 판단해 "my" 로 되돌리는
   // race condition 방지용 — grace period 동안만 fallback 보호
@@ -537,6 +543,8 @@ export default function App() {
           planKind={planKind}
           todos={activeTodos}
           onTodosChange={setActiveTodos}
+          activeGroup={activeGroup}
+          currentUid={user?.uid ?? null}
         />
       );
       case "month": return (

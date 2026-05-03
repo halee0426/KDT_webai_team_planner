@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
 import { highlights } from "./tokens";
 import type { Todo } from "./eventStore";
+import type { Group } from "@/types/group";
+import { MemberAvatarStack, membersFromGroup } from "./shared/MemberAvatar";
 import { TYPE } from "@/styles/typography";
 
 export function DayView({
@@ -9,11 +11,16 @@ export function DayView({
   planKind = "my",
   todos,
   onTodosChange,
+  activeGroup = null,
+  currentUid = null,
 }: {
   accent: string;
   planKind?: string;
   todos: Todo[];
   onTodosChange: (todos: Todo[]) => void;
+  /** planKind 가 그룹일 때 — 멤버 아바타와 카운트에 사용 */
+  activeGroup?: Group | null;
+  currentUid?: string | null;
 }) {
   // 부모로 끌어올린 todos를 setter 형식으로 사용 (기존 setTodos 호출 호환)
   const setTodos: React.Dispatch<React.SetStateAction<Todo[]>> = (updater) => {
@@ -101,28 +108,20 @@ export function DayView({
           }}
         >
           할일 {today.filter((t) => !t.done).length} · 일정 {events.length}
-          {planKind !== "my" && " · 멤버 4"}
+          {planKind !== "my" && activeGroup && ` · 멤버 ${activeGroup.memberUids.length}`}
         </div>
-      {planKind !== "my" && (
+      {planKind !== "my" && activeGroup && (
         <div className="flex items-center gap-2 mt-3">
-          {["지민", "수아", "현우", "나"].map((n, i) => (
-            <div
-              key={n}
-              className="w-7 h-7 rounded-full flex items-center justify-center"
-              style={{
-                background: [accent, "#FF9500", "#34C759", "#AF52DE"][i],
-                color: "#fff",
-                fontSize: 11,
-                fontWeight: 600,
-                border: "1.5px solid var(--bg-canvas)",
-                marginLeft: i === 0 ? 0 : -10,
-              }}
-            >
-              {n[0]}
-            </div>
-          ))}
+          <MemberAvatarStack
+            members={membersFromGroup(activeGroup)}
+            size={28}
+            max={4}
+            accent={accent}
+            currentUid={currentUid}
+            ringBg="var(--bg-canvas)"
+          />
           <span style={{ fontSize: 11, color: "var(--text-muted)" }} className="ml-1">
-            함께하는 플랜
+            {activeGroup.name}
           </span>
         </div>
       )}
