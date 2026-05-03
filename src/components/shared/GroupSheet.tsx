@@ -160,20 +160,35 @@ export function GroupSheet({
             <button
               key={t.k}
               onClick={() => switchTab(t.k as Tab)}
+              className="relative"
               style={{
                 flex: 1,
                 padding: "8px 10px",
                 fontSize: 12,
                 fontWeight: tab === t.k ? 700 : 500,
                 color: tab === t.k ? accent : "var(--text-secondary)",
-                background: tab === t.k ? `${accent}1A` : "var(--bg-tertiary)",
+                background: "var(--bg-tertiary)",
                 border: 0,
                 borderRadius: 10,
                 cursor: "pointer",
                 letterSpacing: "-0.2px",
+                transition: "color 180ms",
               }}
             >
-              {t.label}
+              {tab === t.k && (
+                <motion.div
+                  layoutId="group-tab-pill"
+                  transition={SPRING.snap}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: `${accent}1A`,
+                    borderRadius: 10,
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <span style={{ position: "relative", zIndex: 1 }}>{t.label}</span>
             </button>
           ))}
         </div>
@@ -337,11 +352,17 @@ function GroupList({
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <AnimatePresence initial={false}>
       {groups.map((g) => {
         const isOwner = g.ownerUid === currentUid;
         return (
-          <div
+          <motion.div
             key={g.id}
+            layout
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+            transition={SPRING.soft}
             style={{
               display: "flex",
               alignItems: "center",
@@ -405,9 +426,10 @@ function GroupList({
             >
               <ChevronRight size={16} />
             </button>
-          </div>
+          </motion.div>
         );
       })}
+      </AnimatePresence>
     </div>
   );
 }

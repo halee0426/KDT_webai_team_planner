@@ -542,6 +542,7 @@ export function DiaryView({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
               {sortedEntries.map((e, idx) => {
                 const dow = WEEKDAYS[new Date(e.year, e.month, e.day).getDay()];
                 const isCurrent =
@@ -551,8 +552,13 @@ export function DiaryView({
                 const title = firstLine.length > 0 ? firstLine.slice(0, 28) : "내용 없음";
                 const rest = e.text ? e.text.slice(firstLine.length).trim() : "";
                 return (
-                  <button
+                  <motion.button
                     key={e.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+                    transition={SPRING.soft}
                     onClick={() => {
                       clearTimeout(saveTimer.current);
                       commitDraft(
@@ -659,9 +665,10 @@ export function DiaryView({
                         )}
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
+              </AnimatePresence>
             </div>
           )}
         </div>

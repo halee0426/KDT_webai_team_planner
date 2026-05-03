@@ -5,6 +5,8 @@ import {
   Menu as MenuIcon, Calendar, Target,
   Sun, BookOpen,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { accents, AccentKey } from "@/components/tokens";
 import {
   initialSharedEvents,
@@ -151,25 +153,29 @@ export default function App() {
   // 일시적 UI 상태 — 영속화 X
   const [screen, setScreen] = useState<Screen>("day");
 
-  // 화면 전환 애니메이션 — 이전 screen 추적해서 진입 방향 결정
+  // 화면 전환 — motion variant 로 진입 방향 결정 (좌/우 슬라이드 + 깊이 줌)
   const prevScreenRef = useRef<Screen>(screen);
   const MAIN_TAB_ORDER: Screen[] = ["day", "month", "mandala", "diary"];
   const calDepth = (s: Screen) =>
     s === "year" ? 0 : s === "month" ? 1 : s === "daily" ? 2 : -1;
-  const transitionClass = useMemo(() => {
+  /** 진입 방향 — page transition motion variant 결정용
+   *  'right' = 새 화면이 오른쪽에서 들어옴 (다음 탭 / 깊이 진입)
+   *  'left'  = 왼쪽에서 들어옴 (이전 탭 / 깊이 후퇴)
+   *  'fade'  = 같은 깊이 / 알 수 없음 — 단순 페이드 */
+  const transitionDir = useMemo<"right" | "left" | "fade">(() => {
     const prev = prevScreenRef.current;
-    if (prev === screen) return "screen-enter-fade";
+    if (prev === screen) return "fade";
     const prevMain = MAIN_TAB_ORDER.indexOf(prev as any);
     const curMain = MAIN_TAB_ORDER.indexOf(screen as any);
     if (prevMain !== -1 && curMain !== -1) {
-      return curMain > prevMain ? "screen-enter-right" : "screen-enter-left";
+      return curMain > prevMain ? "right" : "left";
     }
     const prevD = calDepth(prev);
     const curD = calDepth(screen);
     if (prevD !== -1 && curD !== -1) {
-      return curD > prevD ? "screen-enter-zoomin" : "screen-enter-zoomout";
+      return curD > prevD ? "right" : "left";
     }
-    return "screen-enter-fade";
+    return "fade";
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
   useEffect(() => {
@@ -720,10 +726,33 @@ export default function App() {
             </div>
           )}
 
-          {/* 화면 전환 애니메이션 wrapper — 진입 방향에 따라 슬라이드/페이드/줌 */}
-          <div className={transitionClass} key={screen}>
-            {renderScreen()}
-          </div>
+          {/* 화면 전환 애니메이션 — motion variant 로 좌/우 슬라이드 + fade */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={screen}
+              initial={
+                transitionDir === "right"
+                  ? { opacity: 0, x: "8%" }
+                  : transitionDir === "left"
+                  ? { opacity: 0, x: "-8%" }
+                  : { opacity: 0 }
+              }
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                transitionDir === "right"
+                  ? { opacity: 0, x: "-4%" }
+                  : transitionDir === "left"
+                  ? { opacity: 0, x: "4%" }
+                  : { opacity: 0 }
+              }
+              transition={{
+                duration: DURATION.page / 1000,
+                ease: EASE.outQuart,
+              }}
+            >
+              {renderScreen()}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* 하단 탭바 */}
@@ -936,9 +965,24 @@ function TabBtn({ icon, label, active, accent, onClick }: { icon: React.ReactNod
   return (
     <button
       onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-0.5 active:scale-95"
-      style={{ color: active ? accent : "var(--text-muted)" }}
+      className="flex-1 flex flex-col items-center gap-0.5 active:scale-95 relative"
+      style={{ color: active ? accent : "var(--text-muted)", transition: "color 180ms" }}
     >
+      {/* 활성 indicator — layoutId 로 부드럽게 슬라이드 */}
+      {active && (
+        <motion.div
+          layoutId="tabbar-active-dot"
+          transition={SPRING.snap}
+          style={{
+            position: "absolute",
+            top: -6,
+            width: 4,
+            height: 4,
+            borderRadius: 999,
+            background: accent,
+          }}
+        />
+      )}
       {icon}
       <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, letterSpacing: "-0.12px" }}>{label}</span>
     </button>

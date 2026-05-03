@@ -7,6 +7,9 @@
 //   active — 현재 활성 탭 키
 //   onChange — 탭 변경 콜백
 
+import { motion } from "motion/react";
+import { SPRING } from "@/styles/animations";
+
 export type ScopeKey = "year" | "month" | "daily" | "tenmin";
 
 const SCOPE_ITEMS: { key: ScopeKey; label: string }[] = [
@@ -40,7 +43,7 @@ export function CalendarScopeTabs({
           <button
             key={s.key}
             onClick={() => onChange(s.key)}
-            className="active:scale-95"
+            className="active:scale-95 relative"
             style={{
               flex: 1,
               padding: "10px 0 11px",
@@ -50,7 +53,6 @@ export function CalendarScopeTabs({
               color: on ? accent : "var(--text-secondary)",
               background: "transparent",
               border: 0,
-              borderBottom: on ? `2px solid ${accent}` : "2px solid transparent",
               marginBottom: -1,
               cursor: "pointer",
               fontFamily: "inherit",
@@ -58,6 +60,21 @@ export function CalendarScopeTabs({
             }}
           >
             {s.label}
+            {/* 활성 underline — layoutId 로 부드럽게 슬라이드 */}
+            {on && (
+              <motion.div
+                layoutId="scope-underline"
+                transition={SPRING.snap}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 2,
+                  background: accent,
+                }}
+              />
+            )}
           </button>
         );
       })}
