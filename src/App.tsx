@@ -1,6 +1,6 @@
 // Figma Make 디자인 그대로 — 모바일 앱 프레임 + 7개 뷰 + 탭바
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Menu as MenuIcon, Calendar, CalendarDays, Target,
   MoreHorizontal, Sun, BookOpen, Clock,
@@ -120,6 +120,20 @@ export default function App() {
   // 내 그룹 목록 + 로그인 사용자
   const user = useUserStore((s) => s.user);
   const { groups: myGroups } = useMyGroups();
+
+  // 새로 만든/가입한 그룹을 활성화한 직후 onSnapshot 이 따라잡기 전에
+  // 아래 fallback useEffect 가 "stillExists=false" 로 판단해 "my" 로 되돌리는
+  // race condition 방지용 — grace period 동안만 fallback 보호
+  const recentActiveGroupRef = useRef<{ id: string; at: number } | null>(null);
+  const setActivePlan = useCallback(
+    (value: string) => {
+      if (value !== "my") {
+        recentActiveGroupRef.current = { id: value, at: Date.now() };
+      }
+      setPlanKind(value);
+    },
+    [setPlanKind],
+  );
 
   // 캘린더 계층 네비게이션 — 연력 → 달력 → 일력 사이 공통 focus (year/month/day)
   const todayObj = new Date();
@@ -295,7 +309,13 @@ export default function App() {
     if (!user) return;
     if (myGroups.length === 0) return;
     const stillExists = myGroups.some((g) => g.id === planKind);
-    if (!stillExists) setPlanKind("my");
+    if (!stillExists) {
+      // 방금 setActivePlan 으로 활성화된 그룹은 onSnapshot 이 도착하기까지
+      // grace period 동안 fallback 차단 — 새 그룹 생성/가입 직후 race 보호
+      const recent = recentActiveGroupRef.current;
+      if (recent && recent.id === planKind && Date.now() - recent.at < 2500) return;
+      setPlanKind("my");
+    }
   }, [planKind, myGroups, user, setPlanKind]);
 
   const isDark = useMemo(() => {
@@ -649,7 +669,7 @@ export default function App() {
               groups={myGroups}
               currentUid={user?.uid ?? null}
               onSelectMy={() => setPlanKind("my")}
-              onSelectGroup={(gid) => setPlanKind(gid)}
+              onSelectGroup={(gid) => setActivePlan(gid)}
               onOpenGroupSheet={() => setGroupSheetOpen(true)}
             />
 
@@ -783,7 +803,7 @@ export default function App() {
               } else {
                 // "공동" 선택 — 그룹이 있으면 첫 그룹 진입, 없으면 그룹 시트 열어 안내
                 if (myGroups.length > 0) {
-                  setPlanKind(myGroups[0].id);
+                  setActivePlan(myGroups[0].id);
                   setStage("app");
                 } else {
                   setStage("app");
@@ -895,7 +915,7 @@ export default function App() {
           open={groupSheetOpen}
           onClose={() => setGroupSheetOpen(false)}
           accent={accent}
-          onSelectGroup={(gid) => setPlanKind(gid)}
+          onSelectGroup={(gid) => setActivePlan(gid)}
           onOpenDetail={(gid) => {
             setGroupDetailId(gid);
           }}
