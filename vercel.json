@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "functions": {
+    "api/ai/orchestrate.ts": {
+      "maxDuration": 60
+    }
+  }
+}

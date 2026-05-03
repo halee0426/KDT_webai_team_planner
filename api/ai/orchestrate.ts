@@ -15,7 +15,7 @@ import {
 import { runOrchestration } from "../../src/server/orchestratorRunner";
 
 // Node runtime — firebase-admin / openai SDK 모두 호환
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "nodejs", maxDuration: 60 };
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {

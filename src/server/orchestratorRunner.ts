@@ -49,80 +49,68 @@ export async function runOrchestration(
   referenceDate: string,
   currentScreen?: string,
 ): Promise<OrchestrationResult> {
-  // 1. Orchestrator — intent 분류 + 라우팅
-  const orch = await callOrchestrator({
-    userRequest,
-    subject: resolved.subject,
-    rawContext: resolved.rawContext,
-    currentScreen,
-    referenceDate,
-  });
-  if (!orch.ok || !orch.data) {
-    return {
-      ok: false,
-      error: orch.error ?? { code: "ORCH_FAILED", message: "unknown" },
-    };
-  }
-  const plan = orch.data;
+  // ── 최적화: Orchestrator + Context + Specialists 모두 동시 실행
+  //    Orchestrator 의 라우팅 판정은 사후 메타로만 사용 (Composer 가 빈 결과는 자동 무시).
+  //    각 specialist 는 본인 영역이 아니면 nonXxxRequest=true 로 빈 배열 반환 (이미 구현됨).
+  //    이로써 직렬 9~10초 → 병렬 ~3초 로 단축. agent 7종 모두 그대로 사용.
 
-  // 2. Context Agent (선택)
-  let contextOut: ContextAgentOutput | undefined;
-  if (plan.agentsToCall.includes("context_agent")) {
-    const ctx = await callContextAgent({
+  const [
+    orchRes,
+    contextRes,
+    scheduleRes,
+    taskRes,
+    mandalaRes,
+  ] = await Promise.all([
+    callOrchestrator({
+      userRequest,
+      subject: resolved.subject,
+      rawContext: resolved.rawContext,
+      currentScreen,
+      referenceDate,
+    }),
+    callContextAgent({
       userRequest,
       subject: resolved.subject,
       rawContext: resolved.rawContext,
       referenceDate,
-    });
-    if (ctx.ok && ctx.data) contextOut = ctx.data;
-  }
-
-  const contextSummary = contextOut?.contextSummary ?? [];
-
-  // 3. Specialist Agents — 병렬 실행
-  const wantsSchedule = plan.agentsToCall.includes("schedule_parser_agent");
-  const wantsTask = plan.agentsToCall.includes("task_breakdown_agent");
-  const wantsMandala = plan.agentsToCall.includes("goal_mandala_agent");
-
-  const [schedulePromise, taskPromise, mandalaPromise] = [
-    wantsSchedule
-      ? callScheduleParser({
-          userRequest,
-          subject: resolved.subject,
-          referenceDate,
-          busyTimeHints: resolved.busyTimeHints,
-          holidays: resolved.holidays,
-          contextSummary,
-        })
-      : null,
-    wantsTask
-      ? callTaskBreakdown({
-          userRequest,
-          subject: resolved.subject,
-          referenceDate,
-          existingTodoSummaries: resolved.existingTodos,
-          contextSummary,
-        })
-      : null,
-    wantsMandala
-      ? callGoalMandala({
-          userRequest,
-          subject: resolved.subject,
-          existingActiveGoals: resolved.existingActiveGoals,
-          contextSummary,
-        })
-      : null,
-  ];
-
-  const [scheduleRes, taskRes, mandalaRes] = await Promise.all([
-    schedulePromise,
-    taskPromise,
-    mandalaPromise,
+    }),
+    callScheduleParser({
+      userRequest,
+      subject: resolved.subject,
+      referenceDate,
+      busyTimeHints: resolved.busyTimeHints,
+      holidays: resolved.holidays,
+      contextSummary: [],
+    }),
+    callTaskBreakdown({
+      userRequest,
+      subject: resolved.subject,
+      referenceDate,
+      existingTodoSummaries: resolved.existingTodos,
+      contextSummary: [],
+    }),
+    callGoalMandala({
+      userRequest,
+      subject: resolved.subject,
+      existingActiveGoals: resolved.existingActiveGoals,
+      contextSummary: [],
+    }),
   ]);
-  const scheduleOut =
-    scheduleRes && scheduleRes.ok ? scheduleRes.data : undefined;
-  const taskOut = taskRes && taskRes.ok ? taskRes.data : undefined;
-  const mandalaOut = mandalaRes && mandalaRes.ok ? mandalaRes.data : undefined;
+
+  // Orchestrator 실패는 치명적 — 에러 반환 (다른 agent 결과 있어도 라우팅 메타 없음)
+  if (!orchRes.ok || !orchRes.data) {
+    return {
+      ok: false,
+      error: orchRes.error ?? { code: "ORCH_FAILED", message: "unknown" },
+    };
+  }
+  const plan = orchRes.data;
+
+  const contextOut = contextRes.ok ? contextRes.data : undefined;
+  // 본인 영역이 아닌 specialist 는 자동으로 nonXxxRequest=true + 빈 배열 반환 — 그대로 사용
+  const scheduleOut = scheduleRes.ok ? scheduleRes.data : undefined;
+  const taskOut = taskRes.ok ? taskRes.data : undefined;
+  const mandalaOut = mandalaRes.ok ? mandalaRes.data : undefined;
 
   // 4. Conflict Agent (proposed 가 하나라도 있고 라우팅에 포함되면)
   let conflictOut: ConflictAgentOutput | undefined;

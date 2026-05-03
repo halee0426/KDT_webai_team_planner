@@ -123,7 +123,6 @@ export function AppMenuSheet({
           desc: "집중 시간 설계",
           icon: Clock,
           onClick: () => onNavigate("tenmin"),
-          badge: "NEW",
         },
         {
           key: "diary",

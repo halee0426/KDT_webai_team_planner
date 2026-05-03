@@ -715,8 +715,8 @@ export default function App() {
           }}
           key={planKind + screen}
         >
-          {/* 캘린더 계층 — 상단 스코프 탭 (연/월/일). 10분 플래너는 별도 도구 */}
-          {(screen === "year" || screen === "month" || screen === "daily") && (
+          {/* 캘린더 계층 — 상단 스코프 탭 (연/월/일/10분). 10분 플래너는 dot 으로 강조 */}
+          {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
             <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
               <CalendarScopeTabs
                 accent={accent}

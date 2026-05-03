@@ -7,7 +7,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, User as UserIcon, Users as UsersIcon, Crown } from "lucide-react";
+import { motion } from "motion/react";
 import type { Group } from "@/types/group";
+import { SPRING } from "@/styles/animations";
 import { MemberAvatarStack, membersFromGroup } from "./MemberAvatar";
 
 export function GroupSelector({
@@ -48,36 +50,30 @@ export function GroupSelector({
   return (
     <div
       ref={containerRef}
-      className="relative flex p-0.5 rounded-full"
-      style={{ background: "var(--bg-tertiary)", height: 32 }}
+      className="relative flex rounded-full"
+      style={{ background: "var(--bg-tertiary)", height: 32, padding: 2, gap: 2 }}
     >
-      {/* 슬라이딩 배경 */}
-      <div
-        className="absolute top-0.5 bottom-0.5 rounded-full transition-all duration-300 ease-out"
-        style={{
-          width: "calc(50% - 2px)",
-          left: isMy ? 2 : "calc(50%)",
-          background: "var(--bg-elevated)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-        }}
-      />
-
-      {/* "나의" */}
+      {/* "나의" — 활성 시 자체 배경 */}
       <button
         onClick={() => {
           setOpen(false);
           onSelectMy();
         }}
         aria-label="나의 플랜"
-        className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
+        className="flex items-center justify-center gap-1 rounded-full active:scale-[0.97] transition-all"
         style={{
           fontSize: 12,
           fontWeight: isMy ? 600 : 500,
           color: isMy ? accent : "var(--text-secondary)",
           letterSpacing: "-0.2px",
           border: 0,
-          background: "transparent",
+          background: isMy ? "var(--bg-elevated)" : "transparent",
+          boxShadow: isMy ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
           cursor: "pointer",
+          padding: "0 12px",
+          height: 28,
+          flexShrink: 0,
+          whiteSpace: "nowrap",
         }}
       >
         <UserIcon size={12} strokeWidth={2} />
@@ -89,7 +85,7 @@ export function GroupSelector({
         <button
           onClick={onOpenGroupSheet}
           aria-label="그룹 만들기"
-          className="relative flex items-center justify-center gap-1 px-2.5 rounded-full active:scale-[0.97] transition-transform"
+          className="flex items-center justify-center gap-1 rounded-full active:scale-[0.97] transition-all"
           style={{
             fontSize: 12,
             fontWeight: 500,
@@ -98,6 +94,10 @@ export function GroupSelector({
             border: 0,
             background: "transparent",
             cursor: "pointer",
+            padding: "0 12px",
+            height: 28,
+            flexShrink: 0,
+            whiteSpace: "nowrap",
           }}
         >
           <Plus size={12} strokeWidth={2} />
@@ -107,35 +107,28 @@ export function GroupSelector({
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label="그룹 선택"
-          className="relative flex items-center justify-center gap-1 px-2 rounded-full active:scale-[0.97] transition-transform"
+          className="flex items-center justify-center gap-1 rounded-full active:scale-[0.97] transition-all"
           style={{
             fontSize: 12,
             fontWeight: !isMy ? 600 : 500,
             color: !isMy ? accent : "var(--text-secondary)",
             letterSpacing: "-0.2px",
             border: 0,
-            background: "transparent",
+            background: !isMy ? "var(--bg-elevated)" : "transparent",
+            boxShadow: !isMy ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
             cursor: "pointer",
-            maxWidth: 130,
-            overflow: "hidden",
+            padding: "0 12px",
+            height: 28,
+            maxWidth: 160,
+            minWidth: 0,
+            flexShrink: 1,
           }}
         >
-          {!isMy && activeGroup ? (
-            <MemberAvatarStack
-              members={membersFromGroup(activeGroup)}
-              size={16}
-              max={2}
-              accent={accent}
-              currentUid={currentUid}
-              ringBg="var(--bg-elevated)"
-            />
-          ) : (
-            <UsersIcon size={12} strokeWidth={2} />
-          )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <UsersIcon size={12} strokeWidth={2} style={{ flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
             {isMy ? "그룹" : activeGroupName}
           </span>
-          <ChevronDown size={11} strokeWidth={2} />
+          <ChevronDown size={11} strokeWidth={2} style={{ flexShrink: 0 }} />
         </button>
       )}
 
