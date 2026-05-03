@@ -7,8 +7,10 @@
 
 import { useMemo } from "react";
 import { Plus } from "lucide-react";
+import { motion } from "motion/react";
 import { LogoLockup } from "./Logo";
 import { MemberAvatarStack, membersFromGroup } from "./shared/MemberAvatar";
+import { SPRING, EASE } from "@/styles/animations";
 import type { Group } from "@/types/group";
 
 type PlanKind = "my" | "shared";
@@ -111,8 +113,22 @@ export function PlanSelect({
         </div>
       </div>
 
-      {/* 카드 두 장 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 28 }}>
+      {/* 카드 두 장 — stagger 등장 (0.08초 간격) */}
+      <motion.div
+        style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 28 }}
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+        }}
+      >
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
+          }}
+        >
         <BigPlanCard
           kind="my"
           accent={accent}
@@ -122,6 +138,13 @@ export function PlanSelect({
           stats={stats}
           onClick={() => onSelect("my")}
         />
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
+          }}
+        >
         <BigPlanCard
           kind="shared"
           accent={accent}
@@ -131,6 +154,7 @@ export function PlanSelect({
           stats={stats}
           onClick={() => onSelect("shared")}
         />
+        </motion.div>
 
         {/* 내 그룹 목록 — 공동 플랜 카드 아래 미니 카드. 그룹 0개면 영역 자체 미표시 */}
         {groups && groups.length > 0 && (
@@ -193,9 +217,16 @@ export function PlanSelect({
           </div>
         )}
 
-        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
-        <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
-      </div>
+        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) — stagger 마지막 */}
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
+          }}
+        >
+          <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+        </motion.div>
+      </motion.div>
 
     </div>
   );

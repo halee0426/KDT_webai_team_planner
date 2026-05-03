@@ -246,18 +246,30 @@ export function AIChatModal({
             gap: 12,
           }}
         >
+          <AnimatePresence initial={false}>
           {messages.map((msg, idx) => (
-            <MessageRow
+            <motion.div
               key={idx}
-              msg={msg}
-              accent={accent}
-              onRemoveEvent={(evId) => removeEventFromMsg(idx, evId)}
-              onEditEvent={(evId, field, value) => editEventField(idx, evId, field, value)}
-              onSave={(evs) => saveEvents(evs)}
-              onRequestEdit={requestEdit}
-              isLast={idx === messages.length - 1}
-            />
+              layout
+              initial={{
+                opacity: 0,
+                x: msg.role === "user" ? 20 : -20,
+              }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={SPRING.soft}
+            >
+              <MessageRow
+                msg={msg}
+                accent={accent}
+                onRemoveEvent={(evId) => removeEventFromMsg(idx, evId)}
+                onEditEvent={(evId, field, value) => editEventField(idx, evId, field, value)}
+                onSave={(evs) => saveEvents(evs)}
+                onRequestEdit={requestEdit}
+                isLast={idx === messages.length - 1}
+              />
+            </motion.div>
           ))}
+          </AnimatePresence>
         </div>
 
         {/* 빠른 제안 칩 */}
