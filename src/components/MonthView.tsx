@@ -718,7 +718,10 @@ export function MonthView({
             if (day < 1 || day > daysInMonth) continue;
             const tCount = timedEvents.filter((e) => e.startDay === day).length;
             const sCount = plans.filter((p) => p.start === day && p.end === day).length;
-            cellItems[cellIdx] = Math.min(tCount + sCount, 3);
+            // 공휴일 텍스트(빨강 한 줄, fontSize 9 + marginTop 2 ≈ ITEM_H 와 비슷한 높이)도
+            // 점+텍스트와 같은 한 줄로 카운트 → 멀티데이 막대가 자동으로 그 아래로 내려감
+            const hCount = holidays.has(day) ? 1 : 0;
+            cellItems[cellIdx] = Math.min(tCount + sCount + hCount, 3);
           }
           // 셀 상단 ~ 콘텐츠 영역 시작점 픽셀 계산
           // 셀 paddingTop(8) + 날짜원(26) + 여백(8) = 42px 최소 — 막대는 절대 이 아래에 위치
