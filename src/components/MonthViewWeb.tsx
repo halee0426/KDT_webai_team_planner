@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { SearchSheet } from "./shared/SearchSheet";
 
 export function MonthViewWeb({
   accent,
@@ -13,6 +14,7 @@ export function MonthViewWeb({
   onMonthChange,
   onBack,
   onOpenDay,
+  onOpenEdit,
 }: {
   accent: string;
   planKind?: string;
@@ -28,6 +30,7 @@ export function MonthViewWeb({
   /** 날짜 셀 탭 시 일력으로 진입 */
   onOpenDay?: (year: number, month: number, day: number) => void;
   onAdd?: () => void;
+  onOpenEdit?: (e: SharedEvent) => void;
 }) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
   const [innerMonth, setInnerMonth] = useState(planKind !== "my" ? 4 : 3);
@@ -48,6 +51,7 @@ export function MonthViewWeb({
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [editingPlan, setEditingPlan] = useState<{ id: number; start: number; end: number; color: string; label: string } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
   );
@@ -233,16 +237,36 @@ export function MonthViewWeb({
         )}
 
         {/* 우측: 알약 그룹 (이전/다음/오늘 통합) */}
-        <div
-          className="flex items-center"
-          style={{
-            background: "var(--bg-elevated)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            borderRadius: 999,
-            padding: 4,
-            gap: 4,
-          }}
-        >
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="active:scale-90"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              background: "var(--bg-elevated)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              color: "var(--text-secondary)",
+              border: 0,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+            }}
+            aria-label="일정 검색"
+          >
+            <Search size={18} strokeWidth={2} />
+          </button>
+          <div
+            className="flex items-center"
+            style={{
+              background: "var(--bg-elevated)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              borderRadius: 999,
+              padding: 4,
+              gap: 4,
+            }}
+          >
           <button
             onClick={() => setMonth((m) => (m + 11) % 12)}
             className="active:scale-90"
@@ -297,6 +321,7 @@ export function MonthViewWeb({
           >
             <ChevronRight size={18} strokeWidth={2.2} />
           </button>
+          </div>
         </div>
       </div>
 
@@ -699,6 +724,31 @@ export function MonthViewWeb({
           </div>
         </div>
       )}
+
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        events={events}
+        accent={accent}
+        onSelect={(e) => {
+          if (e.year !== year || e.month !== month) {
+            onMonthChange?.(e.year, e.month);
+          }
+          setSelected(e.startDay);
+          setSearchOpen(false);
+          if (onOpenEdit) {
+            onOpenEdit(e);
+          } else if (e.startSlot === undefined) {
+            setEditingPlan({
+              id: e.id,
+              start: e.startDay,
+              end: e.endDay,
+              color: e.color,
+              label: e.title,
+            });
+          }
+        }}
+      />
     </div>
   );
 }
