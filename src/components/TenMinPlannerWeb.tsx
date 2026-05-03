@@ -1,19 +1,47 @@
 import { useEffect, useRef, useState } from "react";
-import { Brush, Eraser, Plus } from "lucide-react";
+import { Brush, ChevronLeft, ChevronRight, Eraser, Plus } from "lucide-react";
 import { highlights } from "./tokens";
 import { TYPE } from "@/styles/typography";
 
 type Task = { id: number; name: string; color: string };
 
+const DEFAULT_TASKS_WEB: Task[] = [
+  { id: 1, name: "", color: highlights[0].color },
+  { id: 2, name: "", color: highlights[1].color },
+  { id: 3, name: "", color: highlights[2].color },
+  { id: 4, name: "", color: highlights[3].color },
+  { id: 5, name: "", color: highlights[4].color },
+];
+
+const DATA_VERSION = 2;
+
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function plannerKey(date: Date) {
+  return `ten-min-planner-v2-${date.toISOString().slice(0, 10)}`;
+}
+
+function loadForDate(date: Date): { tasks: Task[]; cells: Record<string, number> } | null {
+  try {
+    const raw = localStorage.getItem(plannerKey(date));
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.v === DATA_VERSION) return { tasks: data.tasks, cells: data.cells ?? {} };
+    }
+  } catch {}
+  return null;
+}
+
 export function TenMinPlannerWeb({ accent }: { accent: string }) {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, name: "딥워크", color: highlights[2].color },
-    { id: 2, name: "회의", color: highlights[4].color },
-    { id: 3, name: "운동", color: highlights[3].color },
-  ]);
-  const [activeId, setActiveId] = useState<number | null>(1);
+  const [selectedDate, setSelectedDate] = useState<Date>(todayMidnight);
+  const [tasks, setTasks] = useState<Task[]>(() => loadForDate(todayMidnight())?.tasks ?? DEFAULT_TASKS_WEB);
+  const [activeId, setActiveId] = useState<number | null>(() => (loadForDate(todayMidnight())?.tasks ?? DEFAULT_TASKS_WEB)[0]?.id ?? null);
   const [mode, setMode] = useState<"brush" | "eraser">("brush");
-  const [cells, setCells] = useState<Record<string, number>>({});
+  const [cells, setCells] = useState<Record<string, number>>(() => loadForDate(todayMidnight())?.cells ?? {});
   const dragging = useRef(false);
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
@@ -24,6 +52,24 @@ export function TenMinPlannerWeb({ accent }: { accent: string }) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // 날짜 변경 시 해당 날짜 데이터 로드
+  useEffect(() => {
+    const saved = loadForDate(selectedDate);
+    setTasks(saved?.tasks ?? DEFAULT_TASKS_WEB);
+    setCells(saved?.cells ?? {});
+  }, [selectedDate.toDateString()]);
+
+  // tasks/cells 변경 시 선택된 날짜 키로 저장
+  useEffect(() => {
+    try { localStorage.setItem(plannerKey(selectedDate), JSON.stringify({ v: DATA_VERSION, tasks, cells })); } catch {}
+  }, [tasks, cells]);
+
+  const prevDay = () => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
+  const nextDay = () => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
+  const goToday = () => setSelectedDate(todayMidnight());
+  const isToday = selectedDate.toDateString() === todayMidnight().toDateString();
+  const dateLabel = `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`;
 
   const hours = Array.from({ length: 18 }, (_, i) => i + 6);
   const plannerCellHeight = isDesktop
@@ -46,9 +92,19 @@ export function TenMinPlannerWeb({ accent }: { accent: string }) {
   const total = Object.keys(cells).length * 10;
 
   const addTask = () => {
-    const c = highlights[tasks.length % highlights.length].color;
+    const lastColor = tasks[tasks.length - 1]?.color;
+    const lastUsed = (color: string) => {
+      for (let i = tasks.length - 1; i >= 0; i--) {
+        if (tasks[i].color === color) return i;
+      }
+      return -1;
+    };
+    const picked =
+      [...highlights]
+        .sort((a, b) => lastUsed(a.color) - lastUsed(b.color))
+        .find((h) => h.color !== lastColor) ?? highlights[0];
     const id = Date.now();
-    setTasks((t) => [...t, { id, name: "새 작업", color: c }]);
+    setTasks((t) => [...t, { id, name: "새 작업", color: picked.color }]);
     setActiveId(id);
   };
 
@@ -90,15 +146,31 @@ export function TenMinPlannerWeb({ accent }: { accent: string }) {
         )}
 
         <div className="flex items-center gap-2 px-2 lg:px-0">
+          {/* 날짜 이동 */}
+          <button
+            onClick={prevDay}
+            className="flex items-center justify-center rounded-full active:scale-90"
+            style={{ width: isDesktop ? 36 : 32, height: isDesktop ? 36 : 32, background: "var(--bg-tertiary)", border: 0, cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 }}
+          >
+            <ChevronLeft size={isDesktop ? 18 : 16} />
+          </button>
           <span
             className="rounded-full px-3 py-1 lg:px-4 lg:py-2"
-            style={{ background: "var(--bg-tertiary)", fontSize: isDesktop ? 14 : 13 }}
+            style={{ background: "var(--bg-tertiary)", fontSize: isDesktop ? 14 : 13, fontWeight: 600, minWidth: isDesktop ? 90 : 76, textAlign: "center" }}
           >
-            4월 29일
+            {dateLabel}
           </span>
           <button
-            className="rounded-full px-3 py-1 lg:px-4 lg:py-2"
-            style={{ background: "var(--bg-tertiary)", fontSize: isDesktop ? 14 : 13 }}
+            onClick={nextDay}
+            className="flex items-center justify-center rounded-full active:scale-90"
+            style={{ width: isDesktop ? 36 : 32, height: isDesktop ? 36 : 32, background: "var(--bg-tertiary)", border: 0, cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 }}
+          >
+            <ChevronRight size={isDesktop ? 18 : 16} />
+          </button>
+          <button
+            onClick={goToday}
+            className="rounded-full px-3 py-1 lg:px-4 lg:py-2 active:scale-95"
+            style={{ background: isToday ? "var(--bg-tertiary)" : `${accent}1A`, color: isToday ? "var(--text-muted)" : accent, fontSize: isDesktop ? 14 : 13, fontWeight: isToday ? 400 : 600, border: 0, cursor: "pointer" }}
           >
             오늘
           </button>

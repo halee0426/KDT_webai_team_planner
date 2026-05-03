@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Brush, Eraser, Plus } from "lucide-react";
+import { Brush, ChevronLeft, ChevronRight, Eraser, Plus } from "lucide-react";
 import { highlights } from "./tokens";
 import { TenMinPlannerWeb } from "./TenMinPlannerWeb";
 
@@ -23,19 +23,65 @@ export function TenMinPlanner({ accent }: { accent: string }) {
   return isDesktopView ? <TenMinPlannerWeb accent={accent} /> : <TenMinPlannerMobile accent={accent} />;
 }
 
+const DEFAULT_TASKS: Task[] = [
+  { id: 1, name: "", color: highlights[0].color },
+  { id: 2, name: "", color: highlights[1].color },
+  { id: 3, name: "", color: highlights[2].color },
+  { id: 4, name: "", color: highlights[3].color },
+  { id: 5, name: "", color: highlights[4].color },
+];
+
+const DATA_VERSION = 2;
+
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function plannerKey(date: Date) {
+  return `ten-min-planner-v2-${date.toISOString().slice(0, 10)}`;
+}
+
+function loadForDate(date: Date): { tasks: Task[]; cells: Record<string, number> } | null {
+  try {
+    const raw = localStorage.getItem(plannerKey(date));
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.v === DATA_VERSION) return { tasks: data.tasks, cells: data.cells ?? {} };
+    }
+  } catch {}
+  return null;
+}
+
 function TenMinPlannerMobile({ accent }: { accent: string }) {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, name: "딥워크", color: highlights[2].color },
-    { id: 2, name: "회의", color: highlights[4].color },
-    { id: 3, name: "운동", color: highlights[3].color },
-  ]);
-  const [activeId, setActiveId] = useState<number | null>(1);
+  const [selectedDate, setSelectedDate] = useState<Date>(todayMidnight);
+  const [tasks, setTasks] = useState<Task[]>(() => loadForDate(todayMidnight())?.tasks ?? DEFAULT_TASKS);
+  const [activeId, setActiveId] = useState<number | null>(() => (loadForDate(todayMidnight())?.tasks ?? DEFAULT_TASKS)[0]?.id ?? null);
   const [mode, setMode] = useState<"brush" | "eraser">("brush");
-  const [cells, setCells] = useState<Record<string, number>>({}); // key h-s -> taskId
+  const [cells, setCells] = useState<Record<string, number>>(() => loadForDate(todayMidnight())?.cells ?? {}); // key h-s -> taskId
   const dragging = useRef(false);
   const paintModeRef = useRef<PaintMode>(null);
 
   const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+
+  // 날짜 변경 시 해당 날짜 데이터 로드
+  useEffect(() => {
+    const saved = loadForDate(selectedDate);
+    setTasks(saved?.tasks ?? DEFAULT_TASKS);
+    setCells(saved?.cells ?? {});
+  }, [selectedDate.toDateString()]);
+
+  // tasks/cells 변경 시 선택된 날짜 키로 저장
+  useEffect(() => {
+    try { localStorage.setItem(plannerKey(selectedDate), JSON.stringify({ v: DATA_VERSION, tasks, cells })); } catch {}
+  }, [tasks, cells]);
+
+  const prevDay = () => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
+  const nextDay = () => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; });
+  const goToday = () => setSelectedDate(todayMidnight());
+  const isToday = selectedDate.toDateString() === todayMidnight().toDateString();
+  const dateLabel = `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일`;
 
   // window pointerup — 드래그 종료 시 모드 초기화 (셀 밖에서 떼도 정상 종료)
   useEffect(() => {
@@ -92,19 +138,48 @@ function TenMinPlannerMobile({ accent }: { accent: string }) {
   const total = Object.keys(cells).length * 10;
 
   const addTask = () => {
-    const c = highlights[tasks.length % highlights.length].color;
+    const lastColor = tasks[tasks.length - 1]?.color;
+    const lastUsed = (color: string) => {
+      for (let i = tasks.length - 1; i >= 0; i--) {
+        if (tasks[i].color === color) return i;
+      }
+      return -1;
+    };
+    const picked =
+      [...highlights]
+        .sort((a, b) => lastUsed(a.color) - lastUsed(b.color))
+        .find((h) => h.color !== lastColor) ?? highlights[0];
     const id = Date.now();
-    setTasks((t) => [...t, { id, name: "새 작업", color: c }]);
+    setTasks((t) => [...t, { id, name: "새 작업", color: picked.color }]);
     setActiveId(id);
   };
 
   return (
     <div className="px-3 pt-4 pb-32">
       <div className="flex items-center gap-2 px-2">
-        <span className="px-3 py-1 rounded-full" style={{ background: "var(--bg-tertiary)", fontSize: 13 }}>
-          4월 29일
+        {/* 날짜 이동 */}
+        <button
+          onClick={prevDay}
+          className="flex items-center justify-center rounded-full active:scale-90"
+          style={{ width: 32, height: 32, background: "var(--bg-tertiary)", border: 0, cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 }}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="px-3 py-1 rounded-full" style={{ background: "var(--bg-tertiary)", fontSize: 13, fontWeight: 600, minWidth: 76, textAlign: "center" }}>
+          {dateLabel}
         </span>
-        <button className="px-3 py-1 rounded-full" style={{ background: "var(--bg-tertiary)", fontSize: 13 }}>
+        <button
+          onClick={nextDay}
+          className="flex items-center justify-center rounded-full active:scale-90"
+          style={{ width: 32, height: 32, background: "var(--bg-tertiary)", border: 0, cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 }}
+        >
+          <ChevronRight size={16} />
+        </button>
+        <button
+          onClick={goToday}
+          className="px-3 py-1 rounded-full active:scale-95"
+          style={{ background: isToday ? "var(--bg-tertiary)" : `${accent}1A`, color: isToday ? "var(--text-muted)" : accent, fontSize: 13, fontWeight: isToday ? 400 : 600, border: 0, cursor: "pointer" }}
+        >
           오늘
         </button>
         <div className="flex-1" />
