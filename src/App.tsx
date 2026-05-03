@@ -552,6 +552,8 @@ export default function App() {
           planKind={planKind}
           todos={activeTodos}
           onTodosChange={setActiveTodos}
+          events={events}
+          onOpenEdit={openEditEvent}
           activeGroup={activeGroup}
           currentUid={user?.uid ?? null}
         />
