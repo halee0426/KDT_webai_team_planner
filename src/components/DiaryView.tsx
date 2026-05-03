@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2, BookOpen } from "lucide-react";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 type Entry = {
   id: string;
@@ -19,32 +20,25 @@ function makeId(y: number, m: number, d: number) {
 
 export function DiaryView({
   accent,
-  planKind = "my",
 }: {
   accent: string;
+  /** 더 이상 더미 분기에 사용하지 않지만 호출부 호환 유지 */
   planKind?: string;
 }) {
-  const seed: Entry[] =
-    planKind !== "my"
-      ? [
-          { id: "2026-3-29", year: 2026, month: 3, day: 29, mood: "🥳", text: "팀 워크숍 후기 — 모두가 즐겁게 참여했다. 다음 분기 목표도 함께 정했다." },
-          { id: "2026-3-27", year: 2026, month: 3, day: 27, mood: "😊", text: "지민이 공유한 시안 좋았다. 수아가 피드백을 정리해줬다." },
-          { id: "2026-3-24", year: 2026, month: 3, day: 24, mood: "😐", text: "회의가 길었다. 결론은 다음 주로 미뤘다." },
-        ]
-      : [
-          { id: "2026-3-29", year: 2026, month: 3, day: 29, mood: "😊", text: "오늘은 디자인 리뷰가 있었다. 팀원들과 좋은 의견을 나눴고 다음 주에 적용하기로 했다." },
-          { id: "2026-3-28", year: 2026, month: 3, day: 28, mood: "😐", text: "평범한 하루. 회의가 많아 집중하기 어려웠다." },
-          { id: "2026-3-26", year: 2026, month: 3, day: 26, mood: "😊", text: "주말에 산책. 날씨가 좋았다." },
-        ];
+  // localStorage 영속화 — 게스트도 새로고침 후 유지. (그룹 동기화는 v2)
+  const [entries, setEntries] = usePersistedState<Entry[]>("diaries", []);
 
-  const [entries, setEntries] = useState<Entry[]>(seed);
-  const [viewYear, setViewYear] = useState(2026);
-  const [viewMonth, setViewMonth] = useState(3); // 0-indexed April
-  const [selectedDay, setSelectedDay] = useState(29);
-  const [draftMood, setDraftMood] = useState<string>(() => seed.find((e) => e.day === 29)?.mood ?? "😊");
-  const [draftText, setDraftText] = useState<string>(() => seed.find((e) => e.day === 29)?.text ?? "");
+  // 진입 시 오늘 날짜로 초기화
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const [draftMood, setDraftMood] = useState<string>("😊");
+  const [draftText, setDraftText] = useState<string>("");
   const [savedHint, setSavedHint] = useState(true);
   const [tab, setTab] = useState<"write" | "list">("write");
+  // 삭제 확인 다이얼로그
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const stripRef = useRef<HTMLDivElement>(null);
@@ -53,6 +47,18 @@ export function DiaryView({
 
   useEffect(() => { latestMood.current = draftMood; }, [draftMood]);
   useEffect(() => { latestText.current = draftText; }, [draftText]);
+
+  // 마운트 시 — localStorage 에서 로드된 오늘 날짜 entry 가 있으면 draft 에 채움
+  useEffect(() => {
+    const e = entries.find((x) => x.year === viewYear && x.month === viewMonth && x.day === selectedDay);
+    if (e) {
+      setDraftMood(e.mood);
+      setDraftText(e.text);
+      setSavedHint(true);
+    }
+    // 마운트 1회만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
@@ -127,6 +133,23 @@ export function DiaryView({
     setDraftMood(mood);
     commitDraft(viewYear, viewMonth, selectedDay, mood, latestText.current);
   };
+
+  // 명시적 삭제 — 현재 활성 날짜 entry 제거 + draft 비움
+  const handleDelete = () => {
+    clearTimeout(saveTimer.current);
+    const id = makeId(viewYear, viewMonth, selectedDay);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setDraftMood("😊");
+    setDraftText("");
+    setSavedHint(true);
+    setConfirmingDelete(false);
+    latestMood.current = "😊";
+    latestText.current = "";
+  };
+
+  const currentEntry = entries.find(
+    (e) => e.year === viewYear && e.month === viewMonth && e.day === selectedDay,
+  );
 
   const selectedWday = WEEKDAYS[new Date(viewYear, viewMonth, selectedDay).getDay()];
 
@@ -288,7 +311,7 @@ export function DiaryView({
         className="mt-4 rounded-2xl px-4 pt-4 pb-3"
         style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--hairline)" }}
       >
-        {/* Date + save hint */}
+        {/* Date + save hint + delete */}
         <div className="flex items-start justify-between mb-3">
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.374px" }}>
@@ -296,18 +319,111 @@ export function DiaryView({
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{selectedWday}요일</div>
           </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 4,
-              opacity: savedHint ? 1 : 0,
-              transition: "opacity 300ms",
-            }}
-          >
-            저장됨
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                opacity: savedHint ? 1 : 0,
+                transition: "opacity 300ms",
+              }}
+            >
+              저장됨
+            </div>
+            {/* 휴지통 — 현재 날짜에 entry 가 있을 때만 노출 */}
+            {currentEntry && (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                aria-label="이 날짜의 일기 삭제"
+                className="active:scale-90"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <Trash2 size={14} strokeWidth={1.8} />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* 인라인 삭제 confirm — AccountSheet 의 계정 삭제 패턴 */}
+        {confirmingDelete && (
+          <div
+            className="rounded-xl mb-3"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "0.5px solid rgba(239,68,68,0.3)",
+              padding: "12px 14px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.2px",
+              }}
+            >
+              이 날짜의 일기를 삭제할까요?
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 4,
+                lineHeight: 1.5,
+              }}
+            >
+              되돌릴 수 없습니다.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="active:scale-[0.99]"
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-primary)",
+                  border: "0.5px solid var(--hairline)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="active:scale-[0.99]"
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "#ef4444",
+                  color: "#fff",
+                  border: 0,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Mood picker */}
         <div
@@ -372,15 +488,48 @@ export function DiaryView({
 
           {sortedEntries.length === 0 ? (
             <div
-              className="text-center rounded-2xl py-12"
+              className="text-center rounded-2xl py-12 px-6"
               style={{
-                fontSize: 14,
-                color: "var(--text-muted)",
                 background: "var(--bg-elevated)",
                 border: "0.5px solid var(--hairline)",
               }}
             >
-              아직 작성한 일기가 없어요
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 16,
+                  background: `${accent}1A`,
+                  color: accent,
+                  display: "grid",
+                  placeItems: "center",
+                  margin: "0 auto 12px",
+                }}
+              >
+                <BookOpen size={22} strokeWidth={1.8} />
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  letterSpacing: "-0.2px",
+                  marginBottom: 4,
+                }}
+              >
+                아직 작성한 일기가 없어요
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                }}
+              >
+                오늘 하루를 기록해볼까요?
+                <br />
+                상단 "쓰기" 탭에서 시작할 수 있어요.
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
