@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
 import { SearchSheet } from "./shared/SearchSheet";
+import { useHolidays } from "@/hooks/useHolidays";
 import { TYPE } from "@/styles/typography";
 
 export function MonthView({
@@ -49,6 +50,9 @@ export function MonthView({
   void setInnerYear;
   const [selected, setSelected] = useState(planKind !== "my" ? 5 : 29);
   const today = 29;
+
+  // 공공데이터포털 공휴일 — Map<일, 공휴일명>
+  const holidays = useHolidays(year, month);
 
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
   const [sheet, setSheet] = useState<{ start: number; end: number } | null>(null);
@@ -428,6 +432,8 @@ export function MonthView({
                         letterSpacing: "-0.3px",
                         color: isToday
                           ? "#fff"
+                          : d && holidays.has(d)
+                          ? "#FF3B30"
                           : dow === 0
                           ? "#FF3B30"
                           : dow === 6
@@ -438,6 +444,28 @@ export function MonthView({
                       {d}
                     </span>
                   </div>
+
+                  {/* 공휴일 이름 — 날짜 원 바로 아래, 일정 위 (한 줄 ellipsis) */}
+                  {d && holidays.has(d) && (
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: "#FF3B30",
+                        letterSpacing: "-0.1px",
+                        lineHeight: 1.2,
+                        maxWidth: "100%",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        paddingLeft: 2,
+                        paddingRight: 2,
+                      }}
+                    >
+                      {holidays.get(d)}
+                    </div>
+                  )}
 
                   {/* 일정 표시 — 점+텍스트 위 / 멀티데이 막대 아래 (셀 안 자연 흐름) */}
                   {d && (() => {

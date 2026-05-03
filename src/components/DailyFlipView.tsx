@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { highlights } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { useHolidays } from "@/hooks/useHolidays";
 import { TYPE } from "@/styles/typography";
 
 type Ev = { id: number; startSlot: number; endSlot: number; title: string; color: string };
@@ -97,6 +98,10 @@ export function DailyFlipView({
   }, [date]);
 
   const days = ["일", "월", "화", "수", "목", "금", "토"];
+
+  // 공휴일 — 현재 표시 중인 연/월
+  const holidays = useHolidays(date.getFullYear(), date.getMonth());
+  const todayHolidayName = holidays.get(date.getDate());
 
   // Timed events for the currently viewed date
   const timedEventsForDay = useMemo((): Ev[] =>
@@ -313,13 +318,37 @@ export function DailyFlipView({
           className="flex items-end justify-between"
           style={{ marginBottom: 18 }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ ...TYPE.titlePage, color: isToday ? accent : "var(--text-primary)" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <span
+              style={{
+                ...TYPE.titlePage,
+                color: todayHolidayName
+                  ? "#FF3B30"
+                  : isToday
+                  ? accent
+                  : "var(--text-primary)",
+              }}
+            >
               {date.getMonth() + 1}월 {date.getDate()}일
             </span>
             <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
               {days[date.getDay()]}요일
             </span>
+            {todayHolidayName && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#FF3B30",
+                  background: "#FF3B301A",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  letterSpacing: "-0.2px",
+                }}
+              >
+                {todayHolidayName}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center" style={{ gap: 6 }}>
