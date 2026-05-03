@@ -15,7 +15,7 @@ export function MonthViewWeb({
   onOpenDay,
 }: {
   accent: string;
-  planKind?: "my" | "shared";
+  planKind?: string;
   events: SharedEvent[];
   onEventsChange: (e: SharedEvent[]) => void;
   /** 외부에서 전달되는 표시 연/월 — 있으면 그 값 사용, 없으면 내부 상태 fallback */
@@ -30,7 +30,7 @@ export function MonthViewWeb({
   onAdd?: () => void;
 }) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
-  const [innerMonth, setInnerMonth] = useState(planKind === "shared" ? 4 : 3);
+  const [innerMonth, setInnerMonth] = useState(planKind !== "my" ? 4 : 3);
   const [innerYear, setInnerYear] = useState(2026);
   const month = monthProp ?? innerMonth;
   const year = yearProp ?? innerYear;
@@ -40,7 +40,7 @@ export function MonthViewWeb({
     else setInnerMonth(next);
   };
   void setInnerYear;
-  const [selected, setSelected] = useState(planKind === "shared" ? 5 : 29);
+  const [selected, setSelected] = useState(planKind !== "my" ? 5 : 29);
   const today = 29;
 
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);

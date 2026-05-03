@@ -12,7 +12,13 @@ import {
   X,
   Settings as SettingsIcon,
   HelpCircle,
+  LogIn,
+  ChevronRight,
+  Users as UsersIcon,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { SPRING, EASE, DURATION } from "@/styles/animations";
+import { useUserStore } from "@/store/userStore";
 
 type Screen =
   | "day"
@@ -30,6 +36,8 @@ type Item = {
   desc: string;
   icon: any;
   onClick: () => void;
+  /** 우측 상단에 작은 배지 (예: "NEW") + subtle pulse */
+  badge?: string;
 };
 
 export function AppMenuSheet({
@@ -38,6 +46,9 @@ export function AppMenuSheet({
   accent,
   onNavigate,
   onOpenSettings,
+  onOpenAuth,
+  onOpenAccount,
+  onOpenGroups,
   constrainToFrame = false,
 }: {
   open: boolean;
@@ -45,9 +56,12 @@ export function AppMenuSheet({
   accent: string;
   onNavigate: (screen: Screen) => void;
   onOpenSettings: () => void;
+  onOpenAuth?: () => void;
+  onOpenAccount?: () => void;
+  onOpenGroups?: () => void;
   constrainToFrame?: boolean;
 }) {
-  if (!open) return null;
+  const user = useUserStore((s) => s.user);
 
   const sections: { title: string; items: Item[] }[] = [
     {
@@ -124,6 +138,17 @@ export function AppMenuSheet({
     {
       title: "기타",
       items: [
+        ...(user
+          ? [
+              {
+                key: "groups",
+                label: "그룹 관리",
+                desc: "공동 일정 · 6자리 코드 / 이메일 초대",
+                icon: UsersIcon,
+                onClick: () => onOpenGroups?.(),
+              },
+            ]
+          : []),
         {
           key: "settings",
           label: "설정",
@@ -146,20 +171,25 @@ export function AppMenuSheet({
   ];
 
   return (
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="appmenu-root"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
       className={`${constrainToFrame ? "absolute" : "fixed"} inset-0 z-[60] flex justify-end`}
       onClick={onClose}
-      style={{ background: "rgba(0,0,0,0)", animation: "none" }}
+      style={{ background: "rgba(0,0,0,0.35)" }}
     >
-      {/* 백드롭 */}
-      <div
-        className="absolute inset-0 backdrop-fade"
-        style={{ background: "rgba(0,0,0,0.35)" }}
-      />
-
       {/* 우측 슬라이드 패널 */}
-      <div
-        className="relative panel-slide-right"
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={SPRING.sheet}
+        className="relative"
         style={{
           width: "min(85vw, 320px)",
           height: "100%",
@@ -222,6 +252,165 @@ export function AppMenuSheet({
             padding: "12px 0 24px",
           }}
         >
+          {/* 계정 섹션 */}
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--text-muted)",
+                letterSpacing: "0.3px",
+                textTransform: "uppercase",
+                padding: "6px 20px",
+              }}
+            >
+              계정
+            </div>
+            {user ? (
+              <button
+                onClick={() => {
+                  onOpenAccount?.();
+                  onClose();
+                }}
+                className="active:scale-[0.99]"
+                style={{
+                  width: "calc(100% - 24px)",
+                  margin: "0 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                  background: "var(--bg-secondary)",
+                  border: 0,
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      background: `${accent}26`,
+                      color: accent,
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(user.displayName || user.email || "?").trim().charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.2px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.displayName || "이름 없음"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.email}
+                  </div>
+                </div>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.8}
+                  color="var(--text-muted)"
+                />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  onOpenAuth?.();
+                  onClose();
+                }}
+                className="active:scale-[0.99]"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "10px 20px",
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: `${accent}1A`,
+                    color: accent,
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <LogIn size={18} strokeWidth={1.8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.2px",
+                    }}
+                  >
+                    로그인 / 회원가입
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 1,
+                    }}
+                  >
+                    일정을 안전하게 동기화
+                  </div>
+                </div>
+              </button>
+            )}
+          </div>
+
           {sections.map((sec) => (
             <div key={sec.title} style={{ marginBottom: 16 }}>
               <div
@@ -281,9 +470,35 @@ export function AppMenuSheet({
                           fontWeight: 600,
                           color: "var(--text-primary)",
                           letterSpacing: "-0.2px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
                         }}
                       >
                         {it.label}
+                        {it.badge && (
+                          <motion.span
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: "#fff",
+                              background: accent,
+                              padding: "2px 6px",
+                              borderRadius: 999,
+                              letterSpacing: "0.3px",
+                              lineHeight: 1,
+                              boxShadow: `0 2px 6px ${accent}55`,
+                            }}
+                          >
+                            {it.badge}
+                          </motion.span>
+                        )}
                       </div>
                       <div
                         style={{
@@ -301,7 +516,9 @@ export function AppMenuSheet({
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }

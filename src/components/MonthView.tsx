@@ -1,42 +1,40 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { SearchSheet } from "./shared/SearchSheet";
+import { useHolidays } from "@/hooks/useHolidays";
 import { TYPE } from "@/styles/typography";
 import { MonthViewWeb } from "./MonthViewWeb";
 
 type MonthViewProps = {
   accent: string;
-  planKind?: "my" | "shared";
+  planKind?: string;
   events: SharedEvent[];
   onEventsChange: (e: SharedEvent[]) => void;
-  /** 외부에서 전달되는 표시 연/월 — 있으면 그 값 사용, 없으면 내부 상태 fallback */
   year?: number;
   month?: number;
-  /** 월 변경 시 부모에 알려줌 (계층 네비게이션 동기화) */
   onMonthChange?: (year: number, month: number) => void;
-  /** 좌상단 < 뒤로가기 — 연력으로 */
   onBack?: () => void;
-  /** 날짜 셀 탭 시 일력으로 진입 */
   onOpenDay?: (year: number, month: number, day: number) => void;
-  /** 우상단 + 버튼 — 신규 일정 모달 열기 */
   onAdd?: () => void;
+  onOpenEdit?: (e: SharedEvent) => void;
 };
 
 export function MonthView(props: MonthViewProps) {
-  const [isDesktop, setIsDesktop] = useState(() =>
+  const [isDesktopView, setIsDesktopView] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    const onResize = () => setIsDesktopView(window.innerWidth >= 1100);
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  return isDesktop ? <MonthViewWeb {...props} /> : <MonthViewMobile {...props} />;
+  return isDesktopView ? <MonthViewWeb {...props} /> : <MonthViewMobile {...props} />;
 }
 
 function MonthViewMobile({
@@ -50,9 +48,28 @@ function MonthViewMobile({
   onBack,
   onOpenDay,
   onAdd,
-}: MonthViewProps) {
+  onOpenEdit,
+}: {
+  accent: string;
+  planKind?: string;
+  events: SharedEvent[];
+  onEventsChange: (e: SharedEvent[]) => void;
+  /** 외부에서 전달되는 표시 연/월 — 있으면 그 값 사용, 없으면 내부 상태 fallback */
+  year?: number;
+  month?: number;
+  /** 월 변경 시 부모에 알려줌 (계층 네비게이션 동기화) */
+  onMonthChange?: (year: number, month: number) => void;
+  /** 좌상단 < 뒤로가기 — 연력으로 */
+  onBack?: () => void;
+  /** 날짜 셀 탭 시 일력으로 진입 */
+  onOpenDay?: (year: number, month: number, day: number) => void;
+  /** 우상단 + 버튼 — 신규 일정 모달 열기 */
+  onAdd?: () => void;
+  /** 검색 결과에서 선택된 이벤트 편집 — 부모(App)의 NewEventModal 열림 */
+  onOpenEdit?: (e: SharedEvent) => void;
+}) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
-  const [innerMonth, setInnerMonth] = useState(planKind === "shared" ? 4 : 3);
+  const [innerMonth, setInnerMonth] = useState(planKind !== "my" ? 4 : 3);
   const [innerYear, setInnerYear] = useState(2026);
   const month = monthProp ?? innerMonth;
   const year = yearProp ?? innerYear;
@@ -62,14 +79,18 @@ function MonthViewMobile({
     else setInnerMonth(next);
   };
   void setInnerYear;
-  const [selected, setSelected] = useState(planKind === "shared" ? 5 : 29);
+  const [selected, setSelected] = useState(planKind !== "my" ? 5 : 29);
   const today = 29;
+
+  // 공공데이터포털 공휴일 — Map<일, 공휴일명>
+  const holidays = useHolidays(year, month);
 
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
   const [sheet, setSheet] = useState<{ start: number; end: number } | null>(null);
   const [pickedColor, setPickedColor] = useState<HighlightKey>("yellow");
   const [label, setLabel] = useState("");
   const [editingPlan, setEditingPlan] = useState<{ id: number; start: number; end: number; color: string; label: string } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const first = new Date(year, month, 1).getDay();
@@ -193,7 +214,7 @@ function MonthViewMobile({
           <span style={{ ...TYPE.titleMonth, color: "var(--text-primary)" }}>
             {month + 1}월
           </span>
-          <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+          <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
             {year}
           </span>
         </div>
@@ -264,6 +285,25 @@ function MonthViewMobile({
               <ChevronRight size={16} strokeWidth={2.2} />
             </button>
           </div>
+          {/* 검색 버튼 — + 버튼 왼쪽 */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="active:scale-90"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+              border: 0,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+            }}
+            aria-label="일정 검색"
+          >
+            <Search size={16} strokeWidth={2} />
+          </button>
           {onAdd && (
             <button
               onClick={onAdd}
@@ -393,6 +433,7 @@ function MonthViewMobile({
               className="relative flex flex-col items-center"
               style={{
                 aspectRatio: "1 / 1.85",
+                minHeight: 120, // 좁은 화면에서도 트랙 두 개 + 콘텐츠 공간 보장 (MIN_BAR_TOP 42 + ITEM 16 + GAP 14 + BAR 11+3+11 + 여백)
                 paddingTop: 8,
                 paddingLeft: 2,
                 paddingRight: 2,
@@ -422,6 +463,8 @@ function MonthViewMobile({
                         letterSpacing: "-0.3px",
                         color: isToday
                           ? "#fff"
+                          : d && holidays.has(d)
+                          ? "#FF3B30"
                           : dow === 0
                           ? "#FF3B30"
                           : dow === 6
@@ -432,6 +475,28 @@ function MonthViewMobile({
                       {d}
                     </span>
                   </div>
+
+                  {/* 공휴일 이름 — 날짜 원 바로 아래, 일정 위 (한 줄 ellipsis) */}
+                  {d && holidays.has(d) && (
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: "#FF3B30",
+                        letterSpacing: "-0.1px",
+                        lineHeight: 1.2,
+                        maxWidth: "100%",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        paddingLeft: 2,
+                        paddingRight: 2,
+                      }}
+                    >
+                      {holidays.get(d)}
+                    </div>
+                  )}
 
                   {/* 일정 표시 — 점+텍스트 위 / 멀티데이 막대 아래 (셀 안 자연 흐름) */}
                   {d && (() => {
@@ -684,14 +749,16 @@ function MonthViewMobile({
             if (day < 1 || day > daysInMonth) continue;
             const tCount = timedEvents.filter((e) => e.startDay === day).length;
             const sCount = plans.filter((p) => p.start === day && p.end === day).length;
-            cellItems[cellIdx] = Math.min(tCount + sCount, 3);
+            // 공휴일 텍스트(빨강 한 줄, fontSize 9 + marginTop 2 ≈ ITEM_H 와 비슷한 높이)도
+            // 점+텍스트와 같은 한 줄로 카운트 → 멀티데이 막대가 자동으로 그 아래로 내려감
+            const hCount = holidays.has(day) ? 1 : 0;
+            cellItems[cellIdx] = Math.min(tCount + sCount + hCount, 3);
           }
           // 셀 상단 ~ 콘텐츠 영역 시작점 픽셀 계산
           // 셀 paddingTop(8) + 날짜원(26) + 여백(8) = 42px 최소 — 막대는 절대 이 아래에 위치
           const MIN_BAR_TOP = 42;
           const ITEM_H = 16; // 점+텍스트 한 줄 실제 높이
           const BAR_TOP_GAP = 14; // 점+텍스트 끝과 첫 막대 사이 여백
-          const BOTTOM_OFFSET = 6;
           // 같은 plan(id)이 여러 행에 걸쳐 있을 때, 모든 segment가 같은 시각적 흐름으로 보이도록
           // plan id별로 통과하는 모든 셀의 max content를 미리 계산
           const planMaxItems = new Map<number, number>();
@@ -712,11 +779,9 @@ function MonthViewMobile({
                 // 같은 plan의 모든 segment가 공유하는 max content 사용 (행 통일)
                 const segMaxItems = planMaxItems.get(s.id) ?? 0;
                 // 콘텐츠 기반 top — 같은 plan이면 segMaxItems 동일 → 모든 행에서 같은 위치
+                // bottom 캡 제거: 셀 minHeight 로 공간 보장 → 항상 contentBasedTop 사용 → 트랙 간격 일정
                 const contentBasedTop = MIN_BAR_TOP + segMaxItems * ITEM_H + (segMaxItems > 0 ? BAR_TOP_GAP : 0) + s.track * (BAR_H + BAR_GAP);
-                // bottom 기준 — 셀 하단에서 트랙 위치
-                const bottomBasedTop = `calc(${(s.row + 1) * rowHeightPct}% - ${BOTTOM_OFFSET + BAR_H + s.track * (BAR_H + BAR_GAP)}px)`;
-                // contentBasedTop 이 셀 height 안에 들어가면 그걸 사용, 아니면 bottom 기준
-                const finalTop = `min(calc(${s.row * rowHeightPct}% + ${contentBasedTop}px), ${bottomBasedTop})`;
+                const finalTop = `calc(${s.row * rowHeightPct}% + ${contentBasedTop}px)`;
                 return (
                   <div
                     key={`${s.id}-${i}`}
@@ -910,6 +975,35 @@ function MonthViewMobile({
           </div>
         </div>
       )}
+
+      {/* 일정 검색 시트 */}
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        events={events}
+        accent={accent}
+        onSelect={(e) => {
+          // 다른 달이면 그 달로 이동
+          if (e.year !== year || e.month !== month) {
+            if (onMonthChange) onMonthChange(e.year, e.month);
+          }
+          setSelected(e.startDay);
+          setSearchOpen(false);
+          // 편집 모달 열기 — onOpenEdit 가 있으면 부모(App)의 통합 모달 사용
+          if (onOpenEdit) {
+            onOpenEdit(e);
+          } else if (e.startSlot === undefined) {
+            // fallback — 로컬 편집 시트 (untimed)
+            setEditingPlan({
+              id: e.id,
+              start: e.startDay,
+              end: e.endDay,
+              color: e.color,
+              label: e.title,
+            });
+          }
+        }}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { highlights } from "./tokens";
 import { SharedEvent } from "./eventStore";
+import { useHolidays } from "@/hooks/useHolidays";
 import { TYPE } from "@/styles/typography";
 
 type Ev = { id: number; startSlot: number; endSlot: number; title: string; color: string };
@@ -108,6 +109,10 @@ export function DailyFlipView({
   }, [date]);
 
   const days = ["일", "월", "화", "수", "목", "금", "토"];
+
+  // 공휴일 — 현재 표시 중인 연/월
+  const holidays = useHolidays(date.getFullYear(), date.getMonth());
+  const todayHolidayName = holidays.get(date.getDate());
 
   // Timed events for the currently viewed date
   const timedEventsForDay = useMemo((): Ev[] =>
@@ -332,7 +337,7 @@ export function DailyFlipView({
           className="flex items-end justify-between"
           style={{ marginBottom: 18 }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
             <span
               style={{
                 ...TYPE.titlePage,
@@ -340,7 +345,11 @@ export function DailyFlipView({
                 fontWeight: isDesktop ? 800 : TYPE.titlePage.fontWeight,
                 letterSpacing: isDesktop ? "-0.4px" : TYPE.titlePage.letterSpacing,
                 lineHeight: isDesktop ? 1.08 : TYPE.titlePage.lineHeight,
-                color: isToday ? accent : "var(--text-primary)",
+                color: todayHolidayName
+                  ? "#FF3B30"
+                  : isToday
+                  ? accent
+                  : "var(--text-primary)",
               }}
             >
               {date.getMonth() + 1}월 {date.getDate()}일
@@ -349,12 +358,27 @@ export function DailyFlipView({
               style={{
                 ...TYPE.captionMeta,
                 fontSize: isDesktop ? 17 : TYPE.captionMeta.fontSize,
-                fontWeight: isDesktop ? 600 : TYPE.captionMeta.fontWeight,
-                color: "var(--text-muted)",
+                fontWeight: isDesktop ? 600 : 600,
+                color: accent,
               }}
             >
               {days[date.getDay()]}요일
             </span>
+            {todayHolidayName && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#FF3B30",
+                  background: "#FF3B301A",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  letterSpacing: "-0.2px",
+                }}
+              >
+                {todayHolidayName}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center" style={{ gap: 6 }}>

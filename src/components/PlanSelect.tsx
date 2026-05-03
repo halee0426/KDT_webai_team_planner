@@ -1,11 +1,17 @@
-// 플랜 선택 진입 화면 — 인사 헤더 + 가로 풀폭 카드 두 장
+// 플랜 선택 진입 화면 — 인사 헤더 + 가로 풀폭 카드 두 장 + 내 그룹 미니 카드
 //
 // props (App.tsx 호환 유지):
 //   accent: 사용자가 선택한 액센트 색상
 //   onSelect: (kind: "my" | "shared") => void
+//   groups: 내 그룹 목록 (공동 플랜 카드 아래 미니 카드로 표시)
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import { motion } from "motion/react";
 import { LogoLockup } from "./Logo";
+import { MemberAvatarStack, membersFromGroup } from "./shared/MemberAvatar";
+import { SPRING } from "@/styles/animations";
+import type { Group } from "@/types/group";
 
 type PlanKind = "my" | "shared";
 
@@ -20,6 +26,14 @@ export type PlanSelectProps = {
     teamWeekShared?: number;
   };
   onSelect: (kind: PlanKind) => void;
+  /** 내 그룹 목록 — 공동 플랜 카드 아래 미니 카드로 노출 */
+  groups?: Group[];
+  /** 본인 표시용 — MemberAvatarStack 의 ring */
+  currentUid?: string | null;
+  /** 미니 카드 직접 클릭 → 그 그룹 활성화 + 앱 진입 */
+  onSelectGroup?: (groupId: string) => void;
+  /** "+ 그룹 추가 / 관리" 버튼 → 그룹 관리 시트 열기 */
+  onOpenGroupManage?: () => void;
   /** @deprecated — 더 이상 사용하지 않지만 App.tsx 호환을 위해 유지 */
   onOpenSettings?: () => void;
   /** @deprecated */
@@ -32,6 +46,10 @@ export function PlanSelect({
   recentPlanKind = "my",
   stats,
   onSelect,
+  groups,
+  currentUid = null,
+  onSelectGroup,
+  onOpenGroupManage,
 }: PlanSelectProps) {
   // accent 색상의 10% 톤 (배경) — RGB 변환 후 alpha 합성 대신 hex+1A 사용
   const accentSoft = `${accent}1A`;     // ~10% alpha
@@ -63,6 +81,7 @@ export function PlanSelect({
       className="absolute inset-0 z-[70] overflow-y-auto"
       style={{
         background: "var(--bg-secondary)",
+        // 메인 앱 헤더와 동일하게: 위는 safe-area + 헤더 영역만큼, 좌우 20px
         paddingTop: "env(safe-area-inset-top, 0)",
         boxSizing: "border-box",
       }}
@@ -73,7 +92,7 @@ export function PlanSelect({
           maxWidth: isWideLayout ? 1540 : undefined,
           paddingLeft: isWideLayout ? 40 : 20,
           paddingRight: isWideLayout ? 40 : 20,
-          paddingBottom: 32,
+          paddingBottom: isWideLayout ? 44 : 24,
         }}
       >
       {/* 상단 미니 헤더 — 메인 앱과 동일한 72px 높이, 동일한 LogoLockup */}
@@ -123,44 +142,131 @@ export function PlanSelect({
         </div>
       </div>
 
-      {/* 카드 두 장 */}
-      <div
-        className="flex flex-1 items-start justify-center"
-        style={{ marginTop: isWideLayout ? 36 : 28 }}
+      {/* 카드 두 장 — stagger 등장 (0.08초 간격) */}
+      <motion.div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isWideLayout ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+          gap: isWideLayout ? 20 : 12,
+          marginTop: isWideLayout ? 36 : 28,
+          width: "100%",
+          maxWidth: isWideLayout ? 1280 : undefined,
+          alignSelf: "center",
+        }}
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+        }}
       >
-        <div
-          className="grid w-full"
-          style={{
-            maxWidth: isWideLayout ? 1280 : undefined,
-            gridTemplateColumns: isWideLayout ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
-            gap: isWideLayout ? 20 : 12,
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
           }}
         >
-          <BigPlanCard
-            kind="my"
-            accent={accent}
-            accentSoft={accentSoft}
-            accentSofter={accentSofter}
-            highlight={recentPlanKind === "my"}
-            stats={stats}
-            onClick={() => onSelect("my")}
-          />
-          <BigPlanCard
-            kind="shared"
-            accent={accent}
-            accentSoft={accentSoft}
-            accentSofter={accentSofter}
-            highlight={recentPlanKind === "shared"}
-            stats={stats}
-            onClick={() => onSelect("shared")}
-          />
+        <BigPlanCard
+          kind="my"
+          accent={accent}
+          accentSoft={accentSoft}
+          accentSofter={accentSofter}
+          highlight={recentPlanKind === "my"}
+          stats={stats}
+          onClick={() => onSelect("my")}
+        />
+        </motion.div>
+        <motion.div
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
+          }}
+        >
+        <BigPlanCard
+          kind="shared"
+          accent={accent}
+          accentSoft={accentSoft}
+          accentSofter={accentSofter}
+          highlight={recentPlanKind === "shared"}
+          stats={stats}
+          onClick={() => onSelect("shared")}
+        />
+        </motion.div>
 
-          {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
-          <div style={{ gridColumn: isWideLayout ? "1 / -1" : undefined }}>
-            <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+        {/* 내 그룹 목록 — 공동 플랜 카드 아래 미니 카드. 그룹 0개면 영역 자체 미표시 */}
+        {groups && groups.length > 0 && (
+          <div
+            style={{
+              marginTop: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              paddingLeft: 4,
+              paddingRight: 4,
+              gridColumn: isWideLayout ? "1 / -1" : undefined,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "var(--text-muted)",
+                letterSpacing: "0.3px",
+                textTransform: "uppercase",
+                paddingLeft: 4,
+                marginBottom: 2,
+              }}
+            >
+              내 그룹 {groups.length}개
+            </div>
+            {groups.map((g) => (
+              <MiniGroupCard
+                key={g.id}
+                group={g}
+                accent={accent}
+                currentUid={currentUid}
+                onClick={() => onSelectGroup?.(g.id)}
+              />
+            ))}
+            {onOpenGroupManage && (
+              <button
+                onClick={onOpenGroupManage}
+                className="active:scale-[0.98]"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "transparent",
+                  border: "1px dashed var(--separator)",
+                  color: "var(--text-muted)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Plus size={12} strokeWidth={2} />
+                그룹 추가 / 관리
+              </button>
+            )}
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) — stagger 마지막 */}
+        <motion.div
+          style={{ gridColumn: isWideLayout ? "1 / -1" : undefined }}
+          variants={{
+            hidden: { opacity: 0, y: 12 },
+            show: { opacity: 1, y: 0, transition: SPRING.soft },
+          }}
+        >
+          <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+        </motion.div>
+      </motion.div>
+
       </div>
     </div>
   );
@@ -287,6 +393,74 @@ function BigPlanCard({
         </div>
       </div>
       <ChevronRight size={16} color="var(--text-muted)" />
+    </button>
+  );
+}
+
+function MiniGroupCard({
+  group,
+  accent,
+  currentUid,
+  onClick,
+}: {
+  group: Group;
+  accent: string;
+  currentUid?: string | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="active:scale-[0.98] transition-transform"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "var(--bg-elevated)",
+        border: "0.5px solid var(--hairline)",
+        boxShadow: "var(--card-shadow)",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        textAlign: "left",
+        width: "100%",
+      }}
+    >
+      <MemberAvatarStack
+        members={membersFromGroup(group)}
+        size={26}
+        max={3}
+        accent={accent}
+        currentUid={currentUid}
+        ringBg="var(--bg-elevated)"
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.2px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {group.name}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--text-muted)",
+            marginTop: 2,
+            letterSpacing: "-0.1px",
+          }}
+        >
+          멤버 {group.memberUids.length}명
+        </div>
+      </div>
+      <ChevronRight size={14} color="var(--text-muted)" />
     </button>
   );
 }
