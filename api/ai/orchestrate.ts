@@ -7,6 +7,18 @@
 //   4) runOrchestration 으로 Orchestrator → specialists → Composer 실행
 //   5) 결과 JSON 반환
 
+import { Agent, setGlobalDispatcher } from "undici";
+
+// Node 글로벌 fetch (undici) 의 기본 headersTimeout(~10초) 우회.
+// OpenAI SDK 의 timeout 옵션보다 undici dispatcher 가 우선되므로,
+// 모듈 최상단에서 dispatcher 자체를 교체해야 함.
+setGlobalDispatcher(
+  new Agent({
+    headersTimeout: 60_000,
+    bodyTimeout: 60_000,
+  }),
+);
+
 import { verifyRequest } from "../../src/server/gateway/auth";
 import {
   resolveContext,
