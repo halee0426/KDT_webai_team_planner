@@ -47,6 +47,8 @@ export async function callJsonAgent<TOutput>(
   const model = options?.model ?? DEFAULT_MODEL;
   const startedAt = Date.now();
 
+  console.log(`[agent:${agentName}] start`, { model });
+
   try {
     const client = getClient();
     const completion = await client.chat.completions.create({
@@ -74,10 +76,16 @@ export async function callJsonAgent<TOutput>(
       },
     };
 
+    console.log(`[agent:${agentName}] done`, {
+      elapsedMs: finishedAt - startedAt,
+      tokens: completion.usage?.total_tokens,
+    });
+
     let parsed: TOutput;
     try {
       parsed = JSON.parse(raw) as TOutput;
     } catch (_e) {
+      console.error(`[agent:${agentName}] invalid JSON`, raw.slice(0, 200));
       return {
         ok: false,
         error: {
@@ -91,10 +99,21 @@ export async function callJsonAgent<TOutput>(
     return { ok: true, data: parsed, meta };
   } catch (e: unknown) {
     const finishedAt = Date.now();
-    const message = e instanceof Error ? e.message : String(e);
+    const errName = e instanceof Error ? e.name : "Unknown";
+    const errMsg = e instanceof Error ? e.message : String(e);
+    const code =
+      errName === "AbortError" || /timeout/i.test(errMsg)
+        ? "TIMEOUT"
+        : "AGENT_CALL_FAILED";
+    console.error(`[agent:${agentName}] error`, {
+      code,
+      name: errName,
+      message: errMsg,
+      elapsedMs: finishedAt - startedAt,
+    });
     return {
       ok: false,
-      error: { code: "AGENT_CALL_FAILED", message },
+      error: { code, message: `${errName}: ${errMsg}` },
       meta: { agentName, model, startedAt, finishedAt },
     };
   }

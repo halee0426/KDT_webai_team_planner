@@ -30,6 +30,11 @@ import { runOrchestration } from "../../src/server/orchestratorRunner";
 export const config = { runtime: "nodejs", maxDuration: 60 };
 
 export default async function handler(req: Request): Promise<Response> {
+  console.log("[orchestrate] start", {
+    method: req.method,
+    hasAuth: !!req.headers.get("authorization"),
+  });
+
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "METHOD_NOT_ALLOWED" });
   }
@@ -38,8 +43,10 @@ export default async function handler(req: Request): Promise<Response> {
   let user;
   try {
     user = await verifyRequest(req);
+    console.log("[orchestrate] auth ok", { uid: user.uid });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    console.error("[orchestrate] auth failed", message);
     return jsonResponse(401, { error: "UNAUTHORIZED", message });
   }
 
@@ -77,13 +84,31 @@ export default async function handler(req: Request): Promise<Response> {
     body.referenceDate ?? new Date().toISOString().slice(0, 10);
   const resolved = resolveContext(user.uid, body);
 
+  console.log("[orchestrate] before runOrchestration", {
+    scope: body.scope,
+    userRequest: body.userRequest.slice(0, 60),
+  });
+  const t0 = Date.now();
+
   // 3. Orchestration 실행
-  const result = await runOrchestration(
-    body.userRequest,
-    resolved,
-    referenceDate,
-    body.currentScreen,
-  );
+  let result;
+  try {
+    result = await runOrchestration(
+      body.userRequest,
+      resolved,
+      referenceDate,
+      body.currentScreen,
+    );
+  } catch (e) {
+    const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[orchestrate] runOrchestration threw", message);
+    return jsonResponse(500, { error: "ORCH_THREW", message });
+  }
+
+  console.log("[orchestrate] after runOrchestration", {
+    ok: result.ok,
+    elapsedMs: Date.now() - t0,
+  });
 
   if (!result.ok) {
     return jsonResponse(500, {
