@@ -58,6 +58,17 @@ export function NewEventModal({
   const [endMonth, setEndMonth] = useState(initial?.month ?? today.getMonth());
   const [endDay, setEndDay] = useState(initial?.day ?? today.getDate());
   const [colorKey, setColorKey] = useState(EVENT_COLORS[0].key);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // 모달 열 때마다 initial / editing 로 리셋
   useEffect(() => {
@@ -136,7 +147,7 @@ export function NewEventModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end"
+      className={`fixed inset-0 z-[70] flex ${isDesktop ? "items-center justify-center p-4" : "items-end"}`}
       onClick={onClose}
     >
       <div
@@ -144,12 +155,13 @@ export function NewEventModal({
         style={{ background: "rgba(0,0,0,0.3)" }}
       />
       <div
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl sheet-slide-up"
+        className={`relative w-full ${isDesktop ? "max-w-[520px] rounded-3xl" : "max-w-[375px] rounded-t-3xl"} mx-auto sheet-slide-up`}
         style={{
           background: "var(--bg-elevated)",
-          maxHeight: "92vh",
+          maxHeight: isDesktop ? "min(760px, calc(100vh - 48px))" : "92vh",
           display: "flex",
           flexDirection: "column",
+          boxShadow: isDesktop ? "0 24px 70px rgba(0,0,0,0.24)" : undefined,
         }}
         onClick={(e) => e.stopPropagation()}
       >

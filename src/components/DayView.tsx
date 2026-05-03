@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
 import { highlights } from "./tokens";
 import type { Todo } from "./eventStore";
@@ -27,6 +27,17 @@ export function DayView({
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [adding, setAdding] = useState<"today" | "later" | null>(null);
   const [draft, setDraft] = useState("");
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const today = useMemo(() => todos.filter((t) => !t.later), [todos]);
   const later = useMemo(() => todos.filter((t) => t.later), [todos]);
@@ -75,8 +86,15 @@ export function DayView({
   const doneCount = today.filter((t) => t.done).length;
   const progress = today.length === 0 ? 0 : doneCount / today.length;
 
+  const pageTitleStyle = isDesktop
+    ? { ...TYPE.titlePage, fontSize: 40, fontWeight: 800, letterSpacing: "-0.4px", lineHeight: 1.08 }
+    : TYPE.titlePage;
+  const pageMetaStyle = isDesktop
+    ? { ...TYPE.bodySmall, fontSize: 17, fontWeight: 600, letterSpacing: "-0.2px" }
+    : TYPE.bodySmall;
+
   return (
-    <div className="px-5 pb-32" style={{ paddingTop: 24 }}>
+    <div className={isDesktop ? "px-0 pb-10 pt-7" : "px-5 pb-32"} style={{ paddingTop: isDesktop ? undefined : 24 }}>
       {/* 헤더 섹션 — 한 묶음 */}
       <div
         style={{
@@ -86,7 +104,7 @@ export function DayView({
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+          <span style={{ ...pageTitleStyle, color: "var(--text-primary)" }}>
             4월 29일
           </span>
           <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
@@ -95,7 +113,7 @@ export function DayView({
         </div>
         <div
           style={{
-            ...TYPE.bodySmall,
+            ...pageMetaStyle,
             color: "var(--text-secondary)",
             marginTop: 6,
           }}
@@ -128,6 +146,19 @@ export function DayView({
       )}
       </div>
 
+      <div
+        style={
+          isDesktop
+            ? {
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                columnGap: 28,
+                alignItems: "start",
+              }
+            : undefined
+        }
+      >
+        <div>
       {/* 오늘 일정 — 헤더 바로 아래 (가장 먼저 보이게) */}
       <SectionLabel>오늘 일정</SectionLabel>
       <div className="space-y-2">
@@ -219,9 +250,13 @@ export function DayView({
         )}
       </div>
 
+        </div>
+
+        <div>
+          {isDesktop && <SectionLabel>할일</SectionLabel>}
       {/* Today todos card */}
       <div
-        className="mt-6 rounded-3xl overflow-hidden"
+        className={`${isDesktop ? "" : "mt-6"} rounded-3xl overflow-hidden`}
         style={{
           background: "var(--bg-elevated)",
           border: "0.5px solid var(--hairline)",
@@ -367,6 +402,9 @@ export function DayView({
               미뤄둔 일이 없어요
             </div>
           )}
+        </div>
+      </div>
+
         </div>
       </div>
 

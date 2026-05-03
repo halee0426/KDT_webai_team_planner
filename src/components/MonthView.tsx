@@ -1,21 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
 import { TYPE } from "@/styles/typography";
+import { MonthViewWeb } from "./MonthViewWeb";
 
-export function MonthView({
-  accent,
-  planKind = "my",
-  events,
-  onEventsChange,
-  year: yearProp,
-  month: monthProp,
-  onMonthChange,
-  onBack,
-  onOpenDay,
-  onAdd,
-}: {
+type MonthViewProps = {
   accent: string;
   planKind?: "my" | "shared";
   events: SharedEvent[];
@@ -31,7 +21,36 @@ export function MonthView({
   onOpenDay?: (year: number, month: number, day: number) => void;
   /** 우상단 + 버튼 — 신규 일정 모달 열기 */
   onAdd?: () => void;
-}) {
+};
+
+export function MonthView(props: MonthViewProps) {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  return isDesktop ? <MonthViewWeb {...props} /> : <MonthViewMobile {...props} />;
+}
+
+function MonthViewMobile({
+  accent,
+  planKind = "my",
+  events,
+  onEventsChange,
+  year: yearProp,
+  month: monthProp,
+  onMonthChange,
+  onBack,
+  onOpenDay,
+  onAdd,
+}: MonthViewProps) {
   // 외부 props가 있으면 controlled, 없으면 내부 상태 (하위 호환)
   const [innerMonth, setInnerMonth] = useState(planKind === "shared" ? 4 : 3);
   const [innerYear, setInnerYear] = useState(2026);

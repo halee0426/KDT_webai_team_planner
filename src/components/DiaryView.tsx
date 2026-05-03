@@ -45,6 +45,9 @@ export function DiaryView({
   const [draftText, setDraftText] = useState<string>(() => seed.find((e) => e.day === 29)?.text ?? "");
   const [savedHint, setSavedHint] = useState(true);
   const [tab, setTab] = useState<"write" | "list">("write");
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const stripRef = useRef<HTMLDivElement>(null);
@@ -53,6 +56,13 @@ export function DiaryView({
 
   useEffect(() => { latestMood.current = draftMood; }, [draftMood]);
   useEffect(() => { latestText.current = draftText; }, [draftText]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
@@ -145,10 +155,19 @@ export function DiaryView({
   }, []);
 
   return (
-    <div className="px-5 pt-4 pb-32">
+    <div className={isDesktop ? "px-0 pt-7 pb-10" : "px-5 pt-4 pb-32"}>
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-4">
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>일기</div>
+        <div
+          style={{
+            fontSize: isDesktop ? 40 : 22,
+            fontWeight: isDesktop ? 800 : 700,
+            letterSpacing: "-0.4px",
+            lineHeight: isDesktop ? 1.08 : undefined,
+          }}
+        >
+          일기
+        </div>
         {/* 좌우 탭 토글 */}
         <div
           className="flex items-center"

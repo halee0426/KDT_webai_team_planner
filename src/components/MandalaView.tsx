@@ -19,6 +19,17 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   // 제스처 진행 중 임시 상태 (state 업데이트 비용 절감)
   const gestureRef = useRef<{
     mode: "none" | "pinch" | "pan";
@@ -233,7 +244,8 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   }
 
   return (
-    <div className="px-4 pb-32" style={{ paddingTop: 24 }}>
+    <div className="px-4 pb-32 lg:px-0 lg:pt-7 lg:pb-10" style={{ paddingTop: isDesktop ? undefined : 24 }}>
+      <div className="mx-auto w-full">
       {/* 헤더 섹션 — 한 묶음 */}
       <div
         className="flex items-end justify-between"
@@ -244,12 +256,23 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         }}
       >
         <div>
-          <div style={{ ...TYPE.titlePage, color: "var(--text-primary)" }}>
+          <div
+            style={{
+              ...TYPE.titlePage,
+              fontSize: isDesktop ? 40 : TYPE.titlePage.fontSize,
+              fontWeight: isDesktop ? 800 : TYPE.titlePage.fontWeight,
+              letterSpacing: isDesktop ? "-0.4px" : TYPE.titlePage.letterSpacing,
+              lineHeight: isDesktop ? 1.08 : TYPE.titlePage.lineHeight,
+              color: "var(--text-primary)",
+            }}
+          >
             만다라트
           </div>
           <div
             style={{
               ...TYPE.bodySmall,
+              fontSize: isDesktop ? 17 : TYPE.bodySmall.fontSize,
+              fontWeight: isDesktop ? 600 : TYPE.bodySmall.fontWeight,
               color: "var(--text-secondary)",
               marginTop: 6,
             }}
@@ -276,7 +299,9 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      <div
+        className="mt-3 flex items-center justify-between gap-2"
+      >
         <button
           onClick={aiPropose}
           disabled={isPreviewing}
@@ -319,6 +344,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         className="mt-4 rounded-lg"
         style={{
           position: "relative",
+          width: "100%",
           overflow: "hidden",
           touchAction: zoom > 1 ? "none" : "manipulation",
           // 줌 중일 때만 외곽 라인
@@ -401,7 +427,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
               key={i}
               style={{
                 position: "relative",
-                aspectRatio: "1",
+                aspectRatio: isDesktop ? "1.45 / 1" : "1",
                 minWidth: 0,
                 background: isNew
                   ? animOn
@@ -426,7 +452,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
                   height: "100%",
                   background: "transparent",
                   color: isNew ? "transparent" : color,
-                  fontSize: 9,
+                  fontSize: isDesktop ? 13 : 9,
                   fontWeight: fw,
                   padding: 1,
                   border: 0,
@@ -443,7 +469,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
                     alignItems: "center",
                     justifyContent: "center",
                     pointerEvents: "none",
-                    fontSize: 9,
+                    fontSize: isDesktop ? 13 : 9,
                     fontWeight: 700,
                     color: accent,
                     opacity: animOn ? 1 : 0,
@@ -468,16 +494,27 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
         <div
           className="mt-4 rounded-2xl"
           style={{
+            position: isDesktop ? "fixed" : undefined,
+            left: isDesktop ? "50%" : undefined,
+            top: isDesktop ? "50%" : undefined,
+            zIndex: isDesktop ? 60 : undefined,
+            width: isDesktop ? "min(760px, calc(100vw - 64px))" : undefined,
             background: "var(--bg-elevated)",
             border: `1px solid ${accent}55`,
             boxShadow: `0 8px 24px ${accent}1F`,
             padding: 16,
             opacity: modalLeaving ? 0 : modalVisible ? 1 : 0,
             transform: modalLeaving
-              ? "translateY(8px) scale(0.98)"
+              ? isDesktop
+                ? "translate(-50%, calc(-50% + 8px)) scale(0.98)"
+                : "translateY(8px) scale(0.98)"
               : modalVisible
-              ? "translateY(0) scale(1)"
-              : "translateY(12px) scale(0.96)",
+              ? isDesktop
+                ? "translate(-50%, -50%) scale(1)"
+                : "translateY(0) scale(1)"
+              : isDesktop
+                ? "translate(-50%, calc(-50% + 12px)) scale(0.96)"
+                : "translateY(12px) scale(0.96)",
             transition: modalLeaving
               ? "opacity 0.18s ease-in, transform 0.18s ease-in"
               : "opacity 0.28s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1)",
@@ -557,6 +594,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

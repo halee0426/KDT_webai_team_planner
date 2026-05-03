@@ -90,6 +90,17 @@ export function DailyFlipView({
   const [editing, setEditing] = useState<Ev | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const isToday = useMemo(() => {
     const t = new Date();
@@ -142,8 +153,16 @@ export function DailyFlipView({
   }, [timedEventsForDay, dragOverride]);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 12 * HOUR;
-  }, []);
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    const now = new Date();
+    const targetPx = isToday
+      ? (now.getHours() * 60 + now.getMinutes()) * (SLOT / 30)
+      : 9 * HOUR;
+    const centeredTop = targetPx - scroller.clientHeight * 0.35;
+    scroller.scrollTop = Math.max(0, Math.min(centeredTop, scroller.scrollHeight - scroller.clientHeight));
+  }, [date, isToday]);
 
   const shift = (d: number) => {
     const n = new Date(date);
@@ -299,9 +318,9 @@ export function DailyFlipView({
     <div className="relative" style={{ height: "calc(100% - 0px)" }}>
       {/* 일력 헤더 섹션 — 한 묶음 */}
       <div
-        className="px-4"
+        className={isDesktop ? "px-0" : "px-4"}
         style={{
-          paddingTop: 20,
+          paddingTop: isDesktop ? 28 : 20,
           paddingBottom: 16,
           background: "var(--bg-glass)",
           backdropFilter: "blur(20px)",
@@ -314,10 +333,26 @@ export function DailyFlipView({
           style={{ marginBottom: 18 }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ ...TYPE.titlePage, color: isToday ? accent : "var(--text-primary)" }}>
+            <span
+              style={{
+                ...TYPE.titlePage,
+                fontSize: isDesktop ? 40 : TYPE.titlePage.fontSize,
+                fontWeight: isDesktop ? 800 : TYPE.titlePage.fontWeight,
+                letterSpacing: isDesktop ? "-0.4px" : TYPE.titlePage.letterSpacing,
+                lineHeight: isDesktop ? 1.08 : TYPE.titlePage.lineHeight,
+                color: isToday ? accent : "var(--text-primary)",
+              }}
+            >
               {date.getMonth() + 1}월 {date.getDate()}일
             </span>
-            <span style={{ ...TYPE.captionMeta, color: "var(--text-muted)" }}>
+            <span
+              style={{
+                ...TYPE.captionMeta,
+                fontSize: isDesktop ? 17 : TYPE.captionMeta.fontSize,
+                fontWeight: isDesktop ? 600 : TYPE.captionMeta.fontWeight,
+                color: "var(--text-muted)",
+              }}
+            >
               {days[date.getDay()]}요일
             </span>
           </div>
@@ -471,7 +506,10 @@ export function DailyFlipView({
       <div
         ref={scrollRef}
         className="overflow-y-auto"
-        style={{ height: 460, background: "var(--bg-elevated)" }}
+        style={{
+          height: isDesktop ? "clamp(560px, calc(100vh - 330px), 760px)" : 460,
+          background: "var(--bg-elevated)",
+        }}
       >
         <div
           ref={gridRef}
@@ -588,20 +626,12 @@ export function DailyFlipView({
             </div>
           )}
 
-          {displayEvents.length === 0 && (
-            <div
-              className="absolute left-0 right-0 text-center pointer-events-none"
-              style={{ top: 12 * HOUR, fontSize: 13, color: "var(--text-muted)" }}
-            >
-              빈 시간을 눌러 드래그해 일정을 추가해보세요
-            </div>
-          )}
         </div>
       </div>
 
       {/* Quick-add sheet */}
       {sheet && (
-        <SheetShell onClose={() => setSheet(null)}>
+        <SheetShell onClose={() => setSheet(null)} centered={isDesktop}>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>새 일정</div>
           <div style={{ fontSize: 12, color: "var(--text-muted)" }} className="mt-1">
             {date.getMonth() + 1}월 {date.getDate()}일
@@ -667,7 +697,7 @@ export function DailyFlipView({
 
       {/* Edit sheet */}
       {editing && (
-        <SheetShell onClose={() => setEditing(null)}>
+        <SheetShell onClose={() => setEditing(null)} centered={isDesktop}>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.4px" }}>일정 편집</div>
           <input
             value={editing.title}
@@ -770,7 +800,15 @@ function ColorRow({
   );
 }
 
-function SheetShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function SheetShell({
+  children,
+  onClose,
+  centered = false,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  centered?: boolean;
+}) {
   return (
     <div className="absolute inset-0 z-50">
       <div
@@ -779,12 +817,16 @@ function SheetShell({ children, onClose }: { children: React.ReactNode; onClose:
         onClick={onClose}
       />
       <div
-        className="absolute left-0 right-0 bottom-0 rounded-t-3xl px-5 pt-3 pb-6 sheet-slide-up"
+        className={`${centered ? "absolute left-1/2 top-1/2 rounded-3xl" : "absolute left-0 right-0 bottom-0 rounded-t-3xl sheet-slide-up"} px-5 pt-3 pb-6`}
         style={{
+          width: centered ? "min(420px, calc(100% - 32px))" : undefined,
           background: "var(--bg-elevated)",
-          borderTop: "0.5px solid var(--hairline)",
-          maxHeight: "70%",
+          borderTop: centered ? undefined : "0.5px solid var(--hairline)",
+          border: centered ? "0.5px solid var(--hairline)" : undefined,
+          boxShadow: centered ? "0 24px 70px rgba(0,0,0,0.24)" : undefined,
+          maxHeight: centered ? "min(720px, calc(100% - 32px))" : "70%",
           overflowY: "auto",
+          transform: centered ? "translate(-50%, -50%)" : undefined,
         }}
       >
         <div className="flex justify-center mb-3">

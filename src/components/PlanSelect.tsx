@@ -4,7 +4,7 @@
 //   accent: 사용자가 선택한 액센트 색상
 //   onSelect: (kind: "my" | "shared") => void
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LogoLockup } from "./Logo";
 
 type PlanKind = "my" | "shared";
@@ -42,20 +42,40 @@ export function PlanSelect({
     const w = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
     return `${d.getMonth() + 1}월 ${d.getDate()}일 ${w}요일`;
   }, []);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [shellWidth, setShellWidth] = useState(0);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const update = () => setShellWidth(el.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const isWideLayout = shellWidth >= 900;
 
   return (
     <div
-      className="absolute inset-0 z-[70] flex flex-col"
+      ref={shellRef}
+      className="absolute inset-0 z-[70] overflow-y-auto"
       style={{
         background: "var(--bg-secondary)",
-        // 메인 앱 헤더와 동일하게: 위는 safe-area + 헤더 영역만큼, 좌우 20px
         paddingTop: "env(safe-area-inset-top, 0)",
-        paddingLeft: 20,
-        paddingRight: 20,
-        paddingBottom: "max(env(safe-area-inset-bottom), 24px)",
         boxSizing: "border-box",
       }}
     >
+      <div
+        className="mx-auto flex min-h-full w-full flex-col"
+        style={{
+          maxWidth: isWideLayout ? 1540 : undefined,
+          paddingLeft: isWideLayout ? 40 : 20,
+          paddingRight: isWideLayout ? 40 : 20,
+          paddingBottom: 32,
+        }}
+      >
       {/* 상단 미니 헤더 — 메인 앱과 동일한 72px 높이, 동일한 LogoLockup */}
       <div
         style={{
@@ -73,7 +93,15 @@ export function PlanSelect({
       </div>
 
       {/* 인사 헤딩 */}
-      <div style={{ marginTop: 24 }}>
+      <div
+        className="mx-auto"
+        style={{
+          maxWidth: 560,
+          paddingTop: isWideLayout ? 112 : 24,
+          textAlign: isWideLayout ? "center" : "left",
+          width: "100%",
+        }}
+      >
         <div style={{ fontSize: 13, color: accent, fontWeight: 600, letterSpacing: "-0.2px" }}>
           {userName ? `안녕하세요, ${userName}님 👋` : "안녕하세요 👋"}
         </div>
@@ -96,30 +124,44 @@ export function PlanSelect({
       </div>
 
       {/* 카드 두 장 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 28 }}>
-        <BigPlanCard
-          kind="my"
-          accent={accent}
-          accentSoft={accentSoft}
-          accentSofter={accentSofter}
-          highlight={recentPlanKind === "my"}
-          stats={stats}
-          onClick={() => onSelect("my")}
-        />
-        <BigPlanCard
-          kind="shared"
-          accent={accent}
-          accentSoft={accentSoft}
-          accentSofter={accentSofter}
-          highlight={recentPlanKind === "shared"}
-          stats={stats}
-          onClick={() => onSelect("shared")}
-        />
+      <div
+        className="flex flex-1 items-start justify-center"
+        style={{ marginTop: isWideLayout ? 36 : 28 }}
+      >
+        <div
+          className="grid w-full"
+          style={{
+            maxWidth: isWideLayout ? 1280 : undefined,
+            gridTemplateColumns: isWideLayout ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+            gap: isWideLayout ? 20 : 12,
+          }}
+        >
+          <BigPlanCard
+            kind="my"
+            accent={accent}
+            accentSoft={accentSoft}
+            accentSofter={accentSofter}
+            highlight={recentPlanKind === "my"}
+            stats={stats}
+            onClick={() => onSelect("my")}
+          />
+          <BigPlanCard
+            kind="shared"
+            accent={accent}
+            accentSoft={accentSoft}
+            accentSofter={accentSofter}
+            highlight={recentPlanKind === "shared"}
+            stats={stats}
+            onClick={() => onSelect("shared")}
+          />
 
-        {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
-        <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+          {/* 하루온봇 오늘의 추천 (액센트 컬러 카드) */}
+          <div style={{ gridColumn: isWideLayout ? "1 / -1" : undefined }}>
+            <HarubotRecommendCard accent={accent} stats={stats} onClick={() => onSelect("my")} />
+          </div>
+        </div>
       </div>
-
+      </div>
     </div>
   );
 }

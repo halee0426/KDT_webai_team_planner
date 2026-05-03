@@ -1,11 +1,38 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { highlights, HighlightKey } from "./tokens";
 import { SharedEvent } from "./eventStore";
 import { TYPE } from "@/styles/typography";
+import { YearViewWeb } from "./YearViewWeb";
 
 type LocalHl = { id: number; month: number; start: number; end: number; color: string; label: string };
 
-export function YearView({
+type YearViewProps = {
+  accent: string;
+  events: SharedEvent[];
+  onEventsChange: (e: SharedEvent[]) => void;
+  year?: number;
+  onOpenMonth?: (year: number, month: number) => void;
+  onAdd?: () => void;
+  onOpenEdit?: (e: SharedEvent) => void;
+};
+
+export function YearView(props: YearViewProps) {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  return isDesktop ? <YearViewWeb {...props} /> : <YearViewMobile {...props} />;
+}
+
+function YearViewMobile({
   accent,
   events,
   onEventsChange,
@@ -13,19 +40,7 @@ export function YearView({
   onOpenMonth,
   onAdd,
   onOpenEdit,
-}: {
-  accent: string;
-  events: SharedEvent[];
-  onEventsChange: (e: SharedEvent[]) => void;
-  /** 외부에서 전달되는 표시 연도 (없으면 2026 fallback) */
-  year?: number;
-  /** 월 라벨 클릭 시 → 달력(MonthView)로 진입 */
-  onOpenMonth?: (year: number, month: number) => void;
-  /** 우상단 + 버튼 */
-  onAdd?: () => void;
-  /** 라벨 클릭 시 — 외부 통합 편집 모달 */
-  onOpenEdit?: (e: SharedEvent) => void;
-}) {
+}: YearViewProps) {
   const YEAR = year ?? 2026;
 
   const [sheet, setSheet] = useState<{ month: number; start: number; end: number } | null>(null);

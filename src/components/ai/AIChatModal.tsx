@@ -52,6 +52,9 @@ export function AIChatModal({
   const [editPlaceholder, setEditPlaceholder] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [animState, setAnimState] = useState<"in" | "out" | "idle">("idle");
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1100 : false,
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -66,6 +69,14 @@ export function AIChatModal({
       setAnimState("idle");
     }
   }, [open]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1100);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // 새 메시지 시 스크롤 바닥
   useEffect(() => {
@@ -171,10 +182,11 @@ export function AIChatModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
-          left: 16,
-          right: 16,
-          top: 120,
-          bottom: 80,
+          left: isDesktop ? "50%" : 16,
+          right: isDesktop ? undefined : 16,
+          top: isDesktop ? 88 : 120,
+          bottom: isDesktop ? 88 : 80,
+          width: isDesktop ? "min(680px, calc(100% - 64px))" : undefined,
           background: "var(--bg-canvas)",
           borderRadius: 28,
           boxShadow:
@@ -184,9 +196,13 @@ export function AIChatModal({
           overflow: "hidden",
           transform:
             animState === "in"
-              ? "translateY(0) scale(1)"
-              : "translateY(40px) scale(0.96)",
-          transformOrigin: "50% 100%",
+              ? isDesktop
+                ? "translateX(-50%) translateY(0) scale(1)"
+                : "translateY(0) scale(1)"
+              : isDesktop
+                ? "translateX(-50%) translateY(40px) scale(0.96)"
+                : "translateY(40px) scale(0.96)",
+          transformOrigin: isDesktop ? "50% 50%" : "50% 100%",
           opacity: animState === "in" ? 1 : 0,
           transition:
             "transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease-out",

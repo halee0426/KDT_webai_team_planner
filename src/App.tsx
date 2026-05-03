@@ -566,16 +566,7 @@ export default function App() {
         height: 812,
         borderRadius: 40,
       };
-  const desktopContentMaxWidth =
-    screen === "month"
-      ? 1540
-      : screen === "day"
-        ? 1420
-        : screen === "year"
-          ? 1360
-          : screen === "tenmin" || screen === "mandala"
-            ? 1320
-            : 1240;
+  const desktopContentMaxWidth = 1540;
 
   return (
     <div
@@ -661,6 +652,36 @@ export default function App() {
                 ))}
               </div>
             </nav>
+
+            <div className="px-5 pb-7">
+              <button
+                onClick={() => setAiChatOpen(true)}
+                className="flex w-full items-center gap-3 rounded-[24px] px-4 py-4 text-left transition-transform active:scale-[0.98]"
+                style={{
+                  background: isDark ? `${accent}22` : `${accent}16`,
+                  border: `0.5px solid ${accent}33`,
+                  color: "var(--text-primary)",
+                }}
+              >
+                <LogoMark size={34} accent={accent} rounded={12} />
+                <span className="min-w-0">
+                  <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: accent }}>
+                    하루온봇
+                  </span>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 11.5,
+                      color: "var(--text-secondary)",
+                      marginTop: 3,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    일정과 계획을 도와드려요
+                  </span>
+                </span>
+              </button>
+            </div>
           </aside>
         )}
 
@@ -864,18 +885,6 @@ export default function App() {
                 className="mx-auto w-full px-8 xl:px-10 2xl:px-12"
                 style={{ maxWidth: desktopContentMaxWidth }}
               >
-                {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
-                  <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
-                    <CalendarScopeTabs
-                      accent={accent}
-                      active={screen as ScopeKey}
-                      onChange={(k) => {
-                        setScreen(k as Screen);
-                        setMoreOpen(false);
-                      }}
-                    />
-                  </div>
-                )}
                 <div className={transitionClass} key={screen}>
                   {renderScreen()}
                 </div>
@@ -929,6 +938,7 @@ export default function App() {
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           accent={accent}
+          constrainToFrame={!isDesktop}
           onNavigate={(s) => {
             setScreen(s as Screen);
             setMoreOpen(false);

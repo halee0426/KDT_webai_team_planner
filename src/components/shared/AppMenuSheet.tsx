@@ -38,12 +38,14 @@ export function AppMenuSheet({
   accent,
   onNavigate,
   onOpenSettings,
+  constrainToFrame = false,
 }: {
   open: boolean;
   onClose: () => void;
   accent: string;
   onNavigate: (screen: Screen) => void;
   onOpenSettings: () => void;
+  constrainToFrame?: boolean;
 }) {
   if (!open) return null;
 
@@ -145,7 +147,7 @@ export function AppMenuSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex justify-end"
+      className={`${constrainToFrame ? "absolute" : "fixed"} inset-0 z-[60] flex justify-end`}
       onClick={onClose}
       style={{ background: "rgba(0,0,0,0)", animation: "none" }}
     >
