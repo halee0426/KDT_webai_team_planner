@@ -233,10 +233,10 @@ export async function deleteGroup(uid: string, groupId: string): Promise<void> {
   if (group.inviteCode) {
     batch.delete(doc(db, 'invites', group.inviteCode));
   }
-  // 모든 멤버의 myGroups 인덱스
-  group.memberUids.forEach((memberUid) => {
-    batch.delete(doc(db, 'users', memberUid, 'myGroups', groupId));
-  });
+  // 본인 myGroups 인덱스만 삭제 (Rules: 본인 외 다른 사용자 데이터 write 불가)
+  // 다른 멤버들의 myGroups/{groupId} 는 stale 인덱스로 남는데,
+  // useMyGroups 가 group 본체 read 실패(NotFound) 시 자동 정리하도록 처리됨
+  batch.delete(doc(db, 'users', uid, 'myGroups', groupId));
   // 그룹 본체
   batch.delete(groupRef);
 

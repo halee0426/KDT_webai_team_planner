@@ -4,7 +4,7 @@
 // 로그아웃 시: 자동으로 빈 배열 + listener 정리
 
 import { useCallback, useEffect, useState } from 'react';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase/client';
 import { useUserStore } from '@/store/userStore';
 import type { Group } from '@/types/group';
@@ -63,9 +63,15 @@ export function useMyGroups(): State & { refetch: () => void } {
           idxSnap.docs.map(async (d) => {
             try {
               const gSnap = await getDoc(doc(db, 'groups', d.id));
-              if (!gSnap.exists()) return null;
+              if (!gSnap.exists()) {
+                // stale 인덱스 자동 정리 — 그룹 본체가 사라진 경우
+                deleteDoc(doc(db, 'users', uid, 'myGroups', d.id)).catch(() => {});
+                return null;
+              }
               return groupFromDoc(gSnap.id, gSnap.data());
             } catch {
+              // permission-denied 등 — 멤버에서 제외된 경우도 정리
+              deleteDoc(doc(db, 'users', uid, 'myGroups', d.id)).catch(() => {});
               return null;
             }
           }),
