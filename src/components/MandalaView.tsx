@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
 import { SPRING } from "@/styles/animations";
 import { TYPE } from "@/styles/typography";
+import { askAI } from "@/lib/aiClient";
 
 export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
   const [cells, setCells] = useState<string[]>(() => {
@@ -14,6 +15,8 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
 
   // AI 제안(미리보기) — 적용 전까지 cells 에 반영하지 않음
   const [proposal, setProposal] = useState<string[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // 초기화 확인 다이얼로그 — AI 미리보기와 동일한 애니메이션 패턴
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -230,19 +233,71 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
     }, 220);
   };
 
-  // AI에게 분해 부탁 → 즉시 적용하지 않고 proposal 로만 보관 (미리보기)
-  const aiPropose = () => {
-    const next = [...cells];
-    const subs = ["건강", "커리어", "관계", "재정", "학습", "취미", "여행", "마음"];
-    const subCenters = [10, 13, 16, 37, 43, 64, 67, 70];
-    subCenters.forEach((idx, k) => {
-      if (!next[idx]) {
-        next[idx] = subs[k];
-        const m = mirrorIndex(idx);
-        if (m !== null) next[m] = subs[k];
+  // AI에게 분해 부탁 → /api/ai/orchestrate 호출 후 proposal 로 보관 (미리보기)
+  const aiPropose = async () => {
+    if (isPreviewing || aiLoading) return;
+    const centerText = cells[40].trim();
+    if (!centerText) {
+      setAiError("가운데 칸에 목표를 먼저 입력해주세요.");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await askAI(
+        `만다라트 목표 분해: ${centerText}`,
+        {
+          scope: planKind !== "my" ? "group" : "personal",
+          groupId: planKind !== "my" ? planKind : undefined,
+          currentScreen: "mandala",
+          personalMandala: { cells },
+        },
+      );
+
+      const mandala = result.mandala as {
+        nonMandalaRequest?: boolean;
+        subGoals?: string[];
+        actionItems?: string[][];
+      } | null | undefined;
+
+      if (!mandala || mandala.nonMandalaRequest || !mandala.subGoals?.length) {
+        setAiError("목표를 분해하지 못했어요. 더 구체적인 목표를 입력해보세요.");
+        return;
       }
-    });
-    setProposal(next);
+
+      const subCenters = [10, 13, 16, 37, 43, 64, 67, 70];
+      // 각 서브목표 블록의 액션 아이템 셀 인덱스 (가운데 제외, 읽기 순서)
+      const actionItemSlots = [
+        [0, 1, 2, 9, 11, 18, 19, 20],
+        [3, 4, 5, 12, 14, 21, 22, 23],
+        [6, 7, 8, 15, 17, 24, 25, 26],
+        [27, 28, 29, 36, 38, 45, 46, 47],
+        [33, 34, 35, 42, 44, 51, 52, 53],
+        [54, 55, 56, 63, 65, 72, 73, 74],
+        [57, 58, 59, 66, 68, 75, 76, 77],
+        [60, 61, 62, 69, 71, 78, 79, 80],
+      ];
+
+      const next = [...cells];
+      subCenters.forEach((idx, k) => {
+        const subGoal = mandala.subGoals?.[k] ?? "";
+        if (!next[idx]) {
+          next[idx] = subGoal;
+          const m = mirrorIndex(idx);
+          if (m !== null) next[m] = subGoal;
+        }
+        const actions = mandala.actionItems?.[k] ?? [];
+        actionItemSlots[k].forEach((cellIdx, j) => {
+          if (!next[cellIdx]) next[cellIdx] = actions[j] ?? "";
+        });
+      });
+
+      setProposal(next);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "AI 요청 중 오류가 발생했어요.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const closeModal = (apply: boolean) => {
@@ -323,19 +378,30 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
-        <button
-          onClick={aiPropose}
-          disabled={isPreviewing}
-          className="px-3 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95"
-          style={{
-            background: "var(--bg-tertiary)",
-            fontSize: 13,
-            opacity: isPreviewing ? 0.5 : 1,
-            cursor: isPreviewing ? "default" : "pointer",
-          }}
-        >
-          <LogoMark size={16} accent={accent} rounded={4} /> 하루온에게 분해 부탁
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button
+            onClick={aiPropose}
+            disabled={isPreviewing || aiLoading}
+            className="px-3 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95"
+            style={{
+              background: aiLoading ? `${accent}1A` : "var(--bg-tertiary)",
+              fontSize: 13,
+              opacity: isPreviewing ? 0.5 : 1,
+              cursor: isPreviewing || aiLoading ? "default" : "pointer",
+              color: aiLoading ? accent : undefined,
+              fontWeight: aiLoading ? 600 : undefined,
+              transition: "background 200ms, color 200ms",
+            }}
+          >
+            <LogoMark size={16} accent={accent} rounded={4} />
+            {aiLoading ? "분석 중..." : "하루온에게 분해 부탁"}
+          </button>
+          {aiError && (
+            <div style={{ fontSize: 11, color: "#FF453A", paddingLeft: 4 }}>
+              {aiError}
+            </div>
+          )}
+        </div>
 
         {/* 줌 상태 표시 + 원래대로 */}
         {zoom > 1.02 && (
