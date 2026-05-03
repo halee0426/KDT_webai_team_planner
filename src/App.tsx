@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Menu as MenuIcon, Calendar, CalendarDays, Target,
-  MoreHorizontal, Sun, BookOpen, Clock,
+  Menu as MenuIcon, Calendar, Target,
+  Sun, BookOpen,
 } from "lucide-react";
 import { accents, AccentKey } from "@/components/tokens";
 import {
@@ -153,7 +153,7 @@ export default function App() {
 
   // 화면 전환 애니메이션 — 이전 screen 추적해서 진입 방향 결정
   const prevScreenRef = useRef<Screen>(screen);
-  const MAIN_TAB_ORDER: Screen[] = ["day", "month", "mandala"];
+  const MAIN_TAB_ORDER: Screen[] = ["day", "month", "mandala", "diary"];
   const calDepth = (s: Screen) =>
     s === "year" ? 0 : s === "month" ? 1 : s === "daily" ? 2 : -1;
   const transitionClass = useMemo(() => {
@@ -177,7 +177,6 @@ export default function App() {
   }, [screen]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -387,17 +386,15 @@ export default function App() {
   }, []);
 
   // 좌우 스와이프로 탭 전환 — day ↔ month ↔ mandala
-  const SWIPE_TABS: Screen[] = ["day", "month", "mandala"];
+  const SWIPE_TABS: Screen[] = ["day", "month", "mandala", "diary"];
   // 최신 screen 참조용 (이벤트 리스너가 stale closure 안 쓰게)
   const screenRef = useRef(screen);
   useEffect(() => {
     screenRef.current = screen;
   }, [screen]);
   const setScreenRef = useRef(setScreen);
-  const setMoreOpenRef = useRef(setMoreOpen);
   useEffect(() => {
     setScreenRef.current = setScreen;
-    setMoreOpenRef.current = setMoreOpen;
   });
 
   // ref callback — element가 mount/unmount/remount될 때마다 리스너 재등록
@@ -522,10 +519,8 @@ export default function App() {
         if (idx === -1) return;
         if (dx < 0 && idx < SWIPE_TABS.length - 1) {
           setScreenRef.current(SWIPE_TABS[idx + 1]);
-          setMoreOpenRef.current(false);
         } else if (dx > 0 && idx > 0) {
           setScreenRef.current(SWIPE_TABS[idx - 1]);
-          setMoreOpenRef.current(false);
         }
       };
 
@@ -564,11 +559,10 @@ export default function App() {
           year={calYear}
           month={calMonth}
           onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
-          onBack={() => { setScreen("year"); setMoreOpen(false); }}
+          onBack={() => setScreen("year")}
           onOpenDay={(y, m, d) => {
             setCalYear(y); setCalMonth(m); setCalDay(d);
             setScreen("daily");
-            setMoreOpen(false);
           }}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: true })}
           onOpenEdit={openEditEvent}
@@ -583,7 +577,6 @@ export default function App() {
           onOpenMonth={(y, m) => {
             setCalYear(y); setCalMonth(m);
             setScreen("month");
-            setMoreOpen(false);
           }}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: 1, allDay: true })}
           onOpenEdit={openEditEvent}
@@ -602,7 +595,7 @@ export default function App() {
           month={calMonth}
           day={calDay}
           onDateChange={(y, m, d) => { setCalYear(y); setCalMonth(m); setCalDay(d); }}
-          onBack={() => { setScreen("month"); setMoreOpen(false); }}
+          onBack={() => setScreen("month")}
           onAdd={() => openNewEvent({ year: calYear, month: calMonth, day: calDay, allDay: false })}
           onOpenEdit={openEditEvent}
         />
@@ -716,16 +709,13 @@ export default function App() {
           }}
           key={planKind + screen}
         >
-          {/* 캘린더 계층 + 10분 플래너 — 상단 스코프 탭 (연/월/일/10분) */}
-          {(screen === "year" || screen === "month" || screen === "daily" || screen === "tenmin") && (
+          {/* 캘린더 계층 — 상단 스코프 탭 (연/월/일). 10분 플래너는 별도 도구 */}
+          {(screen === "year" || screen === "month" || screen === "daily") && (
             <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg-canvas)" }}>
               <CalendarScopeTabs
                 accent={accent}
                 active={screen as ScopeKey}
-                onChange={(k) => {
-                  setScreen(k as Screen);
-                  setMoreOpen(false);
-                }}
+                onChange={(k) => setScreen(k as Screen)}
               />
             </div>
           )}
@@ -748,11 +738,11 @@ export default function App() {
           }}
         >
           <div className="flex items-end justify-around px-2 pt-2 pb-7 h-full relative">
-            <TabBtn icon={<Sun size={22} strokeWidth={1.5} />} label="오늘" active={screen === "day"} accent={accent} onClick={() => { setScreen("day"); setMoreOpen(false); }} />
-            <TabBtn icon={<Calendar size={22} strokeWidth={1.5} />} label="캘린더" active={screen === "month" || screen === "week"} accent={accent} onClick={() => { setScreen("month"); setMoreOpen(false); }} />
+            <TabBtn icon={<Sun size={22} strokeWidth={1.5} />} label="오늘" active={screen === "day"} accent={accent} onClick={() => setScreen("day")} />
+            <TabBtn icon={<Calendar size={22} strokeWidth={1.5} />} label="캘린더" active={screen === "month" || screen === "week" || screen === "year" || screen === "daily"} accent={accent} onClick={() => setScreen("month")} />
             <div style={{ width: 56 }} />
-            <TabBtn icon={<Target size={22} strokeWidth={1.5} />} label="목표" active={screen === "mandala"} accent={accent} onClick={() => { setScreen("mandala"); setMoreOpen(false); }} />
-            <TabBtn icon={<MoreHorizontal size={22} strokeWidth={1.5} />} label="더보기" active={moreOpen || screen === "year" || screen === "tenmin" || screen === "diary" || screen === "daily" || screen === "week"} accent={accent} onClick={() => setMoreOpen((v) => !v)} />
+            <TabBtn icon={<Target size={22} strokeWidth={1.5} />} label="목표" active={screen === "mandala"} accent={accent} onClick={() => setScreen("mandala")} />
+            <TabBtn icon={<BookOpen size={22} strokeWidth={1.5} />} label="일기" active={screen === "diary"} accent={accent} onClick={() => setScreen("diary")} />
           </div>
 
           <button
@@ -779,25 +769,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* 더보기 메뉴 */}
-        {moreOpen && (
-          <div
-            className="absolute z-40 right-3 rounded-2xl overflow-hidden more-menu-enter"
-            style={{
-              bottom: 96,
-              background: "var(--bg-elevated)",
-              border: "0.5px solid var(--hairline)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-              backdropFilter: "blur(20px)",
-              transformOrigin: "bottom right",
-            }}
-          >
-            {/* 캘린더 — 연력/달력/일력은 계층 구조로 통합. 메인 진입은 월(달력) 뷰 */}
-            <MoreItem icon={<CalendarDays size={16} />} label="캘린더" onClick={() => { setScreen("month"); setMoreOpen(false); }} />
-            <MoreItem icon={<Clock size={16} />} label="10분 플래너" onClick={() => { setScreen("tenmin"); setMoreOpen(false); }} />
-            <MoreItem icon={<BookOpen size={16} />} label="일기" onClick={() => { setScreen("diary"); setMoreOpen(false); }} last />
-          </div>
-        )}
         </>
         )}
         {/* ─── 메인 앱 셸 끝 ──────────────────────────────────── */}
@@ -872,10 +843,7 @@ export default function App() {
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           accent={accent}
-          onNavigate={(s) => {
-            setScreen(s as Screen);
-            setMoreOpen(false);
-          }}
+          onNavigate={(s) => setScreen(s as Screen)}
           onOpenSettings={() => {
             setMenuOpen(false);
             setSettingsOpen(true);
@@ -977,15 +945,3 @@ function TabBtn({ icon, label, active, accent, onClick }: { icon: React.ReactNod
   );
 }
 
-function MoreItem({ icon, label, onClick, last }: { icon: React.ReactNode; label: string; onClick: () => void; last?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-3 px-4 py-3 w-44 active:opacity-60"
-      style={{ borderBottom: last ? "none" : "0.5px solid var(--hairline)", fontSize: 15 }}
-    >
-      <span className="text-[var(--text-secondary)]">{icon}</span>
-      {label}
-    </button>
-  );
-}
