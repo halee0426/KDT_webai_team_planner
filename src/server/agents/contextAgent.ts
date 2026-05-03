@@ -95,6 +95,6 @@ export async function callContextAgent(
     "context_agent",
     CONTEXT_AGENT_SYSTEM_PROMPT,
     input,
-    { maxTokens: 800 },
+    { maxTokens: 1500 },
   );
 }

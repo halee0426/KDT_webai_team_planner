@@ -38,29 +38,10 @@ export function DayView({
   const today = useMemo(() => todos.filter((t) => !t.later), [todos]);
   const later = useMemo(() => todos.filter((t) => t.later), [todos]);
 
-  const events =
-    planKind !== "my"
-      ? [
-          { id: 1, time: "11:00 — 12:00", title: "팀 워크숍", loc: "라운지", hl: highlights[3].color },
-          { id: 2, time: "16:00 — 17:00", title: "기획 싱크", loc: "줌", hl: highlights[1].color },
-        ]
-      : [
-          { id: 1, time: "10:00 — 11:00", title: "팀 스탠드업", loc: "회의실 A", hl: highlights[4].color },
-          { id: 2, time: "14:30 — 15:30", title: "1:1 미팅", loc: "온라인", hl: highlights[5].color },
-        ];
-
-  // 다가오는 일정 (오늘 이후 며칠 내)
-  const upcoming =
-    planKind !== "my"
-      ? [
-          { id: 11, when: "내일 (목)", time: "10:00 — 11:30", title: "스프린트 회고", loc: "회의실 B", hl: highlights[2].color },
-          { id: 12, when: "5/2 (금)", time: "13:00", title: "분기 리뷰", loc: "본관 대회의실", hl: highlights[4].color },
-        ]
-      : [
-          { id: 11, when: "내일 (목)", time: "09:30", title: "디자인 리뷰", loc: "온라인", hl: highlights[2].color },
-          { id: 12, when: "5/2 (금)", time: "14:00 — 16:00", title: "병원 검진", loc: "강남 ○○병원", hl: highlights[0].color },
-          { id: 13, when: "5/4 (일)", time: "종일", title: "가족 모임", loc: "양평", hl: highlights[3].color },
-        ];
+  // 실데이터 only — events 와 upcoming 은 v2 에서 sharedEvents 와 연결
+  // 현재는 빈 배열로 시작하고, AI 챗봇 또는 캘린더 뷰에서 추가
+  const events: { id: number; time: string; title: string; loc: string; hl: string }[] = [];
+  const upcoming: { id: number; when: string; time: string; title: string; loc: string; hl: string }[] = [];
 
   const toggle = (id: number) =>
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));

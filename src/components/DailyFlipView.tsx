@@ -67,11 +67,7 @@ export function DailyFlipView({
     setDateInner(next);
     onDateChange?.(next.getFullYear(), next.getMonth(), next.getDate());
   };
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, text: "디자인 리뷰 준비", done: false },
-    { id: 2, text: "주간 회고 작성", done: true },
-    { id: 3, text: "운동 30분", done: false, rolled: true },
-  ]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoDraft, setTodoDraft] = useState("");
 

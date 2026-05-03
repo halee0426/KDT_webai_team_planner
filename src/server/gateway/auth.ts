@@ -40,10 +40,10 @@ export type VerifiedUser = {
   displayName?: string;
 };
 
-/** Authorization: Bearer {idToken} 헤더에서 uid 추출. 실패 시 throw */
-export async function verifyRequest(req: Request): Promise<VerifiedUser> {
-  const authHeader =
-    req.headers.get("authorization") ?? req.headers.get("Authorization");
+/** Authorization 헤더 문자열에서 idToken 검증 → uid 추출. 실패 시 throw */
+export async function verifyAuthHeader(
+  authHeader: string | undefined | null,
+): Promise<VerifiedUser> {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     throw new Error("인증 토큰이 없습니다");
   }
@@ -55,4 +55,28 @@ export async function verifyRequest(req: Request): Promise<VerifiedUser> {
     email: decoded.email,
     displayName: (decoded as { name?: string }).name,
   };
+}
+
+/**
+ * Web Request (Edge runtime) 또는 Node IncomingMessage (Node runtime) 양쪽 호환.
+ * @deprecated Node runtime 에서는 verifyAuthHeader 직접 사용 권장
+ */
+export async function verifyRequest(
+  req: Request | { headers: Record<string, string | string[] | undefined> | Headers },
+): Promise<VerifiedUser> {
+  let authHeader: string | undefined;
+  // Web Request (headers 가 Headers 인스턴스)
+  const h = (req as Request).headers;
+  if (h && typeof (h as Headers).get === "function") {
+    authHeader =
+      (h as Headers).get("authorization") ??
+      (h as Headers).get("Authorization") ??
+      undefined;
+  } else {
+    // Node IncomingMessage (headers 가 plain object, key 는 lowercase)
+    const obj = h as unknown as Record<string, string | string[] | undefined>;
+    const v = obj["authorization"] ?? obj["Authorization"];
+    authHeader = Array.isArray(v) ? v[0] : v;
+  }
+  return verifyAuthHeader(authHeader);
 }
