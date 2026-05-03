@@ -67,11 +67,7 @@ export function DailyFlipView({
     setDateInner(next);
     onDateChange?.(next.getFullYear(), next.getMonth(), next.getDate());
   };
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, text: "디자인 리뷰 준비", done: false },
-    { id: 2, text: "주간 회고 작성", done: true },
-    { id: 3, text: "운동 30분", done: false, rolled: true },
-  ]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [todoExpanded, setTodoExpanded] = useState(false);
   const [todoDraft, setTodoDraft] = useState("");
 
@@ -193,7 +189,7 @@ export function DailyFlipView({
   const onPointerMove = (e: React.PointerEvent) => {
     if (evDrag) {
       const deltaSlots = Math.round((e.clientY - evDrag.startY) / SLOT);
-      const moved = evDrag.moved || Math.abs(e.clientY - evDrag.startY) > 4;
+      const moved = evDrag.moved || Math.abs(e.clientY - evDrag.startY) > 8;
 
       let newStart: number, newEnd: number;
       if (evDrag.mode === "move") {
@@ -220,6 +216,7 @@ export function DailyFlipView({
       const wasMoved = evDrag.moved;
       const id = evDrag.id;
       const override = dragOverride;
+      console.log("[daily] pointerUp on event", { id, wasMoved, hasOnOpenEdit: !!onOpenEdit });
       setEvDrag(null);
       setDragOverride(null);
       if (wasMoved && override) {
@@ -232,14 +229,20 @@ export function DailyFlipView({
           ),
         );
       } else if (!wasMoved) {
-        const ev = timedEventsForDay.find((x) => x.id === id);
-        if (ev) {
-          if (onOpenEdit) {
-            const full = events.find((x) => x.id === ev.id);
-            if (full) onOpenEdit(full);
-          } else {
-            setEditing({ ...ev });
-          }
+        // 클릭으로 인식 → 편집 모달 열기
+        const full = events.find((x) => x.id === id);
+        console.log("[daily] click → open edit", { id, found: !!full });
+        if (full && onOpenEdit) {
+          onOpenEdit(full);
+        } else if (full) {
+          // onOpenEdit 미제공 시 내부 editing fallback
+          setEditing({
+            id: full.id,
+            startSlot: full.startSlot ?? 0,
+            endSlot: full.endSlot ?? 1,
+            title: full.title,
+            color: full.color,
+          });
         }
       }
       return;
@@ -334,10 +337,18 @@ export function DailyFlipView({
       >
         {/* 1행 — 좌: 큰 N월 N일 + 작은 요일 / 우: 이전/오늘/다음/+ */}
         <div
-          className="flex items-end justify-between"
-          style={{ marginBottom: 18 }}
+          className="flex items-end justify-between gap-2"
+          style={{ marginBottom: todayHolidayName ? 6 : 18 }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 8,
+              flex: "1 1 auto",
+              minWidth: 0,
+            }}
+          >
             <span
               style={{
                 ...TYPE.titlePage,
@@ -350,6 +361,7 @@ export function DailyFlipView({
                   : isToday
                   ? accent
                   : "var(--text-primary)",
+                whiteSpace: "nowrap",
               }}
             >
               {date.getMonth() + 1}월 {date.getDate()}일
@@ -360,25 +372,11 @@ export function DailyFlipView({
                 fontSize: isDesktop ? 17 : TYPE.captionMeta.fontSize,
                 fontWeight: isDesktop ? 600 : 600,
                 color: accent,
+                whiteSpace: "nowrap",
               }}
             >
               {days[date.getDay()]}요일
             </span>
-            {todayHolidayName && (
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#FF3B30",
-                  background: "#FF3B301A",
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  letterSpacing: "-0.2px",
-                }}
-              >
-                {todayHolidayName}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center" style={{ gap: 6 }}>
@@ -471,6 +469,25 @@ export function DailyFlipView({
             )}
           </div>
         </div>
+
+        {/* 공휴일 라벨 — 별도 줄 (긴 이름도 안 넘침) */}
+        {todayHolidayName && (
+          <div
+            style={{
+              marginBottom: 12,
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#FF3B30",
+              letterSpacing: "-0.2px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={todayHolidayName}
+          >
+            🇰🇷 {todayHolidayName}
+          </div>
+        )}
 
         {/* 2행 — 주간 요일 + 날짜 (선택된 날짜는 액센트 캡슐) */}
         <WeekDayStrip
@@ -584,6 +601,17 @@ export function DailyFlipView({
                 key={e.id}
                 data-event
                 onPointerDown={(ev) => beginEvDrag(ev, e, "move")}
+                onPointerUp={(ev) => {
+                  // 카드 위에서 직접 떼는 케이스 — 부모 grid onPointerUp 외에 추가 보장
+                  if (evDrag?.moved) return;
+                  ev.stopPropagation();
+                  const full = events.find((x) => x.id === e.id);
+                  console.log("[daily] card pointerUp", { id: e.id, found: !!full, hasOnOpenEdit: !!onOpenEdit });
+                  if (full && onOpenEdit) {
+                    // 다음 tick 에 호출 (현재 onPointerUp 의 setEvDrag(null) 직후)
+                    setTimeout(() => onOpenEdit(full), 0);
+                  }
+                }}
                 className="absolute text-left"
                 style={{
                   left: 52,

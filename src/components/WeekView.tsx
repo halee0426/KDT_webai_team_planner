@@ -15,21 +15,8 @@ export function WeekView({ accent, planKind = "my" }: { accent: string; planKind
   // All selectable half-hour values from 6:00 to 24:00
   const halfHours = Array.from({ length: 37 }, (_, i) => 6 + i * 0.5);
 
-  const [blocks, setBlocks] = useState<Block[]>(
-    planKind !== "my"
-      ? [
-          { id: 1, day: 1, start: 11, dur: 2, title: "팀 워크숍", c: highlights[3].color },
-          { id: 2, day: 2, start: 16, dur: 1, title: "기획 싱크", c: highlights[1].color },
-          { id: 3, day: 3, start: 10, dur: 1, title: "스프린트 리뷰", c: highlights[5].color },
-          { id: 4, day: 5, start: 14, dur: 3, title: "회식", c: highlights[0].color },
-        ]
-      : [
-          { id: 1, day: 0, start: 9, dur: 1, title: "기획 회의", c: highlights[4].color },
-          { id: 2, day: 2, start: 10, dur: 1, title: "팀 스탠드업", c: highlights[4].color },
-          { id: 3, day: 2, start: 14.5, dur: 1, title: "1:1", c: highlights[5].color },
-          { id: 4, day: 4, start: 13, dur: 2, title: "디자인 리뷰", c: highlights[1].color },
-        ],
-  );
+  // 실데이터 only — 빈 배열로 시작. 사용자가 드래그로 추가하거나 AI 챗봇으로 생성.
+  const [blocks, setBlocks] = useState<Block[]>([]);
 
   const [drag, setDrag] = useState<{ day: number; aSlot: number; bSlot: number } | null>(null);
   const [sheet, setSheet] = useState<{ day: number; start: number; end: number } | null>(null);

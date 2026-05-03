@@ -20,19 +20,19 @@ function getClient(): OpenAI {
       "OPENAI_API_KEY 가 환경변수에 없습니다. .env.local 또는 Vercel 환경변수에 설정하세요.",
     );
   }
-  _client = new OpenAI({ apiKey });
+  // Node 기본 fetch (undici) 의 headers timeout 회피 위해 명시적 timeout 지정.
+  // OpenAI SDK 가 내부 fetch 를 wrap 하므로 이 timeout 이 우선 적용됨.
+  _client = new OpenAI({
+    apiKey,
+    timeout: 50_000, // 50초 (Vercel function maxDuration 60초보다 짧게)
+    maxRetries: 1,   // 첫 시도 실패 시 1회 재시도
+  });
   return _client;
 }
 
 /**
  * JSON 모드로 LLM 호출.
  * 시스템 프롬프트 + 사용자 입력을 받아 JSON 객체를 반환한다.
- *
- * @param agentName  agent 식별자 (로깅/메트릭용)
- * @param systemPrompt  agent 시스템 프롬프트 (역할 정의)
- * @param userPayload  사용자 입력 — 객체로 받아 JSON.stringify
- * @param model  기본 gpt-4o-mini
- * @param temperature  기본 0.2 (구조화 출력 안정성)
  */
 export async function callJsonAgent<TOutput>(
   agentName: string,
@@ -46,6 +46,8 @@ export async function callJsonAgent<TOutput>(
 ): Promise<AgentResult<TOutput>> {
   const model = options?.model ?? DEFAULT_MODEL;
   const startedAt = Date.now();
+
+  console.log(`[agent:${agentName}] start`, { model });
 
   try {
     const client = getClient();
@@ -74,10 +76,16 @@ export async function callJsonAgent<TOutput>(
       },
     };
 
+    console.log(`[agent:${agentName}] done`, {
+      elapsedMs: finishedAt - startedAt,
+      tokens: completion.usage?.total_tokens,
+    });
+
     let parsed: TOutput;
     try {
       parsed = JSON.parse(raw) as TOutput;
     } catch (_e) {
+      console.error(`[agent:${agentName}] invalid JSON`, raw.slice(0, 200));
       return {
         ok: false,
         error: {
@@ -91,10 +99,21 @@ export async function callJsonAgent<TOutput>(
     return { ok: true, data: parsed, meta };
   } catch (e: unknown) {
     const finishedAt = Date.now();
-    const message = e instanceof Error ? e.message : String(e);
+    const errName = e instanceof Error ? e.name : "Unknown";
+    const errMsg = e instanceof Error ? e.message : String(e);
+    const code =
+      errName === "AbortError" || /timeout/i.test(errMsg)
+        ? "TIMEOUT"
+        : "AGENT_CALL_FAILED";
+    console.error(`[agent:${agentName}] error`, {
+      code,
+      name: errName,
+      message: errMsg,
+      elapsedMs: finishedAt - startedAt,
+    });
     return {
       ok: false,
-      error: { code: "AGENT_CALL_FAILED", message },
+      error: { code, message: `${errName}: ${errMsg}` },
       meta: { agentName, model, startedAt, finishedAt },
     };
   }

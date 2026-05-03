@@ -116,6 +116,6 @@ export async function callOrchestrator(
     "orchestrator",
     ORCHESTRATOR_SYSTEM_PROMPT,
     input,
-    { maxTokens: 600 },
+    { maxTokens: 1500 },
   );
 }

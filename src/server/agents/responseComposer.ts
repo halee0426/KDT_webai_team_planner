@@ -158,6 +158,6 @@ export async function callResponseComposer(
     "response_composer",
     RESPONSE_COMPOSER_SYSTEM_PROMPT,
     input,
-    { maxTokens: 1000 },
+    { maxTokens: 2000 },
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GripVertical, Plus, ArrowDown, ArrowUp, CalendarClock } from "lucide-react";
 import { highlights } from "./tokens";
-import type { Todo } from "./eventStore";
+import type { Todo, SharedEvent } from "./eventStore";
 import type { Group } from "@/types/group";
 import { MemberAvatarStack, membersFromGroup } from "./shared/MemberAvatar";
 import { TYPE } from "@/styles/typography";
@@ -11,6 +11,8 @@ export function DayView({
   planKind = "my",
   todos,
   onTodosChange,
+  events: realEvents = [],
+  onOpenEdit,
   activeGroup = null,
   currentUid = null,
 }: {
@@ -18,6 +20,10 @@ export function DayView({
   planKind?: string;
   todos: Todo[];
   onTodosChange: (todos: Todo[]) => void;
+  /** 실제 일정 데이터 (sharedEvents) — App.tsx 가 전달 */
+  events?: SharedEvent[];
+  /** 일정 카드 탭 시 외부 편집 모달 열기 */
+  onOpenEdit?: (e: SharedEvent) => void;
   /** planKind 가 그룹일 때 — 멤버 아바타와 카운트에 사용 */
   activeGroup?: Group | null;
   currentUid?: string | null;
@@ -49,29 +55,89 @@ export function DayView({
   const today = useMemo(() => todos.filter((t) => !t.later), [todos]);
   const later = useMemo(() => todos.filter((t) => t.later), [todos]);
 
-  const events =
-    planKind !== "my"
-      ? [
-          { id: 1, time: "11:00 — 12:00", title: "팀 워크숍", loc: "라운지", hl: highlights[3].color },
-          { id: 2, time: "16:00 — 17:00", title: "기획 싱크", loc: "줌", hl: highlights[1].color },
-        ]
-      : [
-          { id: 1, time: "10:00 — 11:00", title: "팀 스탠드업", loc: "회의실 A", hl: highlights[4].color },
-          { id: 2, time: "14:30 — 15:30", title: "1:1 미팅", loc: "온라인", hl: highlights[5].color },
-        ];
+  // 오늘 날짜 — 실시간
+  const todayDate = useMemo(() => new Date(), []);
+  const todayY = todayDate.getFullYear();
+  const todayM = todayDate.getMonth();
+  const todayD = todayDate.getDate();
 
-  // 다가오는 일정 (오늘 이후 며칠 내)
-  const upcoming =
-    planKind !== "my"
-      ? [
-          { id: 11, when: "내일 (목)", time: "10:00 — 11:30", title: "스프린트 회고", loc: "회의실 B", hl: highlights[2].color },
-          { id: 12, when: "5/2 (금)", time: "13:00", title: "분기 리뷰", loc: "본관 대회의실", hl: highlights[4].color },
-        ]
-      : [
-          { id: 11, when: "내일 (목)", time: "09:30", title: "디자인 리뷰", loc: "온라인", hl: highlights[2].color },
-          { id: 12, when: "5/2 (금)", time: "14:00 — 16:00", title: "병원 검진", loc: "강남 ○○병원", hl: highlights[0].color },
-          { id: 13, when: "5/4 (일)", time: "종일", title: "가족 모임", loc: "양평", hl: highlights[3].color },
-        ];
+  // 시간 일정만 (allDay 가 아닌 것) 의 슬롯 → "HH:MM — HH:MM"
+  const slotToTime = (s?: number) => {
+    if (s == null) return null;
+    const h = Math.floor(s / 2);
+    const m = s % 2 === 0 ? "00" : "30";
+    return `${String(h).padStart(2, "0")}:${m}`;
+  };
+
+  // 오늘 일정 — 시작일 ≤ 오늘 ≤ 종료일 + 시간이 있는 것
+  const todayEvents = useMemo(
+    () =>
+      realEvents.filter(
+        (e) =>
+          e.year === todayY &&
+          e.month === todayM &&
+          e.startDay <= todayD &&
+          e.endDay >= todayD &&
+          e.startSlot != null,
+      ),
+    [realEvents, todayY, todayM, todayD],
+  );
+
+  // 다가오는 일정 — 오늘 이후 7일 내, 또는 같은 달 종일 일정
+  const upcomingEvents = useMemo(() => {
+    const tStart = new Date(todayY, todayM, todayD);
+    const sevenLater = new Date(todayY, todayM, todayD + 7);
+    return realEvents
+      .filter((e) => {
+        const eStart = new Date(e.year, e.month, e.startDay);
+        return eStart > tStart && eStart <= sevenLater;
+      })
+      .sort((a, b) => {
+        const da = new Date(a.year, a.month, a.startDay).getTime();
+        const db = new Date(b.year, b.month, b.startDay).getTime();
+        return da - db;
+      })
+      .slice(0, 5);
+  }, [realEvents, todayY, todayM, todayD]);
+
+  // 표시용 어댑터 — 기존 카드 렌더링 형식 유지
+  const events = todayEvents.map((e) => {
+    const start = slotToTime(e.startSlot);
+    const end = slotToTime(e.endSlot);
+    return {
+      id: e.id,
+      time: start && end ? `${start} — ${end}` : start ?? "종일",
+      title: e.title,
+      loc: "",
+      hl: e.color,
+      _raw: e, // 클릭 시 onOpenEdit 에 전달
+    };
+  });
+
+  const formatRelDay = (e: SharedEvent) => {
+    const eStart = new Date(e.year, e.month, e.startDay);
+    const diff = Math.round(
+      (eStart.getTime() - new Date(todayY, todayM, todayD).getTime()) / 86400000,
+    );
+    const wd = ["일", "월", "화", "수", "목", "금", "토"][eStart.getDay()];
+    if (diff === 1) return `내일 (${wd})`;
+    if (diff === 2) return `모레 (${wd})`;
+    return `${e.month + 1}/${e.startDay} (${wd})`;
+  };
+
+  const upcoming = upcomingEvents.map((e) => {
+    const start = slotToTime(e.startSlot);
+    const end = slotToTime(e.endSlot);
+    return {
+      id: e.id,
+      when: formatRelDay(e),
+      time: start && end ? `${start} — ${end}` : start ?? "종일",
+      title: e.title,
+      loc: "",
+      hl: e.color,
+      _raw: e,
+    };
+  });
 
   const toggle = (id: number) =>
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
@@ -112,10 +178,10 @@ export function DayView({
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ ...pageTitleStyle, color: "var(--text-primary)" }}>
-            4월 29일
+            {todayM + 1}월 {todayD}일
           </span>
           <span style={{ ...TYPE.captionMeta, color: accent, fontWeight: 600 }}>
-            수요일
+            {["일", "월", "화", "수", "목", "금", "토"][todayDate.getDay()]}요일
           </span>
         </div>
         <div
@@ -175,13 +241,16 @@ export function DayView({
           </div>
         ) : (
           events.map((e) => (
-            <div
+            <button
               key={e.id}
-              className="relative rounded-2xl overflow-hidden"
+              onClick={() => onOpenEdit?.(e._raw)}
+              className="relative rounded-2xl overflow-hidden text-left w-full active:scale-[0.99] transition-transform"
               style={{
                 background: "var(--bg-elevated)",
                 border: "0.5px solid var(--hairline)",
                 boxShadow: "var(--card-shadow)",
+                cursor: onOpenEdit ? "pointer" : "default",
+                fontFamily: "inherit",
               }}
             >
               <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: e.hl }} />
@@ -192,11 +261,13 @@ export function DayView({
                 <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }} className="mt-0.5">
                   {e.title}
                 </div>
-                <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
-                  {e.loc}
-                </div>
+                {e.loc && (
+                  <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
+                    {e.loc}
+                  </div>
+                )}
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -218,13 +289,16 @@ export function DayView({
           </div>
         ) : (
           upcoming.map((e) => (
-            <div
+            <button
               key={e.id}
-              className="relative rounded-2xl overflow-hidden"
+              onClick={() => onOpenEdit?.(e._raw)}
+              className="relative rounded-2xl overflow-hidden text-left w-full active:scale-[0.99] transition-transform"
               style={{
                 background: "var(--bg-elevated)",
                 border: "0.5px solid var(--hairline)",
                 boxShadow: "var(--card-shadow)",
+                cursor: onOpenEdit ? "pointer" : "default",
+                fontFamily: "inherit",
               }}
             >
               <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: e.hl }} />
@@ -240,11 +314,13 @@ export function DayView({
                 <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.374px" }} className="mt-0.5">
                   {e.title}
                 </div>
-                <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
-                  {e.loc}
-                </div>
+                {e.loc && (
+                  <div style={{ fontSize: 13, letterSpacing: "-0.224px" }} className="text-[var(--text-muted)] mt-0.5">
+                    {e.loc}
+                  </div>
+                )}
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
