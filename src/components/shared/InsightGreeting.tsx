@@ -77,8 +77,9 @@ export function InsightGreeting({
           marginLeft: 24,
           marginRight: 24,
           width: "calc(100% - 48px)",
-          padding: "32px 24px",
-          borderRadius: 28,
+          maxWidth: 380,
+          padding: "28px 24px",
+          borderRadius: 24,
           background: "var(--bg-elevated)",
           color: "var(--text-primary)",
           boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
@@ -98,23 +99,23 @@ export function InsightGreeting({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            marginBottom: 20,
-            borderRadius: 18,
+            marginBottom: 16,
+            borderRadius: 16,
             boxShadow: `0 8px 24px ${accent}33, 0 0 0 6px ${accent}0F`,
           }}
         >
-          <LogoMark size={56} accent={accent} rounded={18} />
+          <LogoMark size={48} accent={accent} rounded={16} />
         </div>
 
         {/* 제목 */}
         <div
           id="insight-greeting-title"
           style={{
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: 600,
             letterSpacing: "-0.4px",
             lineHeight: 1.3,
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           오늘도 함께 채워볼까요?
@@ -123,8 +124,8 @@ export function InsightGreeting({
         {/* 본문 */}
         <div
           style={{
-            fontSize: 15,
-            lineHeight: 1.6,
+            fontSize: 14,
+            lineHeight: 1.55,
             color: "var(--text-secondary)",
             letterSpacing: "-0.24px",
             whiteSpace: "pre-line",
@@ -134,8 +135,8 @@ export function InsightGreeting({
           {message}
         </div>
 
-        {/* 24px 간격 */}
-        <div style={{ height: 24 }} />
+        {/* 20px 간격 */}
+        <div style={{ height: 20 }} />
 
         {/* 메인 버튼 */}
         <button
@@ -143,11 +144,11 @@ export function InsightGreeting({
           className="active:scale-[0.98] transition-transform"
           style={{
             width: "100%",
-            height: 48,
+            height: 44,
             borderRadius: 980,
             background: accent,
             color: "#fff",
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: 500,
             letterSpacing: "-0.24px",
             border: 0,
@@ -162,12 +163,12 @@ export function InsightGreeting({
         <button
           onClick={() => close(true)}
           style={{
-            marginTop: 12,
+            marginTop: 10,
             width: "100%",
-            height: 36,
+            height: 32,
             background: "transparent",
             color: "var(--text-muted)",
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: 500,
             letterSpacing: "-0.2px",
             border: 0,
