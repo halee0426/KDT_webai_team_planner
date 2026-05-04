@@ -2,8 +2,8 @@
 //
 // 직접 DB 를 읽거나 수정하지 않는다. preview 만 생성.
 
-import { callJsonAgent } from "./client.js";
-import type { AgentResult, PlanScope, RequestSubject } from "./types/common.js";
+import { callJsonAgent } from "./client";
+import type { AgentResult, PlanScope, RequestSubject } from "./types/common";
 
 export const TASK_BREAKDOWN_SYSTEM_PROMPT = `당신은 하루온(Haru:on) 플래너 앱의 Task Breakdown Agent이다.
 당신의 역할은 사용자의 자연어 요청을 해석하여, 큰 작업·목표·준비 사항을 "실행 가능한 할일 초안(todo drafts)"으로 구조화하는 것이다.

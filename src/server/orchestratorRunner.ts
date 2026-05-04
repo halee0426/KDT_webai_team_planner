@@ -11,7 +11,7 @@ import {
   callGoalMandala,
   callConflictAgent,
   callResponseComposer,
-} from "@/server/agents";
+} from "./agents/index.js";
 import type {
   OrchestratorOutput,
   ContextAgentOutput,
@@ -20,8 +20,8 @@ import type {
   GoalMandalaOutput,
   ConflictAgentOutput,
   ResponseComposerOutput,
-} from "@/server/agents";
-import type { ResolvedContext } from "./context/clientContextAdapter";
+} from "./agents/index.js";
+import type { ResolvedContext } from "./context/clientContextAdapter.js";
 
 // 개별 agent 호출에 timeout 을 강제. 5개 병렬 호출 중 하나가 hang 되어도
 // 나머지는 진행 → 부분 결과로 응답 가능.
@@ -283,4 +283,4 @@ export async function runOrchestration(
       conflict: conflictOut,
     },
   };
-}
+}

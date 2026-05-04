@@ -3,7 +3,7 @@
 //
 // v2 에서는 서버가 firebase-admin 으로 Firestore 를 직접 읽어 만들 수 있음.
 
-import type { RequestSubject } from "../agents/types/common.js";
+import type { RequestSubject } from "@/server/agents/types/common";
 
 /** 클라이언트가 /api/ai/orchestrate 에 보내는 body */
 export type OrchestrateRequestBody = {

@@ -3,8 +3,8 @@
 //
 // 직접 DB 를 읽거나 수정하지 않는다.
 
-import { callJsonAgent } from "./client.js";
-import type { AgentResult, PlanScope, RequestSubject } from "./types/common.js";
+import { callJsonAgent } from "./client";
+import type { AgentResult, PlanScope, RequestSubject } from "./types/common";
 
 export const CONTEXT_AGENT_SYSTEM_PROMPT = `당신은 하루온(Haru:on) 플래너 앱의 Context Agent이다.
 당신의 역할은 백엔드 Context Service가 이미 읽어온 원시 컨텍스트(raw context)를 분석하여,

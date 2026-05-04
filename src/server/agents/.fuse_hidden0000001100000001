@@ -6,7 +6,7 @@
 //   OPENAI_API_KEY  — 필수 (서버 전용, VITE_ 접두어 X)
 
 import OpenAI from "openai";
-import type { AgentMeta, AgentResult } from "./types/common.js";
+import type { AgentMeta, AgentResult } from "./types/common";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 

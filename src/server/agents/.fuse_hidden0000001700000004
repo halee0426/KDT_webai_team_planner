@@ -2,8 +2,8 @@
 //
 // 직접 DB 를 읽거나 수정하지 않는다. preview 만 생성.
 
-import { callJsonAgent } from "./client.js";
-import type { AgentResult, PlanScope, RequestSubject } from "./types/common.js";
+import { callJsonAgent } from "./client";
+import type { AgentResult, PlanScope, RequestSubject } from "./types/common";
 
 export const GOAL_MANDALA_SYSTEM_PROMPT = `당신은 하루온(Haru:on) 플래너 앱의 Goal / Mandala Agent이다.
 당신의 역할은 사용자의 목표 요청을 해석하여, 만다라트(Mandala) 구조로 확장 가능한 "목표 분해 초안(goal / mandala draft)"을 생성하는 것이다.

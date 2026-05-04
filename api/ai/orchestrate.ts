@@ -24,12 +24,12 @@ setGlobalDispatcher(
   }),
 );
 
-import { verifyAuthHeader } from "../../src/server/gateway/auth";
+import { verifyAuthHeader } from "../../src/server/gateway/auth.js";
 import {
   resolveContext,
   type OrchestrateRequestBody,
-} from "../../src/server/context/clientContextAdapter";
-import { runOrchestration } from "../../src/server/orchestratorRunner";
+} from "../../src/server/context/clientContextAdapter.js";
+import { runOrchestration } from "../../src/server/orchestratorRunner.js";
 
 // Node runtime — firebase-admin / openai SDK 모두 호환
 export const config = { runtime: "nodejs", maxDuration: 60 };
