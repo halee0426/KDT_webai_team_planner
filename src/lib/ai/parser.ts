@@ -3,7 +3,9 @@
 
 import type { MandalaDecomposition } from '@/types/ai';
 import type { MandalaCell } from '@/types/mandala';
-import { BLOCK_CENTERS, SURROUND_MAP, CENTER_INDEX } from '@/types/mandala';
+import { SURROUND_MAP, CENTER_INDEX } from '@/types/mandala';
+
+const SUBGOAL_CENTERS = [10, 13, 16, 37, 43, 64, 67, 70] as const;
 
 /**
  * 만다라트 분해 결과를 81칸 평면 배열로 변환.
@@ -17,7 +19,7 @@ export function decompositionToCells(d: MandalaDecomposition): MandalaCell[] {
 
   // 2. 8개 블록 중심 + 가운데 블록의 외곽 (Tier 2 + Tier 3 동기화)
   d.subgoals.forEach((subgoal, i) => {
-    cells[BLOCK_CENTERS[i < 4 ? i : i + 1]] = subgoal;  // 가운데(40)는 건너뜀
+    cells[SUBGOAL_CENTERS[i]] = subgoal;
     // 가운데 블록의 외곽 셀(SURROUND_MAP)도 같은 값으로 동기화
     const innerCellIdx = Object.keys(SURROUND_MAP).find(
       (k) => SURROUND_MAP[Number(k)] === i,
@@ -29,7 +31,7 @@ export function decompositionToCells(d: MandalaDecomposition): MandalaCell[] {
 
   // 3. 64개 실행 셀 (각 8개 블록의 외곽 8칸)
   d.actions.forEach((blockActions, blockIdx) => {
-    const blockCenter = BLOCK_CENTERS[blockIdx];
+    const blockCenter = SUBGOAL_CENTERS[blockIdx];
     const baseRow = Math.floor(blockCenter / 9) - 1;  // 블록의 첫 행
     const baseCol = (blockCenter % 9) - 1;
 

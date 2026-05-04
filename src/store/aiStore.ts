@@ -13,8 +13,14 @@ type AIStore = {
 
   fetchInsight: (force?: boolean) => Promise<void>;
   parseEvent: (text: string) => Promise<ParseEventResult>;
-  decomposeMandala: (centerGoal: string) => Promise<MandalaDecomposition>;
-  generateRecap: (weekStart: string) => Promise<WeeklyRecap>;
+  decomposeMandala: (
+    centerGoal: string,
+    opts?: { scope?: 'personal' | 'group'; groupId?: string },
+  ) => Promise<MandalaDecomposition>;
+  generateRecap: (
+    weekStart: string,
+    opts?: { scope?: 'personal' | 'group'; groupId?: string; context?: unknown },
+  ) => Promise<WeeklyRecap>;
 };
 
 const INSIGHT_CACHE_KEY = 'kdt-insight-cache';
@@ -61,13 +67,19 @@ export const useAIStore = create<AIStore>((set) => ({
     return ParseEventResultSchema.parse(data);
   },
 
-  decomposeMandala: async (centerGoal) => {
-    const data = await callAI<{ centerGoal: string }, unknown>('mandala', { centerGoal });
+  decomposeMandala: async (centerGoal, opts = {}) => {
+    const data = await callAI<
+      { centerGoal: string; scope?: 'personal' | 'group'; groupId?: string },
+      unknown
+    >('mandala', { centerGoal, ...opts });
     return MandalaDecompositionSchema.parse(data);
   },
 
-  generateRecap: async (weekStart) => {
-    const data = await callAI<{ weekStart: string }, unknown>('recap', { weekStart });
+  generateRecap: async (weekStart, opts = {}) => {
+    const data = await callAI<
+      { weekStart: string; scope?: 'personal' | 'group'; groupId?: string; context?: unknown },
+      unknown
+    >('recap', { weekStart, ...opts });
     return WeeklyRecapSchema.parse(data);
   },
 }));

@@ -43,6 +43,7 @@ import { useGroupTodosSync } from "@/hooks/useGroupTodosSync";
 import { useMyGroups } from "@/hooks/useMyGroups";
 import { useAuthSubscription } from "@/hooks/useAuth";
 import { useUserStore } from "@/store/userStore";
+import { useAIStore } from "@/store/aiStore";
 import { claimPendingInvites } from "@/lib/firebase/groupsAdapter";
 import { askAI } from "@/lib/aiClient";
 
@@ -135,6 +136,8 @@ function computePlanStats({
 export default function App() {
   // Firebase 인증 상태 구독 — 게스트(더미 키)일 때는 즉시 게스트 모드로 끝남
   useAuthSubscription();
+  const insight = useAIStore((state) => state.insight);
+  const fetchInsight = useAIStore((state) => state.fetchInsight);
 
   // 🔒 사용자별 설정 — localStorage에 영속화
   const [theme, setTheme] = usePersistedState<Theme>("theme", "light");
@@ -340,10 +343,11 @@ export default function App() {
 
   // 앱 진입(stage="app") + 개인 플랜일 때 인사이트 모달 표시 (오늘 닫지 않았다면)
   useEffect(() => {
-    if (stage === "app" && planKind === "my" && shouldShowInsightToday()) {
+    if (aiOn && stage === "app" && planKind === "my" && shouldShowInsightToday()) {
       setInsightOpen(true);
+      if (user) void fetchInsight(false);
     }
-  }, [stage, planKind]);
+  }, [aiOn, fetchInsight, planKind, stage, user]);
 
   // 로그인 시 — 내 이메일로 온 대기 초대 자동 합류
   const claimedRef = useRef<string | null>(null);
@@ -1144,6 +1148,7 @@ export default function App() {
         {insightOpen && (
           <InsightGreeting
             accent={accent}
+            message={insight?.message}
             onClose={() => setInsightOpen(false)}
           />
         )}

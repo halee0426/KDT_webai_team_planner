@@ -59,7 +59,15 @@ export async function callAI<TBody, TResp>(
   );
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`AI 호출 실패 (${res.status}): ${text}`);
+    let message = text;
+    try {
+      const parsed = JSON.parse(text) as { message?: string; error?: string };
+      message = parsed.message ?? parsed.error ?? text;
+    } catch {}
+    if (res.status === 401) {
+      throw new Error('로그인 후 AI 기능을 사용할 수 있어요.');
+    }
+    throw new Error(`AI 호출 실패 (${res.status})${message ? `: ${message}` : ''}`);
   }
   return (await res.json()) as TResp;
 }

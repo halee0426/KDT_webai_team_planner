@@ -12,6 +12,7 @@ import {
   callConflictAgent,
   callResponseComposer,
 } from "./agents/index.js";
+import { buildFallbackScheduleEventDraft } from "./aiFeatureRunner.js";
 import type {
   OrchestratorOutput,
   ContextAgentOutput,
@@ -199,9 +200,35 @@ export async function runOrchestration(
 
   const contextOut = contextRes.ok ? contextRes.data : undefined;
   // 본인 영역이 아닌 specialist 는 자동으로 nonXxxRequest=true + 빈 배열 반환 — 그대로 사용
-  const scheduleOut = scheduleRes.ok ? scheduleRes.data : undefined;
+  let scheduleOut = scheduleRes.ok ? scheduleRes.data : undefined;
   const taskOut = taskRes.ok ? taskRes.data : undefined;
   const mandalaOut = mandalaRes.ok ? mandalaRes.data : undefined;
+
+  const fallbackSchedule = buildFallbackScheduleEventDraft(
+    userRequest,
+    {
+      uid: resolved.subject.uid,
+      scope: resolved.subject.scope,
+      groupId: resolved.subject.groupId,
+    },
+    referenceDate,
+  );
+  if (fallbackSchedule && (!scheduleOut || scheduleOut.events.length === 0)) {
+    scheduleOut = scheduleOut
+      ? {
+          ...scheduleOut,
+          nonScheduleRequest: false,
+          events: [fallbackSchedule],
+          notes: [...asArray(scheduleOut.notes), "fallback_schedule_parser"],
+        }
+      : {
+          nonScheduleRequest: false,
+          events: [fallbackSchedule],
+          ambiguities: [],
+          warnings: [],
+          notes: ["fallback_schedule_parser"],
+        };
+  }
 
   // 4. Conflict Agent (proposed 가 하나라도 있고 라우팅에 포함되면)
   let conflictOut: ConflictAgentOutput | undefined;
@@ -269,11 +296,32 @@ export async function runOrchestration(
     };
   }
 
+  const composerData: ResponseComposerOutput = {
+    ...composer.data,
+    summary: {
+      ...composer.data.summary,
+      planScope: resolved.subject.scope,
+      groupName: resolved.groupName,
+      eventCount: scheduleOut?.events.length ?? 0,
+      todoCount: taskOut?.todos.length ?? 0,
+      hasMandala: !!mandalaOut && !mandalaOut.nonMandalaRequest,
+      hasConflict: (conflictOut?.conflicts.length ?? 0) > 0,
+      hasWarnings: allWarnings.length > 0 || (conflictOut?.warnings.length ?? 0) > 0,
+    },
+    preview: {
+      events: scheduleOut?.events ?? [],
+      todos: taskOut?.todos ?? [],
+      mandala: mandalaOut && !mandalaOut.nonMandalaRequest ? mandalaOut : null,
+    },
+    warnings: composer.data.warnings ?? allWarnings,
+    ambiguities: composer.data.ambiguities ?? allAmbiguities,
+  };
+
   return {
     ok: true,
     intent: plan.intent,
     scope: resolved.subject.scope,
-    composer: composer.data,
+    composer: composerData,
     raw: {
       orchestrator: plan,
       context: contextOut,
@@ -283,4 +331,4 @@ export async function runOrchestration(
       conflict: conflictOut,
     },
   };
-}
+}

@@ -19,7 +19,7 @@ const EventInputSchema = z.object({
 });
 
 export const ParseEventResultSchema = z.object({
-  events: z.array(EventInputSchema).min(1).max(50),
+  events: z.array(EventInputSchema).max(50),
 });
 
 // ── Mandala ───────────────────────────────────────

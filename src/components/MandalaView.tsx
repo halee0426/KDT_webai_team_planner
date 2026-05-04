@@ -4,8 +4,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
 import { SPRING } from "@/styles/animations";
 import { TYPE } from "@/styles/typography";
+import { decompositionToCells } from "@/lib/ai/parser";
+import { useAIStore } from "@/store/aiStore";
 
 export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
+  const decomposeMandala = useAIStore((state) => state.decomposeMandala);
   const [cells, setCells] = useState<string[]>(() => {
     const arr = Array(81).fill("");
     arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
@@ -14,6 +17,8 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
 
   // AI 제안(미리보기) — 적용 전까지 cells 에 반영하지 않음
   const [proposal, setProposal] = useState<string[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // 초기화 확인 다이얼로그 — AI 미리보기와 동일한 애니메이션 패턴
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -200,6 +205,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   }, [confirmingReset, confirmLeaving]);
 
   const update = (i: number, v: string) => {
+    if (aiError) setAiError(null);
     setCells((c) => {
       const next = [...c];
       next[i] = v;
@@ -215,6 +221,7 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
     arr[40] = planKind !== "my" ? "팀 목표" : "올해 목표";
     setCells(arr);
     setProposal(null);
+    setAiError(null);
     setModalVisible(false);
     setModalLeaving(false);
   };
@@ -231,18 +238,28 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
   };
 
   // AI에게 분해 부탁 → 즉시 적용하지 않고 proposal 로만 보관 (미리보기)
-  const aiPropose = () => {
-    const next = [...cells];
-    const subs = ["건강", "커리어", "관계", "재정", "학습", "취미", "여행", "마음"];
-    const subCenters = [10, 13, 16, 37, 43, 64, 67, 70];
-    subCenters.forEach((idx, k) => {
-      if (!next[idx]) {
-        next[idx] = subs[k];
-        const m = mirrorIndex(idx);
-        if (m !== null) next[m] = subs[k];
-      }
-    });
-    setProposal(next);
+  const aiPropose = async () => {
+    if (aiLoading || proposal) return;
+    const centerGoal = cells[40]?.trim();
+    if (!centerGoal) {
+      setAiError("중앙 목표를 먼저 입력해 주세요.");
+      return;
+    }
+
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const isGroup = planKind !== "my";
+      const decomposition = await decomposeMandala(centerGoal, {
+        scope: isGroup ? "group" : "personal",
+        groupId: isGroup ? planKind : undefined,
+      });
+      setProposal(mergeGeneratedCells(cells, decompositionToCells(decomposition)));
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "AI 만다라트 생성에 실패했어요.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const closeModal = (apply: boolean) => {
@@ -325,16 +342,17 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
       <div className="mt-3 flex items-center justify-between gap-2">
         <button
           onClick={aiPropose}
-          disabled={isPreviewing}
+          disabled={isPreviewing || aiLoading}
           className="px-3 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95"
           style={{
             background: "var(--bg-tertiary)",
             fontSize: 13,
-            opacity: isPreviewing ? 0.5 : 1,
-            cursor: isPreviewing ? "default" : "pointer",
+            opacity: isPreviewing || aiLoading ? 0.5 : 1,
+            cursor: isPreviewing || aiLoading ? "default" : "pointer",
           }}
         >
-          <LogoMark size={16} accent={accent} rounded={4} /> 하루온에게 분해 부탁
+          <LogoMark size={16} accent={accent} rounded={4} />
+          {aiLoading ? "분해 중..." : "하루온에게 분해 부탁"}
         </button>
 
         {/* 줌 상태 표시 + 원래대로 */}
@@ -356,6 +374,19 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
           </button>
         )}
       </div>
+
+      {aiError && (
+        <div
+          className="mt-2"
+          style={{
+            color: "#FF3B30",
+            fontSize: 12,
+            lineHeight: 1.4,
+          }}
+        >
+          {aiError}
+        </div>
+      )}
 
       {/* 만다라트 9×9 그리드 — 핀치 줌 + 드래그 팬 (외부 좌우 스와이프 차단) */}
       <div
@@ -751,3 +782,14 @@ function mirrorIndex(i: number): number | null {
   return map[i] ?? null;
 }
 
+function mergeGeneratedCells(current: string[], generated: string[]): string[] {
+  const next = [...current];
+  generated.forEach((value, index) => {
+    const text = value?.trim();
+    if (!text) return;
+    if (index === 40 || !next[index]?.trim()) {
+      next[index] = text;
+    }
+  });
+  return next;
+}

@@ -2,6 +2,9 @@
 
 import type { Event } from './event';
 import type { MandalaCell } from './mandala';
+import { CENTER_INDEX, SURROUND_MAP } from './mandala';
+
+const SUBGOAL_CENTERS = [10, 13, 16, 37, 43, 64, 67, 70] as const;
 
 /** AI 인사이트 인사말 */
 export type Insight = {
@@ -32,9 +35,34 @@ export type MandalaDecomposition = {
 
 /** 81칸 평면 배열로 변환 */
 export const decompositionToCells = (d: MandalaDecomposition): MandalaCell[] => {
-  // 구현은 lib/ai/parser.ts에서 처리
-  void d;
-  return Array(81).fill('');
+  const cells: MandalaCell[] = Array(81).fill('');
+  cells[CENTER_INDEX] = d.center;
+
+  d.subgoals.forEach((subgoal, i) => {
+    cells[SUBGOAL_CENTERS[i]] = subgoal;
+    const innerCellIdx = Object.keys(SURROUND_MAP).find(
+      (k) => SURROUND_MAP[Number(k)] === i,
+    );
+    if (innerCellIdx !== undefined) cells[Number(innerCellIdx)] = subgoal;
+  });
+
+  d.actions.forEach((blockActions, blockIdx) => {
+    const blockCenter = SUBGOAL_CENTERS[blockIdx];
+    const baseRow = Math.floor(blockCenter / 9) - 1;
+    const baseCol = (blockCenter % 9) - 1;
+
+    let actionIdx = 0;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cellIdx = (baseRow + r) * 9 + (baseCol + c);
+        if (cellIdx === blockCenter) continue;
+        cells[cellIdx] = blockActions[actionIdx];
+        actionIdx++;
+      }
+    }
+  });
+
+  return cells;
 };
 
 /** 주간 회고 결과 */

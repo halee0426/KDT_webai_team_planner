@@ -5,6 +5,18 @@
   "functions": {
     "api/ai/orchestrate.ts": {
       "maxDuration": 60
+    },
+    "api/ai/mandala.ts": {
+      "maxDuration": 60
+    },
+    "api/ai/parse-event.ts": {
+      "maxDuration": 60
+    },
+    "api/ai/insight.ts": {
+      "maxDuration": 60
+    },
+    "api/ai/recap.ts": {
+      "maxDuration": 60
     }
   }
 }
