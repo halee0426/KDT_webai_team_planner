@@ -66,10 +66,13 @@ function computePlanStats({
   sharedEvents,
   myTodos,
   groupCount,
+  groups,
 }: {
   sharedEvents: SharedEvent[];
   myTodos: Todo[];
   groupCount: number;
+  /** 내가 가입한 그룹들 — 모든 그룹의 멤버 수 합계 계산용 (중복 uid 제거) */
+  groups?: Array<{ memberUids?: string[] | null }>;
 }) {
   const now = new Date();
   const y = now.getFullYear();
@@ -104,12 +107,27 @@ function computePlanStats({
   // 오늘 할일 (later=false인 것 = 오늘 분량)
   const todayMyTodoCount = myTodos.filter((t) => !t.later && !t.done).length;
 
+  // 공동 플랜 카드용 — 내가 속한 모든 그룹의 고유 멤버 수 합계 (uid 기준 중복 제거)
+  let teamMembers = 0;
+  if (groups && groups.length > 0) {
+    const allUids = new Set<string>();
+    for (const g of groups) {
+      const uids = g?.memberUids ?? [];
+      for (const uid of uids) {
+        if (uid) allUids.add(uid);
+      }
+    }
+    teamMembers = allUids.size;
+  }
+  // 그룹은 있는데 멤버 정보가 비어있는 경우엔 최소 그룹 수 폴백
+  if (teamMembers === 0 && groupCount > 0) teamMembers = groupCount;
+
   return {
     // 나의 플랜 카드용
     todayCount: todayEventCount + todayMyTodoCount,
     weekCount: weekEventCount,
-    // 공동 플랜 카드용 — 가입한 그룹 수 (멤버 수는 그룹 진입 후 확인)
-    teamMembers: groupCount,
+    // 공동 플랜 카드용 — 가입한 그룹들의 고유 멤버 합계
+    teamMembers,
     teamWeekShared: weekEventCount,
   };
 }
@@ -1013,6 +1031,7 @@ export default function App() {
               sharedEvents: myEvents,
               myTodos,
               groupCount: myGroups.length,
+              groups: myGroups,
             })}
             recentPlanKind={planKind === "my" ? "my" : "shared"}
             groups={myGroups}
