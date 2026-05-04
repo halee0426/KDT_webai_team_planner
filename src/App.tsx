@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Menu as MenuIcon, Calendar, CalendarDays, Target,
   Sun, BookOpen, Clock, Grid3x3,
-  User as UserIcon, Users as UsersIcon,
+  User as UserIcon, Users as UsersIcon, Crown, Plus,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { SPRING, EASE, DURATION } from "@/styles/animations";
@@ -36,6 +36,7 @@ import { AIChatModal, type AIEvent } from "@/components/ai/AIChatModal";
 import { GroupSheet } from "@/components/shared/GroupSheet";
 import { GroupDetailSheet } from "@/components/shared/GroupDetailSheet";
 import { GroupSelector } from "@/components/shared/GroupSelector";
+import { MemberAvatarStack, membersFromGroup } from "@/components/shared/MemberAvatar";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSharedEventsSync } from "@/hooks/useSharedEventsSync";
 import { useGroupEventsSync } from "@/hooks/useGroupEventsSync";
@@ -226,6 +227,7 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [groupSheetOpen, setGroupSheetOpen] = useState(false);
+  const [desktopGroupPickerOpen, setDesktopGroupPickerOpen] = useState(false);
   const [groupDetailId, setGroupDetailId] = useState<string | null>(null);
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [newEventInitial, setNewEventInitial] = useState<NewEventInitial | undefined>(undefined);
@@ -376,6 +378,10 @@ export default function App() {
       setPlanKind("my");
     }
   }, [planKind, myGroups, user, setPlanKind]);
+
+  useEffect(() => {
+    if (myGroups.length === 0) setDesktopGroupPickerOpen(false);
+  }, [myGroups.length]);
 
   const isDark = useMemo(() => {
     if (theme === "dark") return true;
@@ -877,15 +883,26 @@ export default function App() {
                     { key: "my", label: "나의 플랜", icon: <UserIcon size={15} strokeWidth={1.8} /> },
                     { key: "group", label: "공동 플랜", icon: <UsersIcon size={15} strokeWidth={1.8} /> },
                   ].map((item) => {
-                    const active = item.key === "my" ? planKind === "my" : planKind !== "my";
+                    const active =
+                      item.key === "my"
+                        ? planKind === "my" && !desktopGroupPickerOpen
+                        : planKind !== "my" || desktopGroupPickerOpen;
                     return (
                       <button
                         key={item.key}
                         onClick={() => {
-                          if (item.key === "my") setPlanKind("my");
-                          else if (myGroups.length > 0) setActivePlan(myGroups[0].id);
-                          else setGroupSheetOpen(true);
+                          if (item.key === "my") {
+                            setDesktopGroupPickerOpen(false);
+                            setPlanKind("my");
+                          } else if (myGroups.length > 0) {
+                            setDesktopGroupPickerOpen((open) => !open);
+                          } else {
+                            setDesktopGroupPickerOpen(false);
+                            setGroupSheetOpen(true);
+                          }
                         }}
+                        aria-expanded={item.key === "group" ? desktopGroupPickerOpen : undefined}
+                        aria-haspopup={item.key === "group" ? "listbox" : undefined}
                         className="flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-semibold transition-all"
                         style={{
                           background: active ? "var(--bg-elevated)" : "transparent",
@@ -899,6 +916,128 @@ export default function App() {
                     );
                   })}
                 </div>
+                <AnimatePresence initial={false}>
+                  {desktopGroupPickerOpen && myGroups.length > 0 && (
+                    <motion.div
+                      key="desktop-group-picker"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={SPRING.soft}
+                      className="mt-3 overflow-hidden rounded-[20px]"
+                      style={{
+                        background: "var(--bg-elevated)",
+                        border: "0.5px solid var(--hairline)",
+                        boxShadow: "var(--card-shadow)",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-3">
+                        <span
+                          style={{
+                            color: "var(--text-muted)",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            letterSpacing: "0.3px",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          내 그룹 {myGroups.length}개
+                        </span>
+                        <button
+                          onClick={() => {
+                            setDesktopGroupPickerOpen(false);
+                            setGroupSheetOpen(true);
+                          }}
+                          className="flex items-center gap-1 rounded-full px-2 py-1 transition-all active:scale-[0.96]"
+                          style={{
+                            border: 0,
+                            background: "var(--bg-tertiary)",
+                            color: "var(--text-secondary)",
+                            cursor: "pointer",
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          <Plus size={12} strokeWidth={2} />
+                          관리
+                        </button>
+                      </div>
+                      <div
+                        role="listbox"
+                        aria-label="내 그룹 선택"
+                        className="flex flex-col gap-1 overflow-y-auto px-2 pb-2"
+                        style={{ maxHeight: 220 }}
+                      >
+                        {myGroups.map((group) => {
+                          const isActive = planKind === group.id;
+                          const isOwner = group.ownerUid === user?.uid;
+                          return (
+                            <button
+                              key={group.id}
+                              role="option"
+                              aria-selected={isActive}
+                              onClick={() => {
+                                setActivePlan(group.id);
+                                setDesktopGroupPickerOpen(false);
+                              }}
+                              className="flex w-full items-center gap-2.5 rounded-[16px] px-3 py-2.5 text-left transition-all active:scale-[0.99]"
+                              style={{
+                                border: 0,
+                                background: isActive ? `${accent}14` : "transparent",
+                                color: isActive ? accent : "var(--text-primary)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <MemberAvatarStack
+                                members={membersFromGroup(group)}
+                                size={22}
+                                max={3}
+                                accent={accent}
+                                currentUid={user?.uid ?? null}
+                                ringBg="var(--bg-elevated)"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 5,
+                                    minWidth: 0,
+                                    fontSize: 13,
+                                    fontWeight: isActive ? 800 : 700,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {group.name}
+                                  </span>
+                                  {isOwner && <Crown size={12} strokeWidth={2} style={{ flexShrink: 0 }} />}
+                                </span>
+                                <span
+                                  style={{
+                                    display: "block",
+                                    marginTop: 2,
+                                    color: "var(--text-muted)",
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  멤버 {group.memberUids.length}명
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <nav className="flex-1 overflow-y-auto px-4 pb-5">
@@ -1216,4 +1355,3 @@ function TabBtn({ icon, label, active, accent, onClick }: { icon: React.ReactNod
     </button>
   );
 }
-
