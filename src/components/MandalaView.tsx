@@ -7,7 +7,17 @@ import { TYPE } from "@/styles/typography";
 import { decompositionToCells } from "@/lib/ai/parser";
 import { useAIStore } from "@/store/aiStore";
 
-export function MandalaView({ accent, planKind = "my" }: { accent: string; planKind?: string }) {
+export function MandalaView({
+  accent,
+  planKind = "my",
+  externalProposal = null,
+  onExternalProposalConsumed,
+}: {
+  accent: string;
+  planKind?: string;
+  externalProposal?: string[] | null;
+  onExternalProposalConsumed?: () => void;
+}) {
   const decomposeMandala = useAIStore((state) => state.decomposeMandala);
   const [cells, setCells] = useState<string[]>(() => {
     const arr = Array(81).fill("");
@@ -195,6 +205,15 @@ export function MandalaView({ accent, planKind = "my" }: { accent: string; planK
       return () => cancelAnimationFrame(id);
     }
   }, [proposal, modalLeaving]);
+
+  useEffect(() => {
+    if (!externalProposal) return;
+    setAiError(null);
+    setModalVisible(false);
+    setModalLeaving(false);
+    setProposal(mergeGeneratedCells(cells, externalProposal));
+    onExternalProposalConsumed?.();
+  }, [externalProposal, cells, onExternalProposalConsumed]);
 
   // 초기화 다이얼로그도 같은 패턴
   useEffect(() => {

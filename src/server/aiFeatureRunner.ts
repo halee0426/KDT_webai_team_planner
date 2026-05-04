@@ -242,10 +242,15 @@ export async function generateInsight(input: CommonInput & {
     "insight",
     [
       "You write one short Korean daily planning insight for Haru:on.",
-      "Use the supplied schedule, todo, mandala, and diary context if present.",
-      "Return only JSON with a message field. Keep it warm, factual, and under 80 Korean characters.",
+      "Use only the supplied schedule, todo, mandala, and diary context. Do not invent events or tasks.",
+      "If today's events exist, mention the nearest or most important event by title/time.",
+      "If unfinished or rolled todos exist, mention the count and suggest a concrete next action.",
+      "If both schedules and todos exist, prioritize the schedule first, then one concise todo nudge.",
+      "If no meaningful context exists, write a gentle generic planning prompt.",
+      "Return only JSON with a message field. Keep it warm, factual, and under 100 Korean characters.",
     ].join("\n"),
     {
+      subject: subject(input),
       referenceDate: input.referenceDate ?? today(),
       context: input.context ?? {},
     },

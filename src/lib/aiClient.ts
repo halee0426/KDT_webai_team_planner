@@ -5,7 +5,7 @@
 
 import { auth } from "@/lib/firebase/client";
 import type { SharedEvent } from "@/components/eventStore";
-import type { AIEvent } from "@/components/ai/AIChatModal";
+import type { AIEvent, AIMandalaDraft, AITodo } from "@/components/ai/AIChatModal";
 
 export type AICallContext = {
   scope: "personal" | "group";
@@ -23,12 +23,18 @@ export type AICallContext = {
 export type AIChatResponse = {
   reply: string;
   events?: AIEvent[];
-  /** preview 의 todos / mandala 도 함께 — 향후 UI 확장용 */
-  todos?: unknown[];
-  mandala?: unknown;
+  todos?: AITodo[];
+  mandala?: AIMandalaDraft | null;
   warnings?: string[];
   ambiguities?: string[];
 };
+
+function localDateKey(date = new Date()): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export async function askAI(
   userRequest: string,
@@ -38,7 +44,7 @@ export async function askAI(
   if (!user) throw new Error("로그인 후 사용할 수 있어요");
 
   const idToken = await user.getIdToken();
-  const referenceDate = new Date().toISOString().slice(0, 10);
+  const referenceDate = localDateKey();
 
   // 클라이언트 fetch 에 60초 timeout (서버 maxDuration 60초와 정렬).
   // 서버 hang 시에도 사용자에게 명확한 에러 메시지가 도달하도록 보장.
@@ -101,8 +107,8 @@ export async function askAI(
           endTime: string | null;
           allDay: boolean;
         }>;
-        todos?: unknown[];
-        mandala?: unknown;
+        todos?: Array<Record<string, unknown>>;
+        mandala?: Record<string, unknown> | null;
       };
       warnings?: string[];
       ambiguities?: string[];
@@ -112,6 +118,7 @@ export async function askAI(
   const composer = data.composer ?? {};
   const preview = composer.preview ?? {};
   const draftEvents = preview.events ?? [];
+  const draftTodos = preview.todos ?? [];
 
   // ScheduleEventDraft → AIEvent (AIChatModal 이 기대하는 형식)
   const events: AIEvent[] = draftEvents.map((e, i) => ({
@@ -126,8 +133,10 @@ export async function askAI(
   return {
     reply: composer.replyText ?? "확인해보세요.",
     events,
-    todos: preview.todos,
-    mandala: preview.mandala,
+    todos: draftTodos
+      .map((todo, i) => normalizeTodo(todo, i))
+      .filter((todo): todo is AITodo => todo !== null),
+    mandala: normalizeMandala(preview.mandala),
     warnings: composer.warnings,
     ambiguities: composer.ambiguities,
   };
@@ -143,4 +152,50 @@ const PALETTE = [
 ];
 function pickColor(i: number): string {
   return PALETTE[i % PALETTE.length];
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeTodo(todo: Record<string, unknown>, index: number): AITodo | null {
+  const text = asString(todo.text);
+  if (!text) return null;
+  const priority = asString(todo.priority);
+  return {
+    id: `todo-${Date.now()}-${index}`,
+    text,
+    priority:
+      priority === "high" || priority === "medium" || priority === "low"
+        ? priority
+        : "medium",
+    category: asString(todo.category) || null,
+    dueHint: asString(todo.dueHint) || null,
+    dependencyHint: asString(todo.dependencyHint) || null,
+  };
+}
+
+function normalizeStringArray(value: unknown, max: number): string[] {
+  return Array.isArray(value)
+    ? value.map(asString).filter(Boolean).slice(0, max)
+    : [];
+}
+
+function normalizeRows(value: unknown): string[][] {
+  return Array.isArray(value)
+    ? value.map((row) => normalizeStringArray(row, 8)).filter((row) => row.length > 0).slice(0, 8)
+    : [];
+}
+
+function normalizeMandala(value: Record<string, unknown> | null | undefined): AIMandalaDraft | null {
+  if (!value || value.nonMandalaRequest === true) return null;
+  const centerGoal = asString(value.centerGoal);
+  const subGoals = normalizeStringArray(value.subGoals, 8);
+  const actionItems = normalizeRows(value.actionItems);
+  if (!centerGoal && subGoals.length === 0 && actionItems.length === 0) return null;
+  return {
+    centerGoal: centerGoal || "목표",
+    subGoals,
+    actionItems,
+  };
 }

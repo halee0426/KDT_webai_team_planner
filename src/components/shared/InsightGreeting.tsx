@@ -27,7 +27,7 @@ export function shouldShowInsightToday(): boolean {
 
 export function InsightGreeting({
   onClose,
-  message = "어제 못 끝낸 할일 2개가 오늘로 넘어왔어요.\n오전 시간을 활용해서 가볍게 정리해보면 어떨까요?",
+  message = "오늘 일정과 할 일을 살펴보고 있어요.\n잠시 후 더 알맞은 제안을 보여드릴게요.",
   accent = "#0066cc",
 }: {
   onClose: () => void;

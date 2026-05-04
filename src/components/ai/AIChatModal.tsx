@@ -2,11 +2,11 @@
 // 풀스크린 AI 자연어 입력 채팅 모달.
 // FAB → open=true → slide-up 등장. 메시지 히스토리는 내부 state.
 //
-// onSubmit: 사용자 텍스트 → AI 응답 + 일정 후보 반환
-// onSaveEvents: "그대로 저장" 시 호출 → 부모에서 store에 반영
+// onSubmit: 사용자 텍스트 → AI 응답 + 일정/할일/만다라트 후보 반환
+// onSaveEvents/onSaveTodos/onApplyMandala: 사용자가 승인한 preview를 부모에 반영
 
 import { useEffect, useRef, useState } from "react";
-import { X, MoreHorizontal, ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { X, MoreHorizontal, ArrowUp, Pencil, Trash2, ListTodo, Target, AlertTriangle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
 import { SPRING, EASE, DURATION } from "@/styles/animations";
@@ -20,8 +20,32 @@ export type AIEvent = {
   color: string;         // hex
 };
 
+export type AITodo = {
+  id: string;
+  text: string;
+  priority: "high" | "medium" | "low";
+  category?: string | null;
+  dueHint?: string | null;
+  dependencyHint?: string | null;
+};
+
+export type AIMandalaDraft = {
+  centerGoal: string;
+  subGoals: string[];
+  actionItems: string[][];
+};
+
 export type Message =
-  | { role: "ai"; text: string; events?: AIEvent[]; pending?: boolean }
+  | {
+      role: "ai";
+      text: string;
+      events?: AIEvent[];
+      todos?: AITodo[];
+      mandala?: AIMandalaDraft | null;
+      warnings?: string[];
+      ambiguities?: string[];
+      pending?: boolean;
+    }
   | { role: "user"; text: string };
 
 const SUGGESTS: { icon: string; label: string }[] = [
@@ -36,18 +60,29 @@ export function AIChatModal({
   onClose,
   onSubmit,
   onSaveEvents,
+  onSaveTodos,
+  onApplyMandala,
   accent = "#0066cc",
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (text: string) => Promise<{ reply: string; events?: AIEvent[] }>;
+  onSubmit: (text: string) => Promise<{
+    reply: string;
+    events?: AIEvent[];
+    todos?: AITodo[];
+    mandala?: AIMandalaDraft | null;
+    warnings?: string[];
+    ambiguities?: string[];
+  }>;
   onSaveEvents: (events: AIEvent[]) => void;
+  onSaveTodos: (todos: AITodo[]) => void;
+  onApplyMandala: (mandala: AIMandalaDraft) => void;
   accent?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "ai",
-      text: "안녕하세요, 하루온봇이에요!\n어떠한 일정을 만들어볼까요?",
+      text: "안녕하세요, 하루온봇이에요!\n일정, 할 일, 목표를 함께 정리해볼게요.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -107,10 +142,10 @@ export function AIChatModal({
     setMessages((m) => [...m, userMsg, pending]);
 
     try {
-      const { reply, events } = await onSubmit(text);
+      const { reply, events, todos, mandala, warnings, ambiguities } = await onSubmit(text);
       setMessages((m) => {
         const next = m.slice(0, -1);
-        next.push({ role: "ai", text: reply, events });
+        next.push({ role: "ai", text: reply, events, todos, mandala, warnings, ambiguities });
         return next;
       });
     } catch {
@@ -139,6 +174,16 @@ export function AIChatModal({
     );
   };
 
+  const removeTodoFromMsg = (msgIdx: number, todoId: string) => {
+    setMessages((m) =>
+      m.map((msg, i) =>
+        i === msgIdx && msg.role === "ai" && msg.todos
+          ? { ...msg, todos: msg.todos.filter((todo) => todo.id !== todoId) }
+          : msg,
+      ),
+    );
+  };
+
   const editEventField = (msgIdx: number, evId: string, field: keyof AIEvent, value: string) => {
     setMessages((m) =>
       m.map((msg, i) =>
@@ -152,6 +197,24 @@ export function AIChatModal({
   const saveEvents = (evs: AIEvent[]) => {
     onSaveEvents(evs);
     setToast("일정이 추가됐어요");
+    setTimeout(() => {
+      setToast(null);
+      handleClose();
+    }, 900);
+  };
+
+  const saveTodos = (todos: AITodo[]) => {
+    onSaveTodos(todos);
+    setToast("할 일이 추가됐어요");
+    setTimeout(() => {
+      setToast(null);
+      handleClose();
+    }, 900);
+  };
+
+  const applyMandala = (mandala: AIMandalaDraft) => {
+    onApplyMandala(mandala);
+    setToast("만다라트 미리보기로 이동해요");
     setTimeout(() => {
       setToast(null);
       handleClose();
@@ -237,7 +300,7 @@ export function AIChatModal({
             onClick={() => {
               if (confirm("대화를 초기화할까요?")) {
                 setMessages([
-                  { role: "ai", text: "안녕하세요, 하루온봇이에요!\n어떠한 일정을 만들어볼까요?" },
+                  { role: "ai", text: "안녕하세요, 하루온봇이에요!\n일정, 할 일, 목표를 함께 정리해볼게요." },
                 ]);
               }
             }}
@@ -274,8 +337,11 @@ export function AIChatModal({
                 msg={msg}
                 accent={accent}
                 onRemoveEvent={(evId) => removeEventFromMsg(idx, evId)}
+                onRemoveTodo={(todoId) => removeTodoFromMsg(idx, todoId)}
                 onEditEvent={(evId, field, value) => editEventField(idx, evId, field, value)}
-                onSave={(evs) => saveEvents(evs)}
+                onSaveEvents={(evs) => saveEvents(evs)}
+                onSaveTodos={(todos) => saveTodos(todos)}
+                onApplyMandala={(mandala) => applyMandala(mandala)}
                 onRequestEdit={requestEdit}
                 isLast={idx === messages.length - 1}
               />
@@ -415,13 +481,25 @@ export function AIChatModal({
 }
 
 function MessageRow({
-  msg, accent, onRemoveEvent, onEditEvent, onSave, onRequestEdit, isLast,
+  msg,
+  accent,
+  onRemoveEvent,
+  onRemoveTodo,
+  onEditEvent,
+  onSaveEvents,
+  onSaveTodos,
+  onApplyMandala,
+  onRequestEdit,
+  isLast,
 }: {
   msg: Message;
   accent: string;
   onRemoveEvent: (evId: string) => void;
+  onRemoveTodo: (todoId: string) => void;
   onEditEvent: (evId: string, field: keyof AIEvent, value: string) => void;
-  onSave: (evs: AIEvent[]) => void;
+  onSaveEvents: (evs: AIEvent[]) => void;
+  onSaveTodos: (todos: AITodo[]) => void;
+  onApplyMandala: (mandala: AIMandalaDraft) => void;
   onRequestEdit: () => void;
   isLast: boolean;
 }) {
@@ -467,7 +545,7 @@ function MessageRow({
         {msg.pending ? (
           <Bubble><TypingDots />
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
-              AI가 일정을 짜는 중...
+              AI가 맥락을 살펴보는 중...
             </div>
           </Bubble>
         ) : (
@@ -475,6 +553,8 @@ function MessageRow({
             <div style={{ whiteSpace: "pre-line" }}>{msg.text}</div>
           </Bubble>
         )}
+
+        <NoticeList warnings={msg.warnings} ambiguities={msg.ambiguities} accent={accent} />
 
         {msg.events && msg.events.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, animation: "fadeIn 0.4s ease-out" }}>
@@ -500,7 +580,7 @@ function MessageRow({
                   수정 요청
                 </button>
                 <button
-                  onClick={() => onSave(msg.events!)}
+                  onClick={() => onSaveEvents(msg.events!)}
                   style={{
                     flex: 1, height: 40, borderRadius: 999,
                     background: accent,
@@ -512,6 +592,84 @@ function MessageRow({
                   }}
                 >
                   그대로 저장
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {msg.todos && msg.todos.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, animation: "fadeIn 0.4s ease-out" }}>
+            <SectionLabel icon={<ListTodo size={13} strokeWidth={2} />} label="할 일 초안" accent={accent} />
+            {msg.todos.map((todo) => (
+              <TodoCard key={todo.id} todo={todo} onRemove={() => onRemoveTodo(todo.id)} />
+            ))}
+            {isLast && (
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button
+                  onClick={onRequestEdit}
+                  style={{
+                    flex: 1, height: 40, borderRadius: 999,
+                    background: "transparent",
+                    color: "var(--text-primary)",
+                    border: "0.5px solid var(--hairline)",
+                    fontSize: 14, fontWeight: 500, cursor: "pointer",
+                    letterSpacing: "-0.2px",
+                  }}
+                >
+                  수정 요청
+                </button>
+                <button
+                  onClick={() => onSaveTodos(msg.todos!)}
+                  style={{
+                    flex: 1, height: 40, borderRadius: 999,
+                    background: accent,
+                    color: "#fff",
+                    border: 0,
+                    fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    letterSpacing: "-0.2px",
+                    boxShadow: `0 4px 12px ${accent}40`,
+                  }}
+                >
+                  할 일 저장
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {msg.mandala && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, animation: "fadeIn 0.4s ease-out" }}>
+            <SectionLabel icon={<Target size={13} strokeWidth={2} />} label="만다라트 초안" accent={accent} />
+            <MandalaPreviewCard mandala={msg.mandala} accent={accent} />
+            {isLast && (
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button
+                  onClick={onRequestEdit}
+                  style={{
+                    flex: 1, height: 40, borderRadius: 999,
+                    background: "transparent",
+                    color: "var(--text-primary)",
+                    border: "0.5px solid var(--hairline)",
+                    fontSize: 14, fontWeight: 500, cursor: "pointer",
+                    letterSpacing: "-0.2px",
+                  }}
+                >
+                  수정 요청
+                </button>
+                <button
+                  onClick={() => onApplyMandala(msg.mandala!)}
+                  style={{
+                    flex: 1, height: 40, borderRadius: 999,
+                    background: accent,
+                    color: "#fff",
+                    border: 0,
+                    fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    letterSpacing: "-0.2px",
+                    boxShadow: `0 4px 12px ${accent}40`,
+                  }}
+                >
+                  만다라트 열기
                 </button>
               </div>
             )}
@@ -560,6 +718,225 @@ function TypingDots() {
           }}
         />
       ))}
+    </div>
+  );
+}
+
+function SectionLabel({ icon, label, accent }: { icon: React.ReactNode; label: string; accent: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        color: accent,
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: "-0.1px",
+        marginTop: 2,
+      }}
+    >
+      {icon}
+      {label}
+    </div>
+  );
+}
+
+function NoticeList({
+  warnings,
+  ambiguities,
+  accent,
+}: {
+  warnings?: string[];
+  ambiguities?: string[];
+  accent: string;
+}) {
+  const items = [...(warnings ?? []), ...(ambiguities ?? [])].filter(Boolean).slice(0, 3);
+  if (items.length === 0) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        background: `${accent}10`,
+        border: `0.5px solid ${accent}33`,
+        borderRadius: 14,
+        padding: "9px 11px",
+      }}
+    >
+      {items.map((item, index) => (
+        <div
+          key={`${item}-${index}`}
+          style={{
+            display: "flex",
+            gap: 6,
+            alignItems: "flex-start",
+            color: "var(--text-secondary)",
+            fontSize: 12,
+            lineHeight: 1.35,
+          }}
+        >
+          <AlertTriangle size={13} strokeWidth={2} color={accent} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TodoCard({ todo, onRemove }: { todo: AITodo; onRemove: () => void }) {
+  const priorityLabel =
+    todo.priority === "high" ? "높음" : todo.priority === "low" ? "낮음" : "보통";
+  return (
+    <div
+      style={{
+        background: "var(--bg-elevated)",
+        border: "0.5px solid var(--hairline)",
+        borderRadius: 14,
+        padding: "10px 12px",
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        boxShadow: "var(--card-shadow)",
+      }}
+    >
+      <div
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 6,
+          border: "1.5px solid var(--text-muted)",
+          flexShrink: 0,
+          marginTop: 1,
+        }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.24px", lineHeight: 1.35 }}>
+          {todo.text}
+        </div>
+        <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 5 }}>
+          <MetaPill label={`우선순위 ${priorityLabel}`} />
+          {todo.dueHint && <MetaPill label={todo.dueHint} />}
+          {todo.category && <MetaPill label={todo.category} />}
+        </div>
+        {todo.dependencyHint && (
+          <div style={{ marginTop: 4, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.35 }}>
+            {todo.dependencyHint}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={onRemove}
+        aria-label="삭제"
+        style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: "transparent", border: 0, cursor: "pointer",
+          color: "var(--text-muted)",
+          display: "grid", placeItems: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Trash2 size={14} strokeWidth={1.8} />
+      </button>
+    </div>
+  );
+}
+
+function MetaPill({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        height: 22,
+        display: "inline-flex",
+        alignItems: "center",
+        borderRadius: 999,
+        padding: "0 8px",
+        background: "var(--bg-tertiary)",
+        color: "var(--text-secondary)",
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 1,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function MandalaPreviewCard({ mandala, accent }: { mandala: AIMandalaDraft; accent: string }) {
+  const subGoals = mandala.subGoals.slice(0, 8);
+  return (
+    <div
+      style={{
+        background: "var(--bg-elevated)",
+        border: "0.5px solid var(--hairline)",
+        borderRadius: 16,
+        padding: 12,
+        boxShadow: "var(--card-shadow)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "var(--text-primary)",
+          fontSize: 14,
+          fontWeight: 800,
+          letterSpacing: "-0.25px",
+          marginBottom: 9,
+        }}
+      >
+        <span
+          style={{
+            width: 9,
+            height: 9,
+            borderRadius: 999,
+            background: accent,
+            boxShadow: `0 0 0 4px ${accent}1F`,
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {mandala.centerGoal}
+        </span>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 6,
+        }}
+      >
+        {subGoals.map((goal, index) => (
+          <div
+            key={`${goal}-${index}`}
+            style={{
+              minHeight: 32,
+              borderRadius: 10,
+              background: `${accent}12`,
+              color: "var(--text-primary)",
+              fontSize: 12,
+              fontWeight: 650,
+              lineHeight: 1.3,
+              padding: "7px 8px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical" as any,
+            }}
+          >
+            {goal}
+          </div>
+        ))}
+      </div>
+      {mandala.actionItems.length > 0 && (
+        <div style={{ marginTop: 9, color: "var(--text-muted)", fontSize: 11, fontWeight: 600 }}>
+          실행 항목 {mandala.actionItems.flat().filter(Boolean).length}개 포함
+        </div>
+      )}
     </div>
   );
 }

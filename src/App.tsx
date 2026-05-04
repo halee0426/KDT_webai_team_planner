@@ -32,7 +32,7 @@ import { Splash } from "@/components/Splash";
 import { PlanSelect } from "@/components/PlanSelect";
 import { LogoLockup, LogoMark } from "@/components/Logo";
 import { InsightGreeting, shouldShowInsightToday } from "@/components/shared/InsightGreeting";
-import { AIChatModal, type AIEvent } from "@/components/ai/AIChatModal";
+import { AIChatModal, type AIEvent, type AIMandalaDraft, type AITodo } from "@/components/ai/AIChatModal";
 import { GroupSheet } from "@/components/shared/GroupSheet";
 import { GroupDetailSheet } from "@/components/shared/GroupDetailSheet";
 import { GroupSelector } from "@/components/shared/GroupSelector";
@@ -132,6 +132,132 @@ function computePlanStats({
     teamMembers,
     teamWeekShared: weekEventCount,
   };
+}
+
+function localDateKey(date = new Date()): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function slotToTime(slot?: number): string | null {
+  if (slot == null) return null;
+  const hour = Math.floor(slot / 2);
+  const minute = slot % 2 === 0 ? "00" : "30";
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function eventRange(event: SharedEvent): { start: Date; end: Date } {
+  return {
+    start: new Date(event.year, event.month, event.startDay),
+    end: new Date(event.year, event.month, event.endDay),
+  };
+}
+
+function eventToAIContext(event: SharedEvent) {
+  const startTime = slotToTime(event.startSlot);
+  const endTime = slotToTime(event.endSlot);
+  return {
+    title: event.title,
+    date: `${event.year}-${String(event.month + 1).padStart(2, "0")}-${String(event.startDay).padStart(2, "0")}`,
+    endDate: `${event.year}-${String(event.month + 1).padStart(2, "0")}-${String(event.endDay).padStart(2, "0")}`,
+    startTime,
+    endTime,
+    allDay: startTime == null,
+  };
+}
+
+function buildInsightContext({
+  events,
+  todos,
+}: {
+  events: SharedEvent[];
+  todos: Todo[];
+}) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const sevenDaysLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7);
+  const referenceDate = localDateKey(now);
+
+  const todayEvents = events
+    .filter((event) => {
+      const range = eventRange(event);
+      return range.start <= today && range.end >= today;
+    })
+    .sort((a, b) => (a.startSlot ?? 999) - (b.startSlot ?? 999))
+    .slice(0, 6)
+    .map(eventToAIContext);
+
+  const upcomingEvents = events
+    .filter((event) => {
+      const range = eventRange(event);
+      return range.start > today && range.start <= sevenDaysLater;
+    })
+    .sort((a, b) => eventRange(a).start.getTime() - eventRange(b).start.getTime())
+    .slice(0, 8)
+    .map(eventToAIContext);
+
+  const todayTodos = todos.filter((todo) => !todo.done && !todo.later).slice(0, 10);
+  const rolledTodos = todayTodos.filter((todo) => todo.rolled).slice(0, 5);
+  const laterTodos = todos.filter((todo) => !todo.done && todo.later).slice(0, 8);
+
+  return {
+    referenceDate,
+    planScope: "personal",
+    today: {
+      events: todayEvents,
+      unfinishedTodos: todayTodos.map((todo) => ({
+        text: todo.text,
+        rolled: !!todo.rolled,
+      })),
+      rolledTodos: rolledTodos.map((todo) => todo.text),
+      counts: {
+        events: todayEvents.length,
+        unfinishedTodos: todayTodos.length,
+        rolledTodos: rolledTodos.length,
+      },
+    },
+    upcoming7Days: {
+      events: upcomingEvents,
+      laterTodos: laterTodos.map((todo) => todo.text),
+      counts: {
+        events: upcomingEvents.length,
+        laterTodos: laterTodos.length,
+      },
+    },
+  };
+}
+
+function mandalaDraftToCells(mandala: AIMandalaDraft): string[] {
+  const cells = Array(81).fill("");
+  const subGoalCenters = [10, 13, 16, 37, 43, 64, 67, 70];
+  const mirrorCells = [30, 31, 32, 39, 41, 48, 49, 50];
+  cells[40] = mandala.centerGoal;
+
+  mandala.subGoals.slice(0, 8).forEach((goal, index) => {
+    const text = goal.trim();
+    if (!text) return;
+    cells[subGoalCenters[index]] = text;
+    cells[mirrorCells[index]] = text;
+  });
+
+  mandala.actionItems.slice(0, 8).forEach((row, blockIndex) => {
+    const blockCenter = subGoalCenters[blockIndex];
+    const baseRow = Math.floor(blockCenter / 9) - 1;
+    const baseCol = (blockCenter % 9) - 1;
+    let actionIndex = 0;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cellIndex = (baseRow + r) * 9 + (baseCol + c);
+        if (cellIndex === blockCenter) continue;
+        cells[cellIndex] = row[actionIndex]?.trim() ?? "";
+        actionIndex++;
+      }
+    }
+  });
+
+  return cells;
 }
 
 export default function App() {
@@ -293,10 +419,23 @@ export default function App() {
 
   const [insightOpen, setInsightOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [pendingMandalaCells, setPendingMandalaCells] = useState<string[] | null>(null);
+
+  const insightContext = useMemo(
+    () => buildInsightContext({ events: myEvents, todos: myTodos }),
+    [myEvents, myTodos],
+  );
 
   // AI 자연어 입력 → /api/ai/orchestrate 실제 호출
   // 미인증 사용자는 차단 (안내 reply 만 반환), 그 외 에러는 메시지 그대로 표시
-  const handleAISubmit = async (text: string): Promise<{ reply: string; events?: AIEvent[] }> => {
+  const handleAISubmit = async (text: string): Promise<{
+    reply: string;
+    events?: AIEvent[];
+    todos?: AITodo[];
+    mandala?: AIMandalaDraft | null;
+    warnings?: string[];
+    ambiguities?: string[];
+  }> => {
     if (!user) {
       return { reply: "로그인 후 하루온봇을 사용할 수 있어요." };
     }
@@ -308,6 +447,7 @@ export default function App() {
         groupName: activeGroup?.name ?? null,
         personalEvents: isGroup ? undefined : myEvents,
         personalTodos: isGroup ? undefined : myTodos,
+        personalMandala: undefined,
         groupEvents: isGroup ? groupEvents : undefined,
         groupTodos: isGroup ? groupTodos : undefined,
         currentScreen: screen,
@@ -343,13 +483,38 @@ export default function App() {
     setEvents((prev) => [...prev, ...newEvents]);
   };
 
+  const handleSaveAITodos = (aiTodos: AITodo[]) => {
+    const newTodos: Todo[] = aiTodos
+      .map((todo, index) => ({
+        id: Date.now() + index,
+        text: todo.text.trim(),
+        done: false,
+        later: false,
+      }))
+      .filter((todo) => todo.text);
+    if (newTodos.length > 0) {
+      setActiveTodos((prev) => [...prev, ...newTodos]);
+    }
+  };
+
+  const handleApplyAIMandala = (mandala: AIMandalaDraft) => {
+    setPendingMandalaCells(mandalaDraftToCells(mandala));
+    setScreen("mandala");
+  };
+
   // 앱 진입(stage="app") + 개인 플랜일 때 인사이트 모달 표시 (오늘 닫지 않았다면)
   useEffect(() => {
     if (aiOn && stage === "app" && planKind === "my" && shouldShowInsightToday()) {
       setInsightOpen(true);
-      if (user) void fetchInsight(false);
+      if (user) {
+        void fetchInsight(false, {
+          scope: "personal",
+          referenceDate: insightContext.referenceDate,
+          context: insightContext,
+        });
+      }
     }
-  }, [aiOn, fetchInsight, planKind, stage, user]);
+  }, [aiOn, fetchInsight, insightContext, planKind, stage, user]);
 
   // 로그인 시 — 내 이메일로 온 대기 초대 자동 합류
   const claimedRef = useRef<string | null>(null);
@@ -638,7 +803,14 @@ export default function App() {
       );
       case "week": return <WeekView accent={accent} planKind={planKind} />;
       case "tenmin": return <TenMinPlanner accent={accent} />;
-      case "mandala": return <MandalaView accent={accent} planKind={planKind} />;
+      case "mandala": return (
+        <MandalaView
+          accent={accent}
+          planKind={planKind}
+          externalProposal={pendingMandalaCells}
+          onExternalProposalConsumed={() => setPendingMandalaCells(null)}
+        />
+      );
       case "diary": return <DiaryView accent={accent} planKind={planKind} />;
       case "daily": return (
         <DailyFlipView
@@ -1298,6 +1470,8 @@ export default function App() {
           onClose={() => setAiChatOpen(false)}
           onSubmit={handleAISubmit}
           onSaveEvents={handleSaveAIEvents}
+          onSaveTodos={handleSaveAITodos}
+          onApplyMandala={handleApplyAIMandala}
           accent={accent}
         />
 
