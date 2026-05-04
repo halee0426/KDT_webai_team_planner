@@ -1,10 +1,29 @@
-// 로그인 / 회원가입 통합 모달 — Haru:on 톤 (sheet-style)
+// 로그인 / 회원가입 통합 모달 — Haru:on 톤
+// 모바일: 하단 시트 스타일 / 웹(>= 768px): 중앙 다이얼로그 스타일
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { LogoMark } from "@/components/Logo";
 import { SPRING, EASE, DURATION } from "@/styles/animations";
 import { useUserStore } from "@/store/userStore";
+
+/** 데스크톱 브레이크포인트 — 768px 이상이면 중앙 모달 */
+function useIsDesktop(): boolean {
+  const getMatch = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(min-width: 768px)").matches;
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => getMatch());
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function")
+      return;
+    const mql = window.matchMedia("(min-width: 768px)");
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isDesktop;
+}
 
 type Mode = "signin" | "signup";
 
@@ -105,6 +124,23 @@ export function AuthModal({
       ? "Haru:on 에 오신 걸 환영합니다"
       : "계정을 만들어 일정을 안전하게 보관하세요";
 
+  const isDesktop = useIsDesktop();
+
+  // 데스크톱: 중앙 정렬 + 페이드 / 모바일: 하단 시트 + 슬라이드 업
+  const overlayClassName = isDesktop
+    ? "fixed inset-0 z-[70] flex items-center justify-center p-4"
+    : "fixed inset-0 z-[70] flex items-end";
+  const overlayBg = isDesktop ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.3)";
+  const sheetClassName = isDesktop
+    ? "relative w-full max-w-[420px] rounded-3xl shadow-2xl"
+    : "relative w-full max-w-[375px] mx-auto rounded-t-3xl";
+  const sheetInitial = isDesktop ? { opacity: 0, scale: 0.96 } : { y: "100%" };
+  const sheetAnimate = isDesktop ? { opacity: 1, scale: 1 } : { y: 0 };
+  const sheetExit = isDesktop ? { opacity: 0, scale: 0.96 } : { y: "100%" };
+  const sheetTransition = isDesktop
+    ? { duration: DURATION.base / 1000, ease: EASE.apple }
+    : SPRING.sheet;
+
   return (
     <AnimatePresence>
     {open && (
@@ -114,31 +150,33 @@ export function AuthModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: DURATION.base / 1000, ease: EASE.apple }}
-      className="fixed inset-0 z-[70] flex items-end"
+      className={overlayClassName}
       onClick={onClose}
-      style={{ background: "rgba(0,0,0,0.3)" }}
+      style={{ background: overlayBg }}
     >
       <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={SPRING.sheet}
-        className="relative w-full max-w-[375px] mx-auto rounded-t-3xl"
+        initial={sheetInitial}
+        animate={sheetAnimate}
+        exit={sheetExit}
+        transition={sheetTransition}
+        className={sheetClassName}
         style={{
           background: "var(--bg-elevated)",
-          maxHeight: "92vh",
+          maxHeight: isDesktop ? "min(92vh, 720px)" : "92vh",
           display: "flex",
           flexDirection: "column",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 핸들 바 */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div
-            className="w-9 h-1 rounded-full"
-            style={{ background: "var(--separator)" }}
-          />
-        </div>
+        {/* 핸들 바 — 모바일에서만 */}
+        {!isDesktop && (
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div
+              className="w-9 h-1 rounded-full"
+              style={{ background: "var(--separator)" }}
+            />
+          </div>
+        )}
 
         {/* 헤더 — 취소만 (모드 토글이 본문에 있어 헤더는 단순) */}
         <div
